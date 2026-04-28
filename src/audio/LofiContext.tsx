@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform } from 'react-native';
-import { Audio, AVPlaybackSource, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync, AudioPlayer, AudioSource } from 'expo-audio';
 
 // Royalty-free lofi tracks. Drop your MP3s into assets/lofi/ and add them here.
 // We ship with manifest entries but no bundled audio — see README for sourcing.
@@ -9,7 +9,7 @@ import { Audio, AVPlaybackSource, InterruptionModeAndroid, InterruptionModeIOS }
 // in assets/lofi/, then uncomment the require() lines below. Lofi from Pixabay is
 // already cleared for commercial use including Russia.
 
-type Track = { name: string; source: AVPlaybackSource | null };
+type Track = { name: string; source: AudioSource | null };
 
 const TRACKS: Track[] = [
   { name: 'Полночный лофи', source: null /* require('../../assets/lofi/midnight.mp3') */ },
@@ -32,20 +32,19 @@ const LofiCtx = createContext<LofiState | null>(null);
 export function LofiProvider({ children }: { children: React.ReactNode }) {
   const [trackIdx, setTrackIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const playerRef = useRef<AudioPlayer | null>(null);
 
   const hasAudio = TRACKS.some((t) => t.source !== null);
 
   useEffect(() => {
-    Audio.setAudioModeAsync({
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: true,
-      shouldDuckAndroid: true,
-      interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
-      interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
+    setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+      interruptionMode: 'mixWithOthers',
     }).catch(() => {});
     return () => {
-      soundRef.current?.unloadAsync().catch(() => {});
+      playerRef.current?.release();
+      playerRef.current = null;
     };
   }, []);
 
@@ -53,16 +52,15 @@ export function LofiProvider({ children }: { children: React.ReactNode }) {
     const track = TRACKS[idx];
     if (!track?.source) return false;
     try {
-      if (soundRef.current) {
-        await soundRef.current.unloadAsync();
-        soundRef.current = null;
+      if (playerRef.current) {
+        playerRef.current.release();
+        playerRef.current = null;
       }
-      const { sound } = await Audio.Sound.createAsync(track.source, {
-        shouldPlay: true,
-        isLooping: true,
-        volume: 0.7,
-      });
-      soundRef.current = sound;
+      const player = createAudioPlayer(track.source);
+      player.loop = true;
+      player.volume = 0.7;
+      player.play();
+      playerRef.current = player;
       return true;
     } catch (e) {
       if (Platform.OS !== 'web') console.warn('lofi load failed', e);
@@ -77,7 +75,7 @@ export function LofiProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     if (playing) {
-      soundRef.current?.pauseAsync().catch(() => {});
+      playerRef.current?.pause();
       setPlaying(false);
     } else {
       loadAndPlay(trackIdx).then((ok) => setPlaying(ok));

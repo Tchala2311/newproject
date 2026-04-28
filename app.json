@@ -25,13 +25,7 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-font",
-      [
-        "expo-av",
-        {
-          "microphonePermission": false
-        }
-      ]
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": false
