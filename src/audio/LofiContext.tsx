@@ -12,11 +12,11 @@ import { createAudioPlayer, setAudioModeAsync, AudioPlayer, AudioSource } from '
 type Track = { name: string; source: AudioSource | null };
 
 const TRACKS: Track[] = [
-  { name: 'Полночный лофи', source: null /* require('../../assets/lofi/midnight.mp3') */ },
-  { name: 'Поезд в метро', source: null /* require('../../assets/lofi/subway.mp3') */ },
-  { name: 'Дождь и вайб', source: null /* require('../../assets/lofi/rain.mp3') */ },
-  { name: 'Спокойный поток', source: null /* require('../../assets/lofi/flow.mp3') */ },
-  { name: 'Утренний кофе', source: null /* require('../../assets/lofi/coffee.mp3') */ },
+  { name: 'Track 1', source: require('../../assets/lofi/track1.mp3') },
+  { name: 'Track 2', source: require('../../assets/lofi/track2.mp3') },
+  { name: 'Track 3', source: require('../../assets/lofi/track3.mp3') },
+  { name: 'Track 4', source: require('../../assets/lofi/track4.mp3') },
+  { name: 'Track 5', source: require('../../assets/lofi/track5.mp3') },
 ];
 
 type LofiState = {
