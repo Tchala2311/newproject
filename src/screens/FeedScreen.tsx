@@ -25,16 +25,24 @@ type Props = {
 // We interleave an ad-slot card after every Nth game. This keeps the feed
 // pacing TikTok-like while making the monetization surface obvious from day 1.
 const AD_EVERY = 4;
-type FeedItem = { type: 'game'; game: Game } | { type: 'ad'; key: string };
+type FeedItem = { type: 'game'; game: Game } | { type: 'ad'; key: string; adIdx: number };
 
 function buildFeed(games: Game[]): FeedItem[] {
   const out: FeedItem[] = [];
+  let adIdx = 0;
   games.forEach((g, i) => {
     out.push({ type: 'game', game: g });
     if ((i + 1) % AD_EVERY === 0 && i < games.length - 1) {
-      out.push({ type: 'ad', key: `ad-${i}` });
+      out.push({ type: 'ad', key: `ad-${i}`, adIdx });
+      adIdx += 1;
     }
   });
+  // Always demo all 3 ad variants for showcase by inserting at the end of the first loop
+  if (games.length >= 1 && adIdx < 3) {
+    for (let i = adIdx; i < 3; i += 1) {
+      out.push({ type: 'ad', key: `ad-extra-${i}`, adIdx: i });
+    }
+  }
   return out;
 }
 
@@ -90,7 +98,7 @@ export function FeedScreen({ onPlay, onToast, bottomInset, feedIdx, setFeedIdx }
   const renderItem = useCallback(
     ({ item, index }: { item: FeedItem; index: number }) => {
       if (item.type === 'ad') {
-        return <AdSlot height={height} bottomInset={bottomInset} />;
+        return <AdSlot height={height} bottomInset={bottomInset} index={item.adIdx} />;
       }
       const g = item.game;
       return (

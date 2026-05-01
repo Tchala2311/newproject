@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Glass } from '../components/Glass';
 import { GAMES, Game } from '../data/games';
-import { colors, fontFamily, radius, SAFE_TOP } from '../theme';
+import { colors, fontFamily, radius } from '../theme';
 import { usePrefs } from '../store/usePrefs';
+import { useUser } from '../store/useUser';
 
 type Props = {
   onPlay: (g: Game) => void;
@@ -15,7 +17,11 @@ type ProfileTab = 'recent' | 'saved' | 'liked';
 
 export function ProfileScreen({ onPlay, bottomInset }: Props) {
   const { likes, saves } = usePrefs();
+  const { user, follows, signOut } = useUser();
+  const insets = useSafeAreaInsets();
+  const SAFE_TOP = Math.max(insets.top, 14) + 8;
   const [view, setView] = useState<ProfileTab>('recent');
+  const followCount = Object.values(follows).filter(Boolean).length;
 
   const likedGames = GAMES.filter((g) => likes[g.id]);
   const savedGames = GAMES.filter((g) => saves[g.id]);
@@ -38,29 +44,49 @@ export function ProfileScreen({ onPlay, bottomInset }: Props) {
         showsVerticalScrollIndicator={false}
       >
         {/* Avatar */}
-        <View style={{ alignItems: 'center', gap: 8, marginBottom: 16 }}>
+        <View style={{ alignItems: 'center', gap: 6, marginBottom: 16 }}>
           <View
             style={{
-              width: 72,
-              height: 72,
-              borderRadius: 36,
+              width: 92,
+              height: 92,
+              borderRadius: 46,
               alignItems: 'center',
               justifyContent: 'center',
               borderWidth: 3,
-              borderColor: 'rgba(255,255,255,0.12)',
-              overflow: 'hidden',
+              borderColor: 'rgba(255,255,255,0.18)',
+              backgroundColor: user?.avatarColor ?? '#C99FE6',
             }}
           >
-            <LinearGradient
-              colors={['#9C5FE0', '#C13E84']}
-              style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-            />
-            <Text style={{ fontSize: 30 }}>👾</Text>
+            <Text style={{ fontSize: 38, fontFamily: fontFamily.bold, color: '#000' }}>
+              {(user?.handle?.[0] ?? '?').toUpperCase()}
+            </Text>
           </View>
-          <Text style={{ fontSize: 18, fontFamily: fontFamily.bold, color: colors.text }}>@gamer_z</Text>
-          <Text style={{ fontSize: 11, fontFamily: fontFamily.semibold, color: colors.textDim }}>
-            12 уровень · Исследователь
+          <Text style={{ fontSize: 20, fontFamily: fontFamily.bold, color: colors.text, marginTop: 4 }}>
+            {user?.displayName || `@${user?.handle ?? 'guest'}`}
           </Text>
+          <Text style={{ fontSize: 12, fontFamily: fontFamily.semibold, color: colors.textDim }}>
+            @{user?.handle ?? 'guest'}
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 18, marginTop: 6 }}>
+            <Stat n={followCount} l="Подписки" />
+            <Stat n={0} l="Подписчики" />
+            <Stat n={likedGames.length} l="Лайки" />
+          </View>
+          <Pressable
+            onPress={signOut}
+            style={{
+              marginTop: 10,
+              paddingHorizontal: 16,
+              paddingVertical: 6,
+              borderRadius: radius.pill,
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.15)',
+            }}
+          >
+            <Text style={{ fontSize: 11, fontFamily: fontFamily.bold, color: colors.textMuted }}>
+              Сменить аккаунт
+            </Text>
+          </Pressable>
         </View>
 
         {/* Stats */}
@@ -197,6 +223,17 @@ export function ProfileScreen({ onPlay, bottomInset }: Props) {
           </Text>
         ) : null}
       </ScrollView>
+    </View>
+  );
+}
+
+function Stat({ n, l }: { n: number; l: string }) {
+  return (
+    <View style={{ alignItems: 'center' }}>
+      <Text style={{ fontSize: 16, fontFamily: fontFamily.bold, color: colors.text }}>{n}</Text>
+      <Text style={{ fontSize: 10, fontFamily: fontFamily.semibold, color: colors.textDim, marginTop: 2 }}>
+        {l}
+      </Text>
     </View>
   );
 }

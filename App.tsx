@@ -18,9 +18,11 @@ import { Toast } from './src/components/Toast';
 import { FeedScreen } from './src/screens/FeedScreen';
 import { ExploreScreen } from './src/screens/ExploreScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { GamePlayScreen } from './src/games';
 import { LofiProvider } from './src/audio/LofiContext';
 import { PrefsProvider } from './src/store/usePrefs';
+import { UserProvider, useUser } from './src/store/useUser';
 import { Game } from './src/data/games';
 import { colors } from './src/theme';
 
@@ -68,6 +70,15 @@ function Shell() {
   );
 }
 
+function Gate() {
+  const { user, hydrated } = useUser();
+  if (!hydrated) {
+    return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
+  }
+  if (!user) return <OnboardingScreen />;
+  return <Shell />;
+}
+
 export default function App() {
   const [fontsLoaded] = useFonts({
     SpaceGrotesk_400Regular,
@@ -87,12 +98,14 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaProvider>
-        <PrefsProvider>
-          <LofiProvider>
-            <StatusBar style="light" />
-            <Shell />
-          </LofiProvider>
-        </PrefsProvider>
+        <UserProvider>
+          <PrefsProvider>
+            <LofiProvider>
+              <StatusBar style="light" />
+              <Gate />
+            </LofiProvider>
+          </PrefsProvider>
+        </UserProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
