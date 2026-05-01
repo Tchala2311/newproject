@@ -42,7 +42,6 @@ export function LofiProvider({ children }: { children: React.ReactNode }) {
       playsInSilentMode: true,
       shouldPlayInBackground: true,
       interruptionMode: 'doNotMix',
-      allowsRecording: false,
     }).catch((e) => {
       console.warn('audio mode setup failed', e);
     });
