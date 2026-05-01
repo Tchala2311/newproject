@@ -106,6 +106,9 @@ export function FeedScreen({ onPlay, onToast, bottomInset, feedIdx, setFeedIdx }
           saved={!!saves[g.id]}
           onSave={() => handleSave(g)}
           onShare={() => handleShare(g)}
+          onComment={() => onToast('Комментарии скоро')}
+          commentsCount={g.comments}
+          creator={g.creator}
           musicPlaying={playing}
           trackName={trackName}
           onMusicToggle={toggle}

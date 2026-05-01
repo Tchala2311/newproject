@@ -3,6 +3,12 @@
 
 export type PatternType = 'circles' | 'dots' | 'grid' | 'lines' | 'hex' | 'pixel';
 
+export type Creator = {
+  handle: string; // without @
+  displayName: string;
+  verified?: boolean;
+};
+
 export type Game = {
   id: number;
   slug: string;
@@ -15,6 +21,8 @@ export type Game = {
   duration: string; // "~30 сек"
   plays: string; // "5.1M"
   likes: string; // "892K"
+  comments: string; // "12.4K"
+  creator: Creator;
   gradient: [string, string];
   accent: string;
   patternType: PatternType;
@@ -34,6 +42,8 @@ export const GAMES: Game[] = [
     duration: '~1 мин',
     plays: '2.4M',
     likes: '418K',
+    comments: '8.2K',
+    creator: { handle: 'nika.flood', displayName: 'Ника', verified: true },
     gradient: ['#6B3FA5', '#5C2A6F'],
     accent: '#C99FE6',
     patternType: 'circles',
@@ -51,6 +61,8 @@ export const GAMES: Game[] = [
     duration: '~30 сек',
     plays: '5.1M',
     likes: '892K',
+    comments: '24.1K',
+    creator: { handle: 'rush.maks', displayName: 'Макс', verified: true },
     gradient: ['#008866', '#00586B'],
     accent: '#5DD9B0',
     patternType: 'dots',
@@ -68,6 +80,8 @@ export const GAMES: Game[] = [
     duration: '~2 мин',
     plays: '3.8M',
     likes: '610K',
+    comments: '15.7K',
+    creator: { handle: 'lera.words', displayName: 'Лера' },
     gradient: ['#B9763B', '#8C2E1A'],
     accent: '#F0CE61',
     patternType: 'grid',
@@ -85,6 +99,8 @@ export const GAMES: Game[] = [
     duration: '~90 сек',
     plays: '7.2M',
     likes: '1.1M',
+    comments: '31.2K',
+    creator: { handle: 'tower.dima', displayName: 'Дима', verified: true },
     gradient: ['#2862A8', '#2B2978'],
     accent: '#79BCDD',
     patternType: 'lines',
@@ -102,6 +118,8 @@ export const GAMES: Game[] = [
     duration: '~3 мин',
     plays: '4.6M',
     likes: '760K',
+    comments: '18.9K',
+    creator: { handle: 'yana.wave', displayName: 'Яна' },
     gradient: ['#008C8C', '#1A5980'],
     accent: '#6BD9C0',
     patternType: 'hex',
