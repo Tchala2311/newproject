@@ -10,6 +10,11 @@ import { Reflex333 } from './Reflex333';
 import { ColorSnipe } from './ColorSnipe';
 import { SwipeSnake } from './SwipeSnake';
 import { WaterSort } from './WaterSort';
+import { BeatTap } from './BeatTap';
+import { EmojiMatch } from './EmojiMatch';
+import { NervePulse } from './NervePulse';
+import { FallingLetters } from './FallingLetters';
+import { Connect } from './Connect';
 import { logEvent } from '../store/events';
 
 type Props = {
@@ -33,6 +38,11 @@ export function GamePlayScreen({ game, onBack }: Props) {
     case 'color-snipe': return <ColorSnipe {...props} />;
     case 'swipe-snake': return <SwipeSnake {...props} />;
     case 'water-sort': return <WaterSort {...props} />;
+    case 'beat-tap': return <BeatTap {...props} />;
+    case 'emoji-match': return <EmojiMatch {...props} />;
+    case 'nerve-pulse': return <NervePulse {...props} />;
+    case 'falling-letters': return <FallingLetters {...props} />;
+    case 'connect': return <Connect {...props} />;
     default: return <TapRush {...props} />;
   }
 }
