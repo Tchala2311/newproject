@@ -8,6 +8,47 @@ This is the **alpha** — feed UX, 5 native mini-games, lofi player shell, ad-sl
 stub, AsyncStorage-backed likes/saves, and a local event log to feed a
 recommender later.
 
+## Backend setup (Supabase) — required before first run
+
+The app talks to Supabase for auth, profiles, comments, follows, etc.
+Without Supabase env vars configured, the app will throw on launch.
+
+### 1. Create a Supabase project
+- Go to https://supabase.com/dashboard → **New project**
+- Region: closest to you (Frankfurt for RU users gives lowest latency)
+- Save the **database password** somewhere safe — you won't see it again
+
+### 2. Run the schema
+- In your project, open **SQL Editor → New query**
+- Paste the entire contents of `supabase/schema.sql`
+- Click **Run**. It creates tables (profiles, follows, likes, saves, comments,
+  events) with Row Level Security policies that protect every row.
+
+### 3. Configure email auth
+- **Authentication → Providers → Email**: enable, leave "Confirm email" ON
+- **Authentication → Email Templates → Magic Link**: not needed; we use OTP
+- **Authentication → URL Configuration**: add `loop://` (placeholder) — not
+  used in OTP flow but Supabase requires something here
+
+### 4. Wire env vars locally
+```bash
+cp .env.example .env
+```
+Then open `.env` and paste from your Supabase dashboard
+(**Settings → API**):
+- `EXPO_PUBLIC_SUPABASE_URL` ← *Project URL*
+- `EXPO_PUBLIC_SUPABASE_ANON_KEY` ← *anon public* key
+
+The anon key is **safe to ship in the client**. The Row Level Security
+policies in `schema.sql` are what actually protect data. The
+`service_role` key — which is *not* safe — is only ever used from a
+backend job; never put it anywhere in this app.
+
+`.env` is git-ignored. Only `.env.example` (with placeholder values) is
+committed.
+
+---
+
 ## Run on your iPhone in 5 minutes
 
 You'll test via **Expo Go**, no Apple Developer account or Xcode build needed for

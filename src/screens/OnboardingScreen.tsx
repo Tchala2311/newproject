@@ -29,40 +29,54 @@ const AVATAR_PALETTE = ['#C99FE6', '#5DD9B0', '#F0CE61', '#79BCDD', '#6BD9C0', '
 
 export function OnboardingScreen() {
   const insets = useSafeAreaInsets();
-  const { setUser, toggleFollow, follows } = useUser();
+  const { setUser, toggleFollow, follows, signOut } = useUser();
 
   const [step, setStep] = useState<Step>('welcome');
   const [handle, setHandle] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [avatarColor, setAvatarColor] = useState(AVATAR_PALETTE[0]);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const handleError = useMemo(() => (handle ? validateHandle(handle) : null), [handle]);
 
-  const next = () => {
+  const next = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     if (step === 'welcome') return setStep('handle');
     if (step === 'handle') return setStep('name');
     if (step === 'name') return setStep('avatar');
     if (step === 'avatar') return setStep('follow');
     if (step === 'follow') {
-      setUser({
+      setSubmitting(true);
+      setSubmitError(null);
+      const res = await setUser({
         handle,
         displayName: displayName || handle,
         avatarColor,
-        createdAt: Date.now(),
       });
+      setSubmitting(false);
+      if (!res.ok) {
+        setSubmitError(res.error);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+        // Bounce back to handle picker on conflict
+        if (res.error.includes('@тег')) setStep('handle');
+        return;
+      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     }
   };
 
   const canAdvance =
-    (step === 'welcome') ||
+    !submitting &&
+    ((step === 'welcome') ||
     (step === 'handle' && !handleError && handle.length >= 3) ||
     (step === 'name') ||
     (step === 'avatar') ||
-    (step === 'follow');
+    (step === 'follow'));
 
-  const buttonLabel = step === 'welcome'
+  const buttonLabel = submitting
+    ? 'Создаём…'
+    : step === 'welcome'
     ? 'Начать'
     : step === 'follow'
     ? 'Готово!'
@@ -98,7 +112,11 @@ export function OnboardingScreen() {
           <View style={{ height: 32 }} />
           {step === 'welcome' && <Welcome />}
           {step === 'handle' && (
-            <HandlePicker handle={handle} setHandle={setHandle} error={handleError} />
+            <HandlePicker
+              handle={handle}
+              setHandle={(h) => { setHandle(h); setSubmitError(null); }}
+              error={handleError ?? submitError}
+            />
           )}
           {step === 'name' && <NamePicker name={displayName} setName={setDisplayName} />}
           {step === 'avatar' && (

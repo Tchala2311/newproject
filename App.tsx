@@ -19,6 +19,7 @@ import { FeedScreen } from './src/screens/FeedScreen';
 import { ExploreScreen } from './src/screens/ExploreScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
+import { AuthScreen } from './src/screens/AuthScreen';
 import { GamePlayScreen } from './src/games';
 import { LofiProvider } from './src/audio/LofiContext';
 import { PrefsProvider } from './src/store/usePrefs';
@@ -71,11 +72,20 @@ function Shell() {
 }
 
 function Gate() {
-  const { user, hydrated } = useUser();
+  const { session, authLoading, user, hydrated } = useUser();
+  // 1. Booting Supabase session
+  if (authLoading) {
+    return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
+  }
+  // 2. Not signed in
+  if (!session) return <AuthScreen />;
+  // 3. Signed in, fetching profile
   if (!hydrated) {
     return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
   }
+  // 4. Signed in but no profile yet — first-time onboarding
   if (!user) return <OnboardingScreen />;
+  // 5. Signed in + has profile
   return <Shell />;
 }
 
