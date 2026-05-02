@@ -12,11 +12,11 @@ import { createAudioPlayer, setAudioModeAsync, AudioPlayer, AudioSource } from '
 type Track = { name: string; source: AudioSource | null };
 
 const TRACKS: Track[] = [
-  { name: 'Track 1', source: require('../../assets/lofi/track1.mp3') },
-  { name: 'Track 2', source: require('../../assets/lofi/track2.mp3') },
-  { name: 'Track 3', source: require('../../assets/lofi/track3.mp3') },
-  { name: 'Track 4', source: require('../../assets/lofi/track4.mp3') },
-  { name: 'Track 5', source: require('../../assets/lofi/track5.mp3') },
+  { name: 'I Can\'t Take My Eyes Out of You · BarradeenLofi', source: require('../../assets/lofi/barradeen-i-cant-take-my-eyes-out-of-you.mp3') },
+  { name: 'I Fell in Love with a Girl · Barradeen', source: require('../../assets/lofi/barradeen-i-fell-in-love-with-a-girl.mp3') },
+  { name: 'The Girl I Haven\'t Met · Barradeen', source: require('../../assets/lofi/barradeen-the-girl-i-havent-met.mp3') },
+  { name: 'Intermezzo · Friendzoned', source: require('../../assets/lofi/friendzoned-intermezzo.mp3') },
+  { name: 'Subtle Break · Ghostrifter', source: require('../../assets/lofi/ghostrifter-subtle-break.mp3') },
 ];
 
 type LofiState = {
