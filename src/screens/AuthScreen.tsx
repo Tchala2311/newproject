@@ -47,8 +47,8 @@ export function AuthScreen() {
 
   const verifyCode = async () => {
     const trimmed = code.replace(/\s+/g, '');
-    if (trimmed.length !== 6) {
-      setError('Код состоит из 6 цифр');
+    if (trimmed.length < 6 || trimmed.length > 10) {
+      setError('Код должен быть 6–10 цифр');
       return;
     }
     setBusy(true);
@@ -169,18 +169,18 @@ export function AuthScreen() {
                 <TextInput
                   autoFocus
                   keyboardType="number-pad"
-                  maxLength={6}
+                  maxLength={10}
                   value={code}
                   onChangeText={(t) => { setCode(t.replace(/\D/g, '')); setError(null); }}
-                  placeholder="123456"
+                  placeholder="123 456"
                   placeholderTextColor="rgba(255,255,255,0.35)"
                   style={{
-                    fontSize: 28,
+                    fontSize: 26,
                     color: '#fff',
                     fontFamily: fontFamily.bold,
                     padding: 0,
                     textAlign: 'center',
-                    letterSpacing: 12,
+                    letterSpacing: 8,
                   }}
                   returnKeyType="done"
                   onSubmitEditing={verifyCode}
