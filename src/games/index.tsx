@@ -5,6 +5,11 @@ import { TapRush } from './TapRush';
 import { WordBlast } from './WordBlast';
 import { StackIt } from './StackIt';
 import { MergeWave } from './MergeWave';
+import { PerfectCircle } from './PerfectCircle';
+import { Reflex333 } from './Reflex333';
+import { ColorSnipe } from './ColorSnipe';
+import { SwipeSnake } from './SwipeSnake';
+import { WaterSort } from './WaterSort';
 import { logEvent } from '../store/events';
 
 type Props = {
@@ -17,18 +22,17 @@ export function GamePlayScreen({ game, onBack }: Props) {
     logEvent({ type: 'complete', gameId: game.id, meta: { won: won ? 1 : 0, score } });
   };
   const props = { game, onBack, onComplete };
-  switch (game.id) {
-    case 1:
-      return <ColorFlood {...props} />;
-    case 2:
-      return <TapRush {...props} />;
-    case 3:
-      return <WordBlast {...props} />;
-    case 4:
-      return <StackIt {...props} />;
-    case 5:
-      return <MergeWave {...props} />;
-    default:
-      return <TapRush {...props} />;
+  switch (game.slug) {
+    case 'color-flood': return <ColorFlood {...props} />;
+    case 'tap-rush': return <TapRush {...props} />;
+    case 'word-blast': return <WordBlast {...props} />;
+    case 'stack-it': return <StackIt {...props} />;
+    case 'merge-wave': return <MergeWave {...props} />;
+    case 'perfect-circle': return <PerfectCircle {...props} />;
+    case 'reflex-333': return <Reflex333 {...props} />;
+    case 'color-snipe': return <ColorSnipe {...props} />;
+    case 'swipe-snake': return <SwipeSnake {...props} />;
+    case 'water-sort': return <WaterSort {...props} />;
+    default: return <TapRush {...props} />;
   }
 }
