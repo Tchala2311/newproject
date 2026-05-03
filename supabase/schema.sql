@@ -346,3 +346,66 @@ language sql stable as $$
 $$;
 
 grant execute on function public.recent_impressions_for_user(uuid, int) to anon, authenticated;
+
+-- ============================================================================
+-- Game progress + achievements
+-- ============================================================================
+
+-- ---------- game_progress --------------------------------------------------
+-- One row per (user, game). Stores latest checkpoint so the user can
+-- resume where they left off. Updated on every level start/end.
+create table if not exists public.game_progress (
+  user_id      uuid not null references public.profiles(id) on delete cascade,
+  game_id      int  not null,
+  level        int  not null default 1,
+  best_level   int  not null default 1,
+  best_score   int  not null default 0,
+  total_plays  int  not null default 0,
+  total_wins   int  not null default 0,
+  total_losses int  not null default 0,
+  retries      int  not null default 0,
+  updated_at   timestamptz not null default now(),
+  primary key (user_id, game_id)
+);
+
+alter table public.game_progress enable row level security;
+
+drop policy if exists "progress_read_self" on public.game_progress;
+create policy "progress_read_self" on public.game_progress
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "progress_write_self" on public.game_progress;
+create policy "progress_write_self" on public.game_progress
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "progress_update_self" on public.game_progress;
+create policy "progress_update_self" on public.game_progress
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "progress_delete_self" on public.game_progress;
+create policy "progress_delete_self" on public.game_progress
+  for delete using (auth.uid() = user_id);
+
+-- ---------- user_achievements ----------------------------------------------
+-- Achievement IDs are defined in client code (src/lib/achievements/catalog.ts);
+-- this table just records which the user has unlocked + when.
+create table if not exists public.user_achievements (
+  user_id        uuid not null references public.profiles(id) on delete cascade,
+  achievement_id text not null,
+  unlocked_at    timestamptz not null default now(),
+  primary key (user_id, achievement_id)
+);
+
+alter table public.user_achievements enable row level security;
+
+drop policy if exists "ach_read_all" on public.user_achievements;
+create policy "ach_read_all" on public.user_achievements
+  for select using (true);  -- public so other users can see your badges
+
+drop policy if exists "ach_insert_self" on public.user_achievements;
+create policy "ach_insert_self" on public.user_achievements
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "ach_delete_self" on public.user_achievements;
+create policy "ach_delete_self" on public.user_achievements
+  for delete using (auth.uid() = user_id);

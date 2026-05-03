@@ -9,7 +9,8 @@ import { fontFamily, radius } from '../theme';
 type Props = {
   game: Game;
   onBack: () => void;
-  onComplete: (won: boolean, score: number) => void;
+  onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void;
+  initialLevel?: number;
 };
 
 type State = 'idle' | 'waiting' | 'go' | 'tooEarly';
@@ -23,8 +24,8 @@ const LEVEL_CFG = (level: number) => {
   return { rounds: 6, targetMs: 240 };
 };
 
-export function Reflex333({ game, onBack, onComplete }: Props) {
-  const [level, setLevel] = useState(1);
+export function Reflex333({ game, onBack, onComplete, initialLevel }: Props) {
+  const [level, setLevel] = useState(initialLevel ?? 1);
   const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
   const [state, setState] = useState<State>('idle');
   const [ms, setMs] = useState<number | null>(null);
@@ -72,7 +73,7 @@ export function Reflex333({ game, onBack, onComplete }: Props) {
         setLastPassed(passed);
         setLastScore(score);
         setPhase('complete');
-        onComplete(passed, score);
+        onComplete(passed, score, { level, ms: avg });
       } else {
         setRound(next);
         setState('idle');

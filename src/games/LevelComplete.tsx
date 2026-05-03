@@ -5,6 +5,7 @@ import * as Haptics from 'expo-haptics';
 import { fontFamily, radius, colors } from '../theme';
 import { AdHipHub } from '../components/AdHipHub';
 import { AdProtokol } from '../components/AdProtokol';
+import { useAchievements } from '../store/useAchievements';
 
 type Props = {
   level: number;
@@ -41,8 +42,13 @@ export function LevelComplete({
   bottomInset = 0,
 }: Props) {
   const { height } = useWindowDimensions();
+  const { report } = useAchievements();
   const [adReady, setAdReady] = useState(!showAd);
   const [secondsLeft, setSecondsLeft] = useState(showAd ? 5 : 0);
+
+  useEffect(() => {
+    if (showAd && passed) report({ type: 'ad-view' });
+  }, [showAd, passed]);
   const opacity = useRef(new Animated.Value(0)).current;
   const scoreScale = useRef(new Animated.Value(0.6)).current;
 

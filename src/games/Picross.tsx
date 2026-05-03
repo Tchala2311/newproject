@@ -9,7 +9,8 @@ import { colors, fontFamily } from '../theme';
 type Props = {
   game: Game;
   onBack: () => void;
-  onComplete: (won: boolean, score: number) => void;
+  onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void;
+  initialLevel?: number;
 };
 
 const LEVEL_CFG = (level: number) => {
@@ -50,9 +51,9 @@ function clues(line: boolean[]): number[] {
   return out.length ? out : [0];
 }
 
-export function Picross({ game, onBack, onComplete }: Props) {
+export function Picross({ game, onBack, onComplete, initialLevel }: Props) {
   const { width } = useWindowDimensions();
-  const [level, setLevel] = useState(1);
+  const [level, setLevel] = useState(initialLevel ?? 1);
   const cfg = LEVEL_CFG(level);
   const puzzle = useMemo(() => genPuzzle(cfg.size, cfg.fillProb), [level]);
   const [grid, setGrid] = useState<Cell[][]>(() => Array.from({ length: cfg.size }, () => Array(cfg.size).fill('empty')));
@@ -89,7 +90,7 @@ export function Picross({ game, onBack, onComplete }: Props) {
         setLastPassed(false);
         setLastScore(0);
         setPhase('complete');
-        onComplete(false, 0);
+        onComplete(false, 0, { level });
         return;
       }
       // Auto-cross the wrong cell

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Game } from '../data/games';
 import { ColorFlood } from './ColorFlood';
 import { TapRush } from './TapRush';
@@ -20,6 +20,8 @@ import { Wordle5 } from './Wordle5';
 import { Picross } from './Picross';
 import { TetrisMini } from './TetrisMini';
 import { logEvent } from '../store/events';
+import { ResumePrompt } from '../components/ResumePrompt';
+import { useAchievements } from '../store/useAchievements';
 
 type Props = {
   game: Game;
@@ -27,10 +29,45 @@ type Props = {
 };
 
 export function GamePlayScreen({ game, onBack }: Props) {
-  const onComplete = (won: boolean, score: number) => {
-    logEvent({ type: 'complete', gameId: game.id, meta: { won: won ? 1 : 0, score } });
+  const { getResumeFor, clearResume, report } = useAchievements();
+  const resume = getResumeFor(game.id);
+  const [decision, setDecision] = useState<'pending' | 'continue' | 'restart'>(resume ? 'pending' : 'restart');
+  const [initialLevel, setInitialLevel] = useState<number>(1);
+
+  useEffect(() => {
+    report({ type: 'play-start', game });
+    if (!resume) {
+      setDecision('restart');
+      setInitialLevel(1);
+    } else {
+      setDecision('pending');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game.slug]);
+
+  if (decision === 'pending' && resume) {
+    return (
+      <ResumePrompt
+        game={game}
+        resumeLevel={resume.level}
+        bestLevel={resume.best_level}
+        bestScore={resume.best_score}
+        onContinue={() => { setInitialLevel(resume.level); setDecision('continue'); }}
+        onRestart={async () => { await clearResume(game.id); setInitialLevel(1); setDecision('restart'); }}
+      />
+    );
+  }
+
+  // Wraps each game's onComplete: logs event + dispatches achievement signal.
+  // The level number lives in `meta.level` (every game now passes it).
+  const onComplete = (won: boolean, score: number, meta?: Record<string, number>) => {
+    logEvent({ type: 'complete', gameId: game.id, meta: { won: won ? 1 : 0, score, ...meta } });
+    if (meta?.level !== undefined) {
+      report({ type: 'level-complete', game, level: meta.level, passed: won, score, meta });
+    }
   };
-  const props = { game, onBack, onComplete };
+
+  const props = { game, onBack, onComplete, initialLevel };
   switch (game.slug) {
     case 'color-flood': return <ColorFlood {...props} />;
     case 'tap-rush': return <TapRush {...props} />;

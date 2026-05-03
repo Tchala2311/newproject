@@ -9,7 +9,8 @@ import { colors, fontFamily, radius } from '../theme';
 type Props = {
   game: Game;
   onBack: () => void;
-  onComplete: (won: boolean, score: number) => void;
+  onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void;
+  initialLevel?: number;
 };
 
 const ALL_EMOJIS = ['🦊', '🐼', '🦄', '🐙', '🦖', '🐧', '🦉', '🐝', '🦁', '🐸', '🐵', '🐢'];
@@ -34,9 +35,9 @@ function makeBoard(pairs: number): Tile[] {
   return pool.map((e, i) => ({ idx: i, emoji: e, flipped: false, matched: false }));
 }
 
-export function EmojiMatch({ game, onBack, onComplete }: Props) {
+export function EmojiMatch({ game, onBack, onComplete, initialLevel }: Props) {
   const { width } = useWindowDimensions();
-  const [level, setLevel] = useState(1);
+  const [level, setLevel] = useState(initialLevel ?? 1);
   const cfg = LEVEL_CFG(level);
   const cell = Math.min(70, (width - 60) / cfg.cols);
 
@@ -56,7 +57,7 @@ export function EmojiMatch({ game, onBack, onComplete }: Props) {
       setLastPassed(false);
       setLastScore(matched);
       setPhase('complete');
-      onComplete(false, matched);
+      onComplete(false, matched, { level });
       return;
     }
     if (tiles.every((t) => t.matched)) {
@@ -64,7 +65,7 @@ export function EmojiMatch({ game, onBack, onComplete }: Props) {
       setLastPassed(true);
       setLastScore(score);
       setPhase('complete');
-      onComplete(true, score);
+      onComplete(true, score, { level });
       return;
     }
     const t = setTimeout(() => setTime((s) => s - 1), 1000);

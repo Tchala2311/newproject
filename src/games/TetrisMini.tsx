@@ -9,7 +9,8 @@ import { colors, fontFamily } from '../theme';
 type Props = {
   game: Game;
   onBack: () => void;
-  onComplete: (won: boolean, score: number) => void;
+  onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void;
+  initialLevel?: number;
 };
 
 const COLS = 7;
@@ -90,9 +91,9 @@ function clearLines(board: Board): { board: Board; lines: number } {
   return { board: next, lines };
 }
 
-export function TetrisMini({ game, onBack, onComplete }: Props) {
+export function TetrisMini({ game, onBack, onComplete, initialLevel }: Props) {
   const { width } = useWindowDimensions();
-  const [level, setLevel] = useState(1);
+  const [level, setLevel] = useState(initialLevel ?? 1);
   const cfg = LEVEL_CFG(level);
   const cell = Math.min(Math.floor((width - 80) / COLS), 28);
 
@@ -124,7 +125,7 @@ export function TetrisMini({ game, onBack, onComplete }: Props) {
               setLastPassed(true);
               setLastScore(score + lines * 100 * level);
               setPhase('complete');
-              onComplete(true, score + lines * 100 * level);
+              onComplete(true, score + lines * 100 * level, { level, lines: linesCleared + lines });
             }
             return nl;
           });
@@ -137,7 +138,7 @@ export function TetrisMini({ game, onBack, onComplete }: Props) {
             setLastPassed(false);
             setLastScore(score + lines * 100 * level);
             setPhase('complete');
-            onComplete(false, score + lines * 100 * level);
+            onComplete(false, score + lines * 100 * level, { level });
           }
           return nextPiece;
         }

@@ -37,10 +37,10 @@ function floodFill(grid: number[][], tx: number, ty: number, newC: number): numb
   return g;
 }
 
-type Props = { game: Game; onBack: () => void; onComplete: (won: boolean, score: number) => void };
+type Props = { game: Game; onBack: () => void; onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void; initialLevel?: number };
 
-export function ColorFlood({ game, onBack, onComplete }: Props) {
-  const [level, setLevel] = useState(1);
+export function ColorFlood({ game, onBack, onComplete, initialLevel }: Props) {
+  const [level, setLevel] = useState(initialLevel ?? 1);
   const cfg = LEVEL_CFG(level);
   const [grid, setGrid] = useState<number[][]>(() => makeGrid(cfg.size, cfg.palette));
   const [moves, setMoves] = useState(0);
@@ -80,13 +80,13 @@ export function ColorFlood({ game, onBack, onComplete }: Props) {
       setLastScore(score);
       setPhase('complete');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      onComplete(true, score);
+      onComplete(true, score, { level });
     } else if (nm >= cfg.max) {
       setLastPassed(false);
       setLastScore(0);
       setPhase('complete');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-      onComplete(false, 0);
+      onComplete(false, 0, { level });
     }
   };
 

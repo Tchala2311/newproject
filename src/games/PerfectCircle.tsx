@@ -10,7 +10,8 @@ import { colors, fontFamily } from '../theme';
 type Props = {
   game: Game;
   onBack: () => void;
-  onComplete: (won: boolean, score: number) => void;
+  onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void;
+  initialLevel?: number;
 };
 
 type Pt = { x: number; y: number };
@@ -24,13 +25,13 @@ const LEVEL_THRESHOLD = (level: number) => {
   return 95;
 };
 
-export function PerfectCircle({ game, onBack, onComplete }: Props) {
+export function PerfectCircle({ game, onBack, onComplete, initialLevel }: Props) {
   const { width } = useWindowDimensions();
   const boardSize = Math.min(width - 32, 320);
   const cx = boardSize / 2;
   const cy = boardSize / 2;
 
-  const [level, setLevel] = useState(1);
+  const [level, setLevel] = useState(initialLevel ?? 1);
   const [points, setPoints] = useState<Pt[]>([]);
   const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
   const [lastScore, setLastScore] = useState(0);
@@ -77,7 +78,7 @@ export function PerfectCircle({ game, onBack, onComplete }: Props) {
         setPhase('complete');
         if (passed) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         else Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-        onComplete(passed, score);
+        onComplete(passed, score, { level, percent: Math.round(accuracy * 10) / 10 });
       },
     })
   ).current;

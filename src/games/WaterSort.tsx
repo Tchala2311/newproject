@@ -9,7 +9,8 @@ import { colors, fontFamily, radius } from '../theme';
 type Props = {
   game: Game;
   onBack: () => void;
-  onComplete: (won: boolean, score: number) => void;
+  onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void;
+  initialLevel?: number;
 };
 
 const TUBE_HEIGHT = 4;
@@ -44,8 +45,8 @@ function isSolved(tubes: Tube[]): boolean {
   return tubes.every((t) => t.length === 0 || (t.length === TUBE_HEIGHT && t.every((c) => c === t[0])));
 }
 
-export function WaterSort({ game, onBack, onComplete }: Props) {
-  const [level, setLevel] = useState(1);
+export function WaterSort({ game, onBack, onComplete, initialLevel }: Props) {
+  const [level, setLevel] = useState(initialLevel ?? 1);
   const cfg = LEVEL_CFG(level);
   const [tubes, setTubes] = useState<Tube[]>(() => makeBoard(cfg.colorCount, cfg.buffers));
   const [picked, setPicked] = useState<number | null>(null);
@@ -90,7 +91,7 @@ export function WaterSort({ game, onBack, onComplete }: Props) {
       setLastPassed(true);
       setLastScore(score);
       setPhase('complete');
-      onComplete(true, score);
+      onComplete(true, score, { level });
     }
   };
 

@@ -10,7 +10,8 @@ import { colors, fontFamily } from '../theme';
 type Props = {
   game: Game;
   onBack: () => void;
-  onComplete: (won: boolean, score: number) => void;
+  onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void;
+  initialLevel?: number;
 };
 
 // Each level: longer hold target + skinnier band + faster wobble.
@@ -22,13 +23,13 @@ const LEVEL_CFG = (level: number) => {
   return { time: 30, targetMs: 27000, bandWidth: 18, wobbleMul: 2.0 };
 };
 
-export function NervePulse({ game, onBack, onComplete }: Props) {
+export function NervePulse({ game, onBack, onComplete, initialLevel }: Props) {
   const { width } = useWindowDimensions();
   const board = Math.min(width - 40, 320);
   const cx = board / 2;
   const cy = board / 2;
 
-  const [level, setLevel] = useState(1);
+  const [level, setLevel] = useState(initialLevel ?? 1);
   const cfg = LEVEL_CFG(level);
   const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
   const [time, setTime] = useState(cfg.time);
@@ -61,7 +62,7 @@ export function NervePulse({ game, onBack, onComplete }: Props) {
         setLastPassed(passed);
         setLastScore(score);
         setPhase('complete');
-        onComplete(passed, score);
+        onComplete(passed, score, { level });
       }
     }, 100);
     return () => clearInterval(t);

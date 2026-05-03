@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
+  RefreshControl,
   Share,
   Text,
   View,
@@ -15,9 +15,11 @@ import { GAMES, Game, Creator } from '../data/games';
 import { GameCard } from '../components/GameCard';
 import { AdSlot } from '../components/AdSlot';
 import { CommentsSheet } from '../components/CommentsSheet';
+import { FeedSkeleton } from '../components/FeedSkeleton';
 import { useLofi } from '../audio/LofiContext';
 import { usePrefs } from '../store/usePrefs';
 import { useUser } from '../store/useUser';
+import { useAchievements } from '../store/useAchievements';
 import { logEvent } from '../store/events';
 import { fontFamily } from '../theme';
 import { getRankedFeed, logImpression, markEngaged } from '../lib/recommender';
@@ -56,37 +58,51 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
   const { playing, trackName, toggle, nextTrack } = useLofi();
   const { likes, saves, toggleLike, toggleSave } = usePrefs();
   const { user, follows } = useUser();
+  const { report } = useAchievements();
 
   const [tab, setTab] = useState<FeedTab>('forYou');
   const [commentsFor, setCommentsFor] = useState<Game | null>(null);
   const [forYouItems, setForYouItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const listRef = useRef<FlatList<FeedItem>>(null);
   const loggedImpressions = useRef<Set<number>>(new Set());
+
+  const buildFeed = useCallback(async () => {
+    try {
+      const res = await getRankedFeed({ userId: user?.id ?? null, followsLocal: follows, targetLength: 22 });
+      setForYouItems(res.items);
+    } catch (e) {
+      console.warn('recommender failed, falling back to catalog order', e);
+      setForYouItems(buildSimpleFeed(GAMES));
+    }
+  }, [user?.id, follows]);
 
   const followingGames = useMemo(
     () => GAMES.filter((g) => follows[g.creator.handle]),
     [follows]
   );
 
-  // Run the recommender on mount + when user/follows change.
+  // Run the recommender on mount + when user changes (NOT on follows change —
+  // those are handled by the existing in-network candidate source on next
+  // refresh, and we don't want to reset scroll every time someone follows
+  // a creator from a comments sheet).
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    getRankedFeed({ userId: user?.id ?? null, followsLocal: follows, targetLength: 22 })
-      .then((res) => {
-        if (cancelled) return;
-        setForYouItems(res.items);
-        setLoading(false);
-      })
-      .catch((e) => {
-        console.warn('recommender failed, falling back to catalog order', e);
-        if (cancelled) return;
-        setForYouItems(buildSimpleFeed(GAMES));
-        setLoading(false);
-      });
+    buildFeed().finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [user?.id, follows]);
+  }, [user?.id]);
+
+  // Pull-to-refresh handler — Reels/TikTok-style.
+  const onRefresh = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setRefreshing(true);
+    loggedImpressions.current.clear();
+    await buildFeed();
+    setRefreshing(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+  }, [buildFeed]);
 
   const followingItems = useMemo<FeedItem[]>(() => buildSimpleFeed(followingGames), [followingGames]);
   const items = tab === 'forYou' ? forYouItems : followingItems;
@@ -129,6 +145,12 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
     if (next) markEngaged(user?.id ?? null, game.id);
   }, [likes, toggleLike, user?.id]);
 
+  const handleComment = useCallback((game: Game) => {
+    setCommentsFor(game);
+    markEngaged(user?.id ?? null, game.id);
+    report({ type: 'comment' });
+  }, [user?.id, report]);
+
   const switchTab = (next: FeedTab) => {
     if (next === tab) return;
     if (next === 'following' && followingGames.length === 0) {
@@ -161,10 +183,7 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
           saved={!!saves[g.id]}
           onSave={() => handleSave(g)}
           onShare={() => handleShare(g)}
-          onComment={() => {
-            setCommentsFor(g);
-            markEngaged(user?.id ?? null, g.id);
-          }}
+          onComment={() => handleComment(g)}
           commentsCount={g.comments}
           creator={g.creator}
           onCreatorPress={() => onOpenCreator(g.creator)}
@@ -181,14 +200,7 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
-      {loading && tab === 'forYou' && items.length === 0 ? (
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color="#fff" />
-          <Text style={{ marginTop: 12, fontSize: 12, fontFamily: fontFamily.semibold, color: 'rgba(255,255,255,0.55)' }}>
-            Подбираем игры…
-          </Text>
-        </View>
-      ) : null}
+      {loading && tab === 'forYou' && items.length === 0 ? <FeedSkeleton /> : null}
 
       <FlatList
         ref={listRef}
@@ -207,6 +219,17 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
         maxToRenderPerBatch={2}
         removeClippedSubviews
         extraData={tab}
+        refreshControl={
+          tab === 'forYou' ? (
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#fff"
+              colors={['#C99FE6']}
+              progressBackgroundColor="#13122A"
+            />
+          ) : undefined
+        }
       />
 
       <View

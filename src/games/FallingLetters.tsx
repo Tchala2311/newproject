@@ -9,7 +9,8 @@ import { colors, fontFamily, radius } from '../theme';
 type Props = {
   game: Game;
   onBack: () => void;
-  onComplete: (won: boolean, score: number) => void;
+  onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void;
+  initialLevel?: number;
 };
 
 const KEYBOARD = [
@@ -30,8 +31,8 @@ const LEVEL_CFG = (level: number) => {
 
 type Letter = { id: number; ch: string; spawnAt: number; x: number };
 
-export function FallingLetters({ game, onBack, onComplete }: Props) {
-  const [level, setLevel] = useState(1);
+export function FallingLetters({ game, onBack, onComplete, initialLevel }: Props) {
+  const [level, setLevel] = useState(initialLevel ?? 1);
   const cfg = LEVEL_CFG(level);
   const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
   const [letters, setLetters] = useState<Letter[]>([]);
@@ -82,7 +83,7 @@ export function FallingLetters({ game, onBack, onComplete }: Props) {
             setLastPassed(passed);
             setLastScore(score * level);
             setPhase('complete');
-            onComplete(passed, score * level);
+            onComplete(passed, score * level, { level });
           }
           return next;
         });
@@ -97,7 +98,7 @@ export function FallingLetters({ game, onBack, onComplete }: Props) {
     setLastPassed(true);
     setLastScore(score * level);
     setPhase('complete');
-    onComplete(true, score * level);
+    onComplete(true, score * level, { level });
   }, [score, phase, cfg.target, onComplete, level]);
 
   const press = (ch: string) => {

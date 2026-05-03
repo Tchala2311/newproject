@@ -25,8 +25,10 @@ import { GamePlayScreen } from './src/games';
 import { LofiProvider } from './src/audio/LofiContext';
 import { PrefsProvider } from './src/store/usePrefs';
 import { UserProvider, useUser } from './src/store/useUser';
+import { AchievementsProvider, useAchievements } from './src/store/useAchievements';
 import { Game, Creator } from './src/data/games';
 import { colors } from './src/theme';
+import { AchievementToast } from './src/components/AchievementToast';
 
 SystemUI.setBackgroundColorAsync(colors.bg).catch(() => {});
 
@@ -37,6 +39,7 @@ function Shell() {
   const [playing, setPlaying] = useState<Game | null>(null);
   const [viewingCreator, setViewingCreator] = useState<Creator | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const { lastUnlocked, clearLastUnlocked } = useAchievements();
 
   const showToast = (msg: string) => {
     setToast(null);
@@ -51,55 +54,76 @@ function Shell() {
     setViewingCreator(creator);
   };
 
+  // ALL three tabs are mounted permanently and toggled via display, so feed
+  // scroll position + state survive trips into a game / creator profile.
+  // The game and creator profile layer ON TOP, so swapping back is instant
+  // and the FlatList doesn't have to remount + refetch.
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <AmbientBackground />
-      {playing ? (
-        <GamePlayScreen game={playing} onBack={() => setPlaying(null)} />
-      ) : viewingCreator ? (
-        <CreatorProfileScreen
-          creator={viewingCreator}
-          onBack={() => setViewingCreator(null)}
-          onPlay={(g) => { setViewingCreator(null); handlePlay(g); }}
+
+      {/* Always-mounted tabs */}
+      <View style={{ flex: 1, display: tab === 'feed' && !playing && !viewingCreator ? 'flex' : 'none' }}>
+        <FeedScreen
+          onPlay={handlePlay}
+          onToast={showToast}
+          onOpenCreator={handleOpenCreator}
           bottomInset={insets.bottom}
+          feedIdx={feedIdx}
+          setFeedIdx={setFeedIdx}
         />
-      ) : (
-        <>
-          {tab === 'feed' ? (
-            <FeedScreen
-              onPlay={handlePlay}
-              onToast={showToast}
-              onOpenCreator={handleOpenCreator}
-              bottomInset={insets.bottom}
-              feedIdx={feedIdx}
-              setFeedIdx={setFeedIdx}
-            />
-          ) : null}
-          {tab === 'explore' ? <ExploreScreen onPlay={handlePlay} bottomInset={insets.bottom} /> : null}
-          {tab === 'profile' ? <ProfileScreen onPlay={handlePlay} bottomInset={insets.bottom} /> : null}
-          <BottomNav tab={tab} setTab={setTab} bottomInset={insets.bottom} />
-        </>
-      )}
+      </View>
+      <View style={{ flex: 1, display: tab === 'explore' && !playing && !viewingCreator ? 'flex' : 'none', position: tab === 'explore' && !playing && !viewingCreator ? 'relative' : 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+        {tab === 'explore' && !playing && !viewingCreator ? (
+          <ExploreScreen onPlay={handlePlay} bottomInset={insets.bottom} />
+        ) : null}
+      </View>
+      <View style={{ flex: 1, display: tab === 'profile' && !playing && !viewingCreator ? 'flex' : 'none', position: tab === 'profile' && !playing && !viewingCreator ? 'relative' : 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+        {tab === 'profile' && !playing && !viewingCreator ? (
+          <ProfileScreen onPlay={handlePlay} bottomInset={insets.bottom} />
+        ) : null}
+      </View>
+
+      {/* Bottom nav — visible only when no overlay is up */}
+      {!playing && !viewingCreator ? (
+        <BottomNav tab={tab} setTab={setTab} bottomInset={insets.bottom} />
+      ) : null}
+
+      {/* Overlays on top */}
+      {viewingCreator ? (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+          <CreatorProfileScreen
+            creator={viewingCreator}
+            onBack={() => setViewingCreator(null)}
+            onPlay={(g) => { setViewingCreator(null); handlePlay(g); }}
+            bottomInset={insets.bottom}
+          />
+        </View>
+      ) : null}
+      {playing ? (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+          <GamePlayScreen game={playing} onBack={() => setPlaying(null)} />
+        </View>
+      ) : null}
+
       {toast ? <Toast message={toast} onDone={() => setToast(null)} /> : null}
+      {lastUnlocked ? (
+        <AchievementToast achievement={lastUnlocked} onDone={clearLastUnlocked} />
+      ) : null}
     </View>
   );
 }
 
 function Gate() {
   const { session, authLoading, user, hydrated } = useUser();
-  // 1. Booting Supabase session
   if (authLoading) {
     return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
   }
-  // 2. Not signed in
   if (!session) return <AuthScreen />;
-  // 3. Signed in, fetching profile
   if (!hydrated) {
     return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
   }
-  // 4. Signed in but no profile yet — first-time onboarding
   if (!user) return <OnboardingScreen />;
-  // 5. Signed in + has profile
   return <Shell />;
 }
 
@@ -124,10 +148,12 @@ export default function App() {
       <SafeAreaProvider>
         <UserProvider>
           <PrefsProvider>
-            <LofiProvider>
-              <StatusBar style="light" />
-              <Gate />
-            </LofiProvider>
+            <AchievementsProvider>
+              <LofiProvider>
+                <StatusBar style="light" />
+                <Gate />
+              </LofiProvider>
+            </AchievementsProvider>
           </PrefsProvider>
         </UserProvider>
       </SafeAreaProvider>

@@ -27,11 +27,11 @@ function scramble(w: string): (string | null)[] {
   return [...w].sort(() => Math.random() - 0.5);
 }
 
-type Props = { game: Game; onBack: () => void; onComplete: (won: boolean, score: number) => void };
+type Props = { game: Game; onBack: () => void; onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void; initialLevel?: number };
 type Picked = { letter: string; idx: number };
 
-export function WordBlast({ game, onBack, onComplete }: Props) {
-  const [level, setLevel] = useState(1);
+export function WordBlast({ game, onBack, onComplete, initialLevel }: Props) {
+  const [level, setLevel] = useState(initialLevel ?? 1);
   const cfg = LEVEL_CFG(level);
   const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
   const [wi, setWi] = useState(0);
@@ -57,7 +57,7 @@ export function WordBlast({ game, onBack, onComplete }: Props) {
       setLastPassed(passed);
       setLastScore(score);
       setPhase('complete');
-      onComplete(passed, score);
+      onComplete(passed, score, { level });
       return undefined;
     }
     const t = setTimeout(() => setTimer((p) => p - 1), 1000);

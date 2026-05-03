@@ -9,7 +9,8 @@ import { colors, fontFamily, radius } from '../theme';
 type Props = {
   game: Game;
   onBack: () => void;
-  onComplete: (won: boolean, score: number) => void;
+  onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void;
+  initialLevel?: number;
 };
 
 const COLORS = [
@@ -40,8 +41,8 @@ function pickRound(lieProb: number) {
   return { wordText: word.name, inkColor: inkSource.hex, correct: word.name, swatches };
 }
 
-export function ColorSnipe({ game, onBack, onComplete }: Props) {
-  const [level, setLevel] = useState(1);
+export function ColorSnipe({ game, onBack, onComplete, initialLevel }: Props) {
+  const [level, setLevel] = useState(initialLevel ?? 1);
   const cfg = LEVEL_CFG(level);
   const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
   const [round, setRound] = useState(() => pickRound(cfg.lieProb));
@@ -58,7 +59,7 @@ export function ColorSnipe({ game, onBack, onComplete }: Props) {
       setLastPassed(passed);
       setLastScore(score);
       setPhase('complete');
-      onComplete(passed, score);
+      onComplete(passed, score, { level });
       return;
     }
     const t = setTimeout(() => setTime((s) => s - 1), 1000);

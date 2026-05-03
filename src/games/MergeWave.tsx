@@ -109,10 +109,10 @@ const TILE_TEXT: Record<number, string> = {
   256: '#fff',
 };
 
-type Props = { game: Game; onBack: () => void; onComplete: (won: boolean, score: number) => void };
+type Props = { game: Game; onBack: () => void; onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void; initialLevel?: number };
 
-export function MergeWave({ game, onBack, onComplete }: Props) {
-  const [level, setLevel] = useState(1);
+export function MergeWave({ game, onBack, onComplete, initialLevel }: Props) {
+  const [level, setLevel] = useState(initialLevel ?? 1);
   const target = LEVEL_TARGET(level);
   const [grid, setGrid] = useState<Grid>(newGrid);
   const [score, setScore] = useState(0);
@@ -138,7 +138,7 @@ export function MergeWave({ game, onBack, onComplete }: Props) {
       setLastPassed(true);
       setLastScore(finalScore);
       setPhase('complete');
-      onComplete(true, finalScore);
+      onComplete(true, finalScore, { level });
       return;
     }
     const hasMoves = ng.some((r, y) =>
@@ -154,7 +154,7 @@ export function MergeWave({ game, onBack, onComplete }: Props) {
       setLastPassed(false);
       setLastScore(finalScore);
       setPhase('complete');
-      onComplete(false, finalScore);
+      onComplete(false, finalScore, { level });
     }
   };
 

@@ -9,7 +9,8 @@ import { colors, fontFamily } from '../theme';
 type Props = {
   game: Game;
   onBack: () => void;
-  onComplete: (won: boolean, score: number) => void;
+  onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void;
+  initialLevel?: number;
 };
 
 // Per-level: round duration, BPM, target score.
@@ -29,12 +30,12 @@ type Note = {
   judgement?: 'perfect' | 'good' | 'miss';
 };
 
-export function BeatTap({ game, onBack, onComplete }: Props) {
+export function BeatTap({ game, onBack, onComplete, initialLevel }: Props) {
   const { width } = useWindowDimensions();
   const lanes = 3;
   const laneW = (width - 32) / lanes;
 
-  const [level, setLevel] = useState(1);
+  const [level, setLevel] = useState(initialLevel ?? 1);
   const cfg = LEVEL_CFG(level);
   const beatMs = (60 / cfg.bpm) * 1000;
   const TRAVEL = Math.max(700, 1200 - level * 80);
@@ -76,7 +77,7 @@ export function BeatTap({ game, onBack, onComplete }: Props) {
         setLastPassed(passed);
         setLastScore(score);
         setPhase('complete');
-        onComplete(passed, score);
+        onComplete(passed, score, { level });
       }
     }, 100);
     return () => clearInterval(t);

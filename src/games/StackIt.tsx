@@ -19,10 +19,10 @@ const LEVEL_CFG = (level: number) => {
 };
 
 type Block = { x: number; w: number };
-type Props = { game: Game; onBack: () => void; onComplete: (won: boolean, score: number) => void };
+type Props = { game: Game; onBack: () => void; onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void; initialLevel?: number };
 
-export function StackIt({ game, onBack, onComplete }: Props) {
-  const [level, setLevel] = useState(1);
+export function StackIt({ game, onBack, onComplete, initialLevel }: Props) {
+  const [level, setLevel] = useState(initialLevel ?? 1);
   const cfg = LEVEL_CFG(level);
   const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
   const [blocks, setBlocks] = useState<Block[]>([{ x: 0, w: ST_W }]);
@@ -70,7 +70,7 @@ export function StackIt({ game, onBack, onComplete }: Props) {
       setLastPassed(false);
       setLastScore(score);
       setPhase('complete');
-      onComplete(false, score);
+      onComplete(false, score, { level });
       return;
     }
     const nb = { x: left, w: newW };
@@ -87,7 +87,7 @@ export function StackIt({ game, onBack, onComplete }: Props) {
       setLastPassed(true);
       setLastScore(ns);
       setPhase('complete');
-      onComplete(true, ns);
+      onComplete(true, ns, { level });
     }
   };
 

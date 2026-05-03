@@ -7,6 +7,8 @@ import { GAMES, Game } from '../data/games';
 import { colors, fontFamily, radius } from '../theme';
 import { usePrefs } from '../store/usePrefs';
 import { useUser } from '../store/useUser';
+import { useAchievements } from '../store/useAchievements';
+import { ACHIEVEMENTS, RARITY_COLOR } from '../lib/achievements/catalog';
 
 type Props = {
   onPlay: (g: Game) => void;
@@ -18,10 +20,12 @@ type ProfileTab = 'recent' | 'saved' | 'liked';
 export function ProfileScreen({ onPlay, bottomInset }: Props) {
   const { likes, saves } = usePrefs();
   const { user, follows, signOut } = useUser();
+  const { unlocked } = useAchievements();
   const insets = useSafeAreaInsets();
   const SAFE_TOP = Math.max(insets.top, 14) + 8;
   const [view, setView] = useState<ProfileTab>('recent');
   const followCount = Object.values(follows).filter(Boolean).length;
+  const ownedCount = unlocked.size;
 
   const likedGames = GAMES.filter((g) => likes[g.id]);
   const savedGames = GAMES.filter((g) => saves[g.id]);
@@ -222,6 +226,54 @@ export function ProfileScreen({ onPlay, bottomInset }: Props) {
               : 'Лайкай игры из ленты!'}
           </Text>
         ) : null}
+
+        {/* Achievements grid */}
+        <View style={{ marginTop: 24 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <Text style={{ fontSize: 14, fontFamily: fontFamily.bold, color: colors.text }}>
+              Ачивки
+            </Text>
+            <Text style={{ fontSize: 11, fontFamily: fontFamily.semibold, color: colors.textDim }}>
+              {ownedCount} / {ACHIEVEMENTS.length}
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {ACHIEVEMENTS.map((a) => {
+              const owned = unlocked.has(a.id);
+              const accent = RARITY_COLOR[a.rarity];
+              return (
+                <View
+                  key={a.id}
+                  style={{
+                    width: '31%',
+                    aspectRatio: 0.95,
+                    borderRadius: 12,
+                    padding: 10,
+                    backgroundColor: owned ? `${accent}1a` : 'rgba(255,255,255,0.04)',
+                    borderWidth: 1,
+                    borderColor: owned ? `${accent}88` : 'rgba(255,255,255,0.08)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 4,
+                  }}
+                >
+                  <Text style={{ fontSize: 28, opacity: owned ? 1 : 0.25 }}>{a.emoji}</Text>
+                  <Text
+                    numberOfLines={2}
+                    style={{
+                      fontSize: 10,
+                      fontFamily: fontFamily.bold,
+                      color: owned ? '#fff' : colors.textDim,
+                      textAlign: 'center',
+                    }}
+                  >
+                    {owned ? a.title : '???'}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
       </ScrollView>
     </View>
   );

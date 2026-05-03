@@ -9,7 +9,8 @@ import { colors, fontFamily } from '../theme';
 type Props = {
   game: Game;
   onBack: () => void;
-  onComplete: (won: boolean, score: number) => void;
+  onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void;
+  initialLevel?: number;
 };
 
 // Compact Russian 5-letter pool. Real prod would load from a real dictionary.
@@ -53,8 +54,8 @@ function judgeRow(guess: string, target: string): Cell[] {
   return out;
 }
 
-export function Wordle5({ game, onBack, onComplete }: Props) {
-  const [level, setLevel] = useState(1);
+export function Wordle5({ game, onBack, onComplete, initialLevel }: Props) {
+  const [level, setLevel] = useState(initialLevel ?? 1);
   const cfg = LEVEL_CFG(level);
   const [target, setTarget] = useState(() => pickWord());
   const [solvedCount, setSolvedCount] = useState(0);
@@ -89,7 +90,7 @@ export function Wordle5({ game, onBack, onComplete }: Props) {
         setLastPassed(true);
         setLastScore(score);
         setPhase('complete');
-        onComplete(true, score);
+        onComplete(true, score, { level, attempts: newRows.length });
       } else {
         setSolvedCount(newSolved);
         setTarget(pickWord());
@@ -102,7 +103,7 @@ export function Wordle5({ game, onBack, onComplete }: Props) {
       setLastPassed(false);
       setLastScore(solvedCount * 50 * level);
       setPhase('complete');
-      onComplete(false, solvedCount * 50 * level);
+      onComplete(false, solvedCount * 50 * level, { level });
     }
   };
 

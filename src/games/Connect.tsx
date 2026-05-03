@@ -10,7 +10,8 @@ import { colors, fontFamily } from '../theme';
 type Props = {
   game: Game;
   onBack: () => void;
-  onComplete: (won: boolean, score: number) => void;
+  onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void;
+  initialLevel?: number;
 };
 
 type Pt = { x: number; y: number; n: number };
@@ -53,11 +54,11 @@ function segIntersect(a: Pt, b: Pt, c: Pt, d: Pt) {
   return t > 0.001 && t < 0.999 && u > 0.001 && u < 0.999;
 }
 
-export function Connect({ game, onBack, onComplete }: Props) {
+export function Connect({ game, onBack, onComplete, initialLevel }: Props) {
   const { width } = useWindowDimensions();
   const boardSize = Math.min(width - 32, 360);
 
-  const [level, setLevel] = useState(1);
+  const [level, setLevel] = useState(initialLevel ?? 1);
   const dots = layoutForLevel(level);
   const [path, setPath] = useState<Pt[]>([]);
   const [drag, setDrag] = useState<{ x: number; y: number } | null>(null);
@@ -116,7 +117,7 @@ export function Connect({ game, onBack, onComplete }: Props) {
             setLastScore(points);
             setPhase('complete');
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-            onComplete(true, points);
+            onComplete(true, points, { level });
           }
           return next;
         });

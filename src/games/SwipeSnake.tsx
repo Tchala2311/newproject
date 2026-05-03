@@ -9,7 +9,8 @@ import { colors, fontFamily, radius } from '../theme';
 type Props = {
   game: Game;
   onBack: () => void;
-  onComplete: (won: boolean, score: number) => void;
+  onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void;
+  initialLevel?: number;
 };
 
 const COLS = 12;
@@ -35,13 +36,13 @@ function spawnFood(snake: Pt[]): Pt {
   }
 }
 
-export function SwipeSnake({ game, onBack, onComplete }: Props) {
+export function SwipeSnake({ game, onBack, onComplete, initialLevel }: Props) {
   const { width } = useWindowDimensions();
   const cell = Math.min(Math.floor((width - 32) / COLS), 22);
   const boardW = cell * COLS;
   const boardH = cell * ROWS;
 
-  const [level, setLevel] = useState(1);
+  const [level, setLevel] = useState(initialLevel ?? 1);
   const cfg = LEVEL_CFG(level);
   const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
   const [snake, setSnake] = useState<Pt[]>([{ x: 6, y: 9 }, { x: 5, y: 9 }, { x: 4, y: 9 }]);
@@ -70,7 +71,7 @@ export function SwipeSnake({ game, onBack, onComplete }: Props) {
           setLastScore(len * level);
           setPhase('complete');
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-          onComplete(false, len * level);
+          onComplete(false, len * level, { level });
           return prev;
         }
         const ate = next.x === food.x && next.y === food.y;
@@ -84,7 +85,7 @@ export function SwipeSnake({ game, onBack, onComplete }: Props) {
             setLastPassed(true);
             setLastScore(len * level * 10);
             setPhase('complete');
-            onComplete(true, len * level * 10);
+            onComplete(true, len * level * 10, { level });
           }
         }
         return newSnake;

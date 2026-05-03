@@ -26,10 +26,10 @@ function makeBubble(id: number, bombProb: number): Bubble {
   };
 }
 
-type Props = { game: Game; onBack: () => void; onComplete: (won: boolean, score: number) => void };
+type Props = { game: Game; onBack: () => void; onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void; initialLevel?: number };
 
-export function TapRush({ game, onBack, onComplete }: Props) {
-  const [level, setLevel] = useState(1);
+export function TapRush({ game, onBack, onComplete, initialLevel }: Props) {
+  const [level, setLevel] = useState(initialLevel ?? 1);
   const cfg = LEVEL_CFG(level);
   const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
   const [bubbles, setBubbles] = useState<Bubble[]>(() => Array.from({ length: cfg.count }, (_, i) => makeBubble(i, cfg.bombProb)));
@@ -47,7 +47,7 @@ export function TapRush({ game, onBack, onComplete }: Props) {
       setLastPassed(passed);
       setLastScore(score);
       setPhase('complete');
-      onComplete(passed, score);
+      onComplete(passed, score, { level });
       return undefined;
     }
     const t = setTimeout(() => setTimer((p) => p - 1), 1000);

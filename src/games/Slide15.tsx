@@ -9,7 +9,8 @@ import { colors, fontFamily } from '../theme';
 type Props = {
   game: Game;
   onBack: () => void;
-  onComplete: (won: boolean, score: number) => void;
+  onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void;
+  initialLevel?: number;
 };
 
 const LEVEL_CFG = (level: number) => {
@@ -71,9 +72,9 @@ function isSolved(b: Board): boolean {
   return true;
 }
 
-export function Slide15({ game, onBack, onComplete }: Props) {
+export function Slide15({ game, onBack, onComplete, initialLevel }: Props) {
   const { width } = useWindowDimensions();
-  const [level, setLevel] = useState(1);
+  const [level, setLevel] = useState(initialLevel ?? 1);
   const cfg = LEVEL_CFG(level);
   const [board, setBoard] = useState<Board>(() => shuffle(cfg.size, cfg.shuffles));
   const [moves, setMoves] = useState(0);
@@ -101,7 +102,7 @@ export function Slide15({ game, onBack, onComplete }: Props) {
       setLastPassed(passed);
       setLastScore(score);
       setPhase('complete');
-      onComplete(passed, score);
+      onComplete(passed, score, { level });
     }
   };
 
