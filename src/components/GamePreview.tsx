@@ -376,6 +376,118 @@ export function GamePreview({ game }: Props) {
         </Svg>
       );
 
+    case 16:
+      // Slide15 — 3x3 number grid with one missing
+      return (
+        <View style={{ width: 84, height: 84, padding: 2, backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 6 }}>
+          {[[1, 2, 3], [4, 5, 6], [7, 8, 0]].map((row, y) => (
+            <View key={y} style={{ flexDirection: 'row' }}>
+              {row.map((v, x) => (
+                <View
+                  key={x}
+                  style={{
+                    width: 24, height: 24, margin: 2, borderRadius: 4,
+                    backgroundColor: v === 0 ? 'transparent' : a,
+                    alignItems: 'center', justifyContent: 'center',
+                  }}
+                >
+                  {v !== 0 ? <Text style={{ fontSize: 11, fontWeight: '900', color: '#000' }}>{v}</Text> : null}
+                </View>
+              ))}
+            </View>
+          ))}
+        </View>
+      );
+
+    case 17:
+      // Wordle5 — 4x5 grid with green/yellow/grey letters
+      return (
+        <View style={{ gap: 2 }}>
+          {[
+            ['С', 'В', 'Е', 'Т', 'А'],   // all green = solved
+            ['В', 'Е', 'С', 'Н', 'А'],   // mixed
+            ['', '', '', '', ''],         // empty
+          ].map((row, ri) => (
+            <View key={ri} style={{ flexDirection: 'row', gap: 2 }}>
+              {row.map((ch, ci) => {
+                let bg = 'rgba(255,255,255,0.06)';
+                if (ri === 0) bg = '#22C55E';
+                else if (ri === 1) {
+                  if (ci === 1) bg = '#22C55E';
+                  else if (ci === 0 || ci === 4) bg = '#FACC15';
+                  else if (ch) bg = '#3F3F46';
+                }
+                return (
+                  <View
+                    key={ci}
+                    style={{ width: 16, height: 16, borderRadius: 2, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Text style={{ fontSize: 8, fontWeight: '900', color: '#fff' }}>{ch}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          ))}
+        </View>
+      );
+
+    case 18:
+      // Picross — 5x5 grid with some filled (heart shape)
+      return (
+        <View style={{ width: 84, height: 84, padding: 2, backgroundColor: 'rgba(0,0,0,0.3)' }}>
+          {[
+            [0, 1, 0, 1, 0],
+            [1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1],
+            [0, 1, 1, 1, 0],
+            [0, 0, 1, 0, 0],
+          ].map((row, y) => (
+            <View key={y} style={{ flexDirection: 'row' }}>
+              {row.map((v, x) => (
+                <View
+                  key={x}
+                  style={{
+                    width: 15, height: 15,
+                    borderWidth: 0.5,
+                    borderColor: 'rgba(255,255,255,0.15)',
+                    backgroundColor: v ? a : 'transparent',
+                  }}
+                />
+              ))}
+            </View>
+          ))}
+        </View>
+      );
+
+    case 19:
+      // TetrisMini — vertical board with stacked blocks at bottom + falling T-piece
+      return (
+        <View style={{ width: 56, height: 84, padding: 2, backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 4 }}>
+          <View style={{ flex: 1, position: 'relative' }}>
+            {/* T piece falling */}
+            <View style={{ position: 'absolute', top: 6, left: 18, flexDirection: 'row' }}>
+              {[1, 1, 1].map((_, i) => (
+                <View key={i} style={{ width: 7, height: 7, backgroundColor: '#A855F7', borderWidth: 0.5, borderColor: '#fff' }} />
+              ))}
+            </View>
+            <View style={{ position: 'absolute', top: 13, left: 25, width: 7, height: 7, backgroundColor: '#A855F7', borderWidth: 0.5, borderColor: '#fff' }} />
+            {/* Bottom stack */}
+            <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
+              {[
+                ['#22D3EE', '#FACC15', '#F97316', '#22C55E', '#A855F7', '#22D3EE', '#FACC15'],
+                ['', '', '#F97316', '#22C55E', '#A855F7', '', ''],
+              ].map((row, y) => (
+                <View key={y} style={{ flexDirection: 'row' }}>
+                  {row.map((c, x) => (
+                    <View key={x} style={{ width: 7, height: 7, backgroundColor: c || 'transparent', borderWidth: c ? 0.5 : 0, borderColor: '#fff' }} />
+                  ))}
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
+      );
+
     default:
       return null;
   }

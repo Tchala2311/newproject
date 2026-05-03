@@ -3,7 +3,7 @@ import { Animated, Pressable, Text, View, useWindowDimensions } from 'react-nati
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
 import { GameShell } from './GameShell';
-import { GameResult } from './GameResult';
+import { LevelComplete, shouldShowAdAfter } from './LevelComplete';
 import { colors, fontFamily } from '../theme';
 
 type Props = {
@@ -12,9 +12,14 @@ type Props = {
   onComplete: (won: boolean, score: number) => void;
 };
 
-const ROUND_TIME = 30;
-const BPM = 96;
-const BEAT_MS = (60 / BPM) * 1000;
+// Per-level: round duration, BPM, target score.
+const LEVEL_CFG = (level: number) => {
+  if (level === 1) return { time: 30, bpm: 88, target: 600 };
+  if (level === 2) return { time: 30, bpm: 100, target: 900 };
+  if (level === 3) return { time: 32, bpm: 116, target: 1300 };
+  if (level === 4) return { time: 32, bpm: 132, target: 1800 };
+  return { time: 35, bpm: 148, target: 2400 };
+};
 
 type Note = {
   id: number;
@@ -29,51 +34,56 @@ export function BeatTap({ game, onBack, onComplete }: Props) {
   const lanes = 3;
   const laneW = (width - 32) / lanes;
 
+  const [level, setLevel] = useState(1);
+  const cfg = LEVEL_CFG(level);
+  const beatMs = (60 / cfg.bpm) * 1000;
+  const TRAVEL = Math.max(700, 1200 - level * 80);
+
+  const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
-  const [time, setTime] = useState(ROUND_TIME);
-  const [done, setDone] = useState(false);
+  const [time, setTime] = useState(cfg.time);
   const [notes, setNotes] = useState<Note[]>([]);
   const [flash, setFlash] = useState<string | null>(null);
+  const [lastPassed, setLastPassed] = useState(false);
+  const [lastScore, setLastScore] = useState(0);
   const startRef = useRef(Date.now());
   const noteIdRef = useRef(0);
 
-  // 1s travel time before reaching target
-  const TRAVEL = 1100;
+  const buildSchedule = (durSec: number, bMs: number) => {
+    const sched: Note[] = [];
+    for (let beat = 0; beat * bMs < durSec * 1000; beat += 1) {
+      if (beat % 4 === 3) continue;
+      sched.push({ id: noteIdRef.current++, x: Math.random(), spawnAt: beat * bMs });
+    }
+    return sched;
+  };
 
   useEffect(() => {
     startRef.current = Date.now();
-    // Pre-generate beat schedule
-    const schedule: Note[] = [];
-    for (let beat = 0; beat * BEAT_MS < ROUND_TIME * 1000; beat += 1) {
-      // Skip every 4th to leave breathing room
-      if (beat % 4 === 3) continue;
-      schedule.push({
-        id: noteIdRef.current++,
-        x: Math.random(),
-        spawnAt: beat * BEAT_MS,
-      });
-    }
-    setNotes(schedule);
+    setNotes(buildSchedule(cfg.time, beatMs));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (done) return;
+    if (phase !== 'playing') return;
     const t = setInterval(() => {
       const elapsed = (Date.now() - startRef.current) / 1000;
-      const remain = Math.max(0, ROUND_TIME - elapsed);
+      const remain = Math.max(0, cfg.time - elapsed);
       setTime(remain);
       if (remain <= 0) {
-        setDone(true);
-        onComplete(score >= 800, score);
+        const passed = score >= cfg.target;
+        setLastPassed(passed);
+        setLastScore(score);
+        setPhase('complete');
+        onComplete(passed, score);
       }
     }, 100);
     return () => clearInterval(t);
-  }, [done, score, onComplete]);
+  }, [phase, score, onComplete, cfg.time, cfg.target]);
 
-  // Auto-miss notes that pass the target line
   useEffect(() => {
-    if (done) return;
+    if (phase !== 'playing') return;
     const t = setInterval(() => {
       const now = Date.now() - startRef.current;
       setNotes((prev) =>
@@ -88,7 +98,7 @@ export function BeatTap({ game, onBack, onComplete }: Props) {
       );
     }, 80);
     return () => clearInterval(t);
-  }, [done]);
+  }, [phase, TRAVEL]);
 
   const tap = (lane: number) => {
     const now = Date.now() - startRef.current;
@@ -126,34 +136,49 @@ export function BeatTap({ game, onBack, onComplete }: Props) {
   const reset = () => {
     setScore(0);
     setCombo(0);
-    setTime(ROUND_TIME);
-    setDone(false);
+    setTime(cfg.time);
+    setPhase('playing');
     setNotes([]);
     startRef.current = Date.now();
-    setTimeout(() => {
-      const sched: Note[] = [];
-      for (let beat = 0; beat * BEAT_MS < ROUND_TIME * 1000; beat += 1) {
-        if (beat % 4 === 3) continue;
-        sched.push({ id: noteIdRef.current++, x: Math.random(), spawnAt: beat * BEAT_MS });
-      }
-      setNotes(sched);
-    }, 60);
+    setTimeout(() => setNotes(buildSchedule(cfg.time, beatMs)), 60);
   };
 
-  if (done) {
+  const startNextLevel = () => {
+    const nl = level + 1;
+    const nc = LEVEL_CFG(nl);
+    const nb = (60 / nc.bpm) * 1000;
+    setLevel(nl);
+    setScore(0);
+    setCombo(0);
+    setTime(nc.time);
+    setPhase('playing');
+    setNotes([]);
+    startRef.current = Date.now();
+    setTimeout(() => setNotes(buildSchedule(nc.time, nb)), 60);
+  };
+
+  if (phase === 'complete') {
     return (
-      <GameShell game={game} onBack={onBack} score={score} label="Очки">
-        <GameResult won={score >= 800} score={score} accent={game.accent} onRestart={reset} onBack={onBack} />
-      </GameShell>
+      <LevelComplete
+        level={level}
+        passed={lastPassed}
+        score={lastScore}
+        scoreLabel="Очки"
+        accent={game.accent}
+        showAd={lastPassed && shouldShowAdAfter(level)}
+        onContinue={startNextLevel}
+        onRetry={reset}
+        onBack={onBack}
+      />
     );
   }
 
-  const elapsed = ROUND_TIME - time;
+  const elapsed = cfg.time - time;
   const elapsedMs = elapsed * 1000;
   const targetY = 0.78; // 78% down the play area
 
   return (
-    <GameShell game={game} onBack={onBack} score={score} label="Очки" timer={time} timerMax={ROUND_TIME}>
+    <GameShell game={game} onBack={onBack} score={`${score}/${cfg.target}`} label={`Ур. ${level} · ${cfg.bpm} BPM`} timer={time} timerMax={cfg.time}>
       <Text style={{ fontSize: 12, fontFamily: fontFamily.semibold, color: colors.textMuted, textAlign: 'center' }}>
         Тапни кружок, когда он попадает в цель. Чувствуй ритм.
       </Text>

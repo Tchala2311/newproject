@@ -3,7 +3,7 @@ import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
 import { GameShell } from './GameShell';
-import { GameResult } from './GameResult';
+import { LevelComplete, shouldShowAdAfter } from './LevelComplete';
 import { colors, fontFamily, radius } from '../theme';
 
 type Props = {
@@ -12,18 +12,21 @@ type Props = {
   onComplete: (won: boolean, score: number) => void;
 };
 
-const EMOJIS = ['🦊', '🐼', '🦄', '🐙', '🦖', '🐧', '🦉', '🐝'];
-const ROUND_TIME = 60;
+const ALL_EMOJIS = ['🦊', '🐼', '🦄', '🐙', '🦖', '🐧', '🦉', '🐝', '🦁', '🐸', '🐵', '🐢'];
 
-type Tile = {
-  idx: number;
-  emoji: string;
-  flipped: boolean;
-  matched: boolean;
+const LEVEL_CFG = (level: number) => {
+  if (level === 1) return { pairs: 6, time: 60, cols: 3 };  // 12 tiles
+  if (level === 2) return { pairs: 8, time: 60, cols: 4 };  // 16
+  if (level === 3) return { pairs: 10, time: 65, cols: 4 }; // 20
+  if (level === 4) return { pairs: 10, time: 50, cols: 4 };
+  return { pairs: 12, time: 55, cols: 4 };                  // 24
 };
 
-function makeBoard(): Tile[] {
-  const pool = [...EMOJIS, ...EMOJIS];
+type Tile = { idx: number; emoji: string; flipped: boolean; matched: boolean };
+
+function makeBoard(pairs: number): Tile[] {
+  const set = ALL_EMOJIS.slice(0, pairs);
+  const pool = [...set, ...set];
   for (let i = pool.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];
@@ -33,37 +36,43 @@ function makeBoard(): Tile[] {
 
 export function EmojiMatch({ game, onBack, onComplete }: Props) {
   const { width } = useWindowDimensions();
-  const cols = 4;
-  const cell = Math.min(70, (width - 60) / cols);
+  const [level, setLevel] = useState(1);
+  const cfg = LEVEL_CFG(level);
+  const cell = Math.min(70, (width - 60) / cfg.cols);
 
-  const [tiles, setTiles] = useState<Tile[]>(makeBoard);
+  const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
+  const [tiles, setTiles] = useState<Tile[]>(() => makeBoard(cfg.pairs));
   const [first, setFirst] = useState<number | null>(null);
   const [moves, setMoves] = useState(0);
-  const [time, setTime] = useState(ROUND_TIME);
-  const [done, setDone] = useState(false);
-  const [won, setWon] = useState(false);
+  const [time, setTime] = useState(cfg.time);
   const [lock, setLock] = useState(false);
+  const [lastPassed, setLastPassed] = useState(false);
+  const [lastScore, setLastScore] = useState(0);
 
   useEffect(() => {
-    if (done) return;
+    if (phase !== 'playing') return;
     if (time <= 0) {
-      setDone(true);
-      onComplete(false, tiles.filter((t) => t.matched).length / 2);
+      const matched = tiles.filter((t) => t.matched).length / 2;
+      setLastPassed(false);
+      setLastScore(matched);
+      setPhase('complete');
+      onComplete(false, matched);
       return;
     }
     if (tiles.every((t) => t.matched)) {
-      setDone(true);
-      setWon(true);
-      const score = Math.max(50, time * 5 + (60 - moves) * 2);
+      const score = Math.max(50, time * 5 + (cfg.pairs * 10 - moves) * 2) * level;
+      setLastPassed(true);
+      setLastScore(score);
+      setPhase('complete');
       onComplete(true, score);
       return;
     }
     const t = setTimeout(() => setTime((s) => s - 1), 1000);
     return () => clearTimeout(t);
-  }, [time, done, tiles, moves, onComplete]);
+  }, [time, phase, tiles, moves, onComplete, cfg.pairs, level]);
 
   const tap = (idx: number) => {
-    if (lock || done) return;
+    if (lock || phase !== 'playing') return;
     const tile = tiles[idx];
     if (tile.flipped || tile.matched) return;
     Haptics.selectionAsync().catch(() => {});
@@ -95,27 +104,46 @@ export function EmojiMatch({ game, onBack, onComplete }: Props) {
   };
 
   const reset = () => {
-    setTiles(makeBoard());
+    setTiles(makeBoard(cfg.pairs));
     setFirst(null);
     setMoves(0);
-    setTime(ROUND_TIME);
-    setDone(false);
-    setWon(false);
+    setTime(cfg.time);
+    setPhase('playing');
     setLock(false);
   };
 
-  if (done) {
+  const startNextLevel = () => {
+    const nl = level + 1;
+    const nc = LEVEL_CFG(nl);
+    setLevel(nl);
+    setTiles(makeBoard(nc.pairs));
+    setFirst(null);
+    setMoves(0);
+    setTime(nc.time);
+    setPhase('playing');
+    setLock(false);
+  };
+
+  if (phase === 'complete') {
     return (
-      <GameShell game={game} onBack={onBack} score={moves} label="Ходов">
-        <GameResult won={won} score={tiles.filter((t) => t.matched).length / 2} accent={game.accent} onRestart={reset} onBack={onBack} />
-      </GameShell>
+      <LevelComplete
+        level={level}
+        passed={lastPassed}
+        score={lastScore}
+        scoreLabel="Очки"
+        accent={game.accent}
+        showAd={lastPassed && shouldShowAdAfter(level)}
+        onContinue={startNextLevel}
+        onRetry={reset}
+        onBack={onBack}
+      />
     );
   }
 
   return (
-    <GameShell game={game} onBack={onBack} score={moves} label="Ходов" timer={time} timerMax={ROUND_TIME}>
+    <GameShell game={game} onBack={onBack} score={moves} label={`Ур. ${level}`} timer={time} timerMax={cfg.time}>
       <Text style={{ fontSize: 12, fontFamily: fontFamily.semibold, color: colors.textMuted, textAlign: 'center' }}>
-        Найди все пары за минуту.
+        Найди все {cfg.pairs} пар(ы).
       </Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, paddingHorizontal: 4 }}>
         {tiles.map((t) => (

@@ -4,7 +4,16 @@ import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
 import { colors, fontFamily } from '../theme';
 import { GameShell } from './GameShell';
-import { GameResult } from './GameResult';
+import { LevelComplete, shouldShowAdAfter } from './LevelComplete';
+
+// Level scales the target tile to merge to. L1=64, L2=128, L3=256, L4=512, L5=1024.
+const LEVEL_TARGET = (level: number) => {
+  if (level === 1) return 64;
+  if (level === 2) return 128;
+  if (level === 3) return 256;
+  if (level === 4) return 512;
+  return 1024;
+};
 
 const SIZE = 4;
 
@@ -103,32 +112,33 @@ const TILE_TEXT: Record<number, string> = {
 type Props = { game: Game; onBack: () => void; onComplete: (won: boolean, score: number) => void };
 
 export function MergeWave({ game, onBack, onComplete }: Props) {
+  const [level, setLevel] = useState(1);
+  const target = LEVEL_TARGET(level);
   const [grid, setGrid] = useState<Grid>(newGrid);
   const [score, setScore] = useState(0);
-  const [done, setDone] = useState(false);
-  const [won, setWon] = useState(false);
+  const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
+  const [lastPassed, setLastPassed] = useState(false);
+  const [lastScore, setLastScore] = useState(0);
   const gridRef = useRef(grid);
-  const doneRef = useRef(done);
+  const phaseRef = useRef(phase);
 
   useEffect(() => { gridRef.current = grid; }, [grid]);
-  useEffect(() => { doneRef.current = done; }, [done]);
-
-  useEffect(() => {
-    if (done) onComplete(won, score);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [done]);
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
 
   const apply = (dir: Direction) => {
-    if (doneRef.current) return;
+    if (phaseRef.current !== 'playing') return;
     const { grid: ng, pts, changed } = move(gridRef.current, dir);
     if (!changed) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     setGrid(ng);
     setScore((s) => s + pts);
-    if (ng.some((r) => r.includes(256))) {
+    if (ng.some((r) => r.some((v) => v >= target))) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      setDone(true);
-      setWon(true);
+      const finalScore = (score + pts) * level;
+      setLastPassed(true);
+      setLastScore(finalScore);
+      setPhase('complete');
+      onComplete(true, finalScore);
       return;
     }
     const hasMoves = ng.some((r, y) =>
@@ -140,16 +150,25 @@ export function MergeWave({ game, onBack, onComplete }: Props) {
       })
     );
     if (!hasMoves) {
-      setDone(true);
-      setWon(false);
+      const finalScore = (score + pts) * level;
+      setLastPassed(false);
+      setLastScore(finalScore);
+      setPhase('complete');
+      onComplete(false, finalScore);
     }
   };
 
   const reset = () => {
     setGrid(newGrid());
     setScore(0);
-    setDone(false);
-    setWon(false);
+    setPhase('playing');
+  };
+
+  const startNextLevel = () => {
+    setLevel((l) => l + 1);
+    setGrid(newGrid());
+    setScore(0);
+    setPhase('playing');
   };
 
   const panResponder = useRef(
@@ -164,14 +183,27 @@ export function MergeWave({ game, onBack, onComplete }: Props) {
 
   const cs = 56;
 
+  if (phase === 'complete') {
+    return (
+      <LevelComplete
+        level={level}
+        passed={lastPassed}
+        score={lastScore}
+        scoreLabel="Очки"
+        accent={game.accent}
+        showAd={lastPassed && shouldShowAdAfter(level)}
+        onContinue={startNextLevel}
+        onRetry={reset}
+        onBack={onBack}
+      />
+    );
+  }
+
   return (
-    <GameShell game={game} onBack={onBack} score={score} label="Очки">
-      {done ? (
-        <GameResult won={won} score={score} accent={game.accent} onRestart={reset} onBack={onBack} />
-      ) : (
-        <>
+    <GameShell game={game} onBack={onBack} score={score} label={`Цель ${target}`}>
+      <>
           <Text style={{ fontSize: 11, color: colors.textDim, fontFamily: fontFamily.semibold }}>
-            Дойди до 256 — свайп или стрелки
+            Уровень {level} · дойди до {target} — свайп или стрелки
           </Text>
           <View
             {...panResponder.panHandlers}
@@ -219,8 +251,7 @@ export function MergeWave({ game, onBack, onComplete }: Props) {
               <SwipeBtn dir="right" onPress={() => apply('right')} />
             </View>
           </View>
-        </>
-      )}
+      </>
     </GameShell>
   );
 }

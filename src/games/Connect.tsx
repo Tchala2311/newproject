@@ -1,10 +1,10 @@
 import React, { useRef, useState } from 'react';
-import { PanResponder, Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { PanResponder, Text, View, useWindowDimensions } from 'react-native';
 import Svg, { Circle, Line } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
 import { GameShell } from './GameShell';
-import { GameResult } from './GameResult';
+import { LevelComplete, shouldShowAdAfter } from './LevelComplete';
 import { colors, fontFamily } from '../theme';
 
 type Props = {
@@ -15,33 +15,35 @@ type Props = {
 
 type Pt = { x: number; y: number; n: number };
 
-// Three difficulty levels of dot layouts
-const LAYOUTS: Pt[][] = [
+// Layout per level — number of dots + arrangement complexity grows.
+const LEVEL_LAYOUTS: Pt[][] = [
   [
-    { x: 0.2, y: 0.2, n: 1 },
-    { x: 0.8, y: 0.25, n: 2 },
-    { x: 0.5, y: 0.55, n: 3 },
-    { x: 0.25, y: 0.85, n: 4 },
-    { x: 0.78, y: 0.85, n: 5 },
+    { x: 0.2, y: 0.2, n: 1 }, { x: 0.8, y: 0.25, n: 2 }, { x: 0.5, y: 0.55, n: 3 },
+    { x: 0.25, y: 0.85, n: 4 }, { x: 0.78, y: 0.85, n: 5 },
   ],
   [
-    { x: 0.2, y: 0.18, n: 1 },
-    { x: 0.78, y: 0.2, n: 2 },
-    { x: 0.5, y: 0.4, n: 3 },
-    { x: 0.18, y: 0.6, n: 4 },
-    { x: 0.82, y: 0.6, n: 5 },
-    { x: 0.4, y: 0.85, n: 6 },
+    { x: 0.2, y: 0.18, n: 1 }, { x: 0.78, y: 0.2, n: 2 }, { x: 0.5, y: 0.4, n: 3 },
+    { x: 0.18, y: 0.6, n: 4 }, { x: 0.82, y: 0.6, n: 5 }, { x: 0.4, y: 0.85, n: 6 },
   ],
   [
-    { x: 0.18, y: 0.15, n: 1 },
-    { x: 0.5, y: 0.22, n: 2 },
-    { x: 0.82, y: 0.18, n: 3 },
-    { x: 0.25, y: 0.45, n: 4 },
-    { x: 0.78, y: 0.5, n: 5 },
-    { x: 0.5, y: 0.7, n: 6 },
+    { x: 0.18, y: 0.15, n: 1 }, { x: 0.5, y: 0.22, n: 2 }, { x: 0.82, y: 0.18, n: 3 },
+    { x: 0.25, y: 0.45, n: 4 }, { x: 0.78, y: 0.5, n: 5 }, { x: 0.5, y: 0.7, n: 6 },
     { x: 0.2, y: 0.85, n: 7 },
   ],
+  [
+    { x: 0.15, y: 0.15, n: 1 }, { x: 0.5, y: 0.18, n: 2 }, { x: 0.85, y: 0.22, n: 3 },
+    { x: 0.78, y: 0.5, n: 4 }, { x: 0.85, y: 0.85, n: 5 }, { x: 0.5, y: 0.65, n: 6 },
+    { x: 0.18, y: 0.85, n: 7 }, { x: 0.18, y: 0.5, n: 8 },
+  ],
+  [
+    { x: 0.12, y: 0.12, n: 1 }, { x: 0.4, y: 0.18, n: 2 }, { x: 0.7, y: 0.12, n: 3 },
+    { x: 0.88, y: 0.4, n: 4 }, { x: 0.7, y: 0.6, n: 5 }, { x: 0.85, y: 0.85, n: 6 },
+    { x: 0.5, y: 0.88, n: 7 }, { x: 0.18, y: 0.78, n: 8 }, { x: 0.18, y: 0.45, n: 9 },
+  ],
 ];
+
+const layoutForLevel = (level: number) =>
+  LEVEL_LAYOUTS[Math.min(level - 1, LEVEL_LAYOUTS.length - 1)];
 
 function segIntersect(a: Pt, b: Pt, c: Pt, d: Pt) {
   const det = (b.x - a.x) * (d.y - c.y) - (b.y - a.y) * (d.x - c.x);
@@ -55,15 +57,15 @@ export function Connect({ game, onBack, onComplete }: Props) {
   const { width } = useWindowDimensions();
   const boardSize = Math.min(width - 32, 360);
 
-  const [level, setLevel] = useState(0);
+  const [level, setLevel] = useState(1);
+  const dots = layoutForLevel(level);
   const [path, setPath] = useState<Pt[]>([]);
   const [drag, setDrag] = useState<{ x: number; y: number } | null>(null);
-  const [done, setDone] = useState(false);
-  const [score, setScore] = useState(0);
+  const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
+  const [lastPassed, setLastPassed] = useState(false);
+  const [lastScore, setLastScore] = useState(0);
   const dotsAbsRef = useRef<Pt[]>([]);
   const boardOriginRef = useRef<{ x: number; y: number } | null>(null);
-
-  const dots = LAYOUTS[level];
 
   const layoutBoard = (e: any) => {
     boardOriginRef.current = { x: e.nativeEvent.layout.x, y: e.nativeEvent.layout.y };
@@ -79,8 +81,8 @@ export function Connect({ game, onBack, onComplete }: Props) {
 
   const responder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => !done,
-      onMoveShouldSetPanResponder: () => !done,
+      onStartShouldSetPanResponder: () => phase === 'playing',
+      onMoveShouldSetPanResponder: () => phase === 'playing',
       onPanResponderGrant: (_, g) => {
         const origin = boardOriginRef.current ?? { x: 0, y: 0 };
         const lx = g.x0 - origin.x;
@@ -102,7 +104,6 @@ export function Connect({ game, onBack, onComplete }: Props) {
           if (!dot) return prev;
           if (prev.find((p) => p.n === dot.n)) return prev;
           if (dot.n !== prev[prev.length - 1].n + 1) return prev;
-          // No-cross check against existing segments
           const newSeg: [Pt, Pt] = [prev[prev.length - 1], dot];
           for (let i = 0; i < prev.length - 2; i += 1) {
             if (segIntersect(prev[i], prev[i + 1], newSeg[0], newSeg[1])) return prev;
@@ -110,19 +111,12 @@ export function Connect({ game, onBack, onComplete }: Props) {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
           const next = [...prev, dot];
           if (next.length === dots.length) {
-            const points = 100 + (dots.length - 5) * 50;
-            setScore((s) => s + points);
-            if (level === LAYOUTS.length - 1) {
-              setDone(true);
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-              onComplete(true, score + points);
-            } else {
-              setTimeout(() => {
-                setLevel((l) => l + 1);
-                setPath([]);
-                setDrag(null);
-              }, 600);
-            }
+            const points = (100 + (dots.length - 5) * 50) * level;
+            setLastPassed(true);
+            setLastScore(points);
+            setPhase('complete');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+            onComplete(true, points);
           }
           return next;
         });
@@ -135,23 +129,36 @@ export function Connect({ game, onBack, onComplete }: Props) {
   ).current;
 
   const reset = () => {
-    setLevel(0);
     setPath([]);
     setDrag(null);
-    setDone(false);
-    setScore(0);
+    setPhase('playing');
   };
 
-  if (done) {
+  const startNextLevel = () => {
+    setLevel((l) => l + 1);
+    setPath([]);
+    setDrag(null);
+    setPhase('playing');
+  };
+
+  if (phase === 'complete') {
     return (
-      <GameShell game={game} onBack={onBack} score={score} label="Очки">
-        <GameResult won score={score} accent={game.accent} onRestart={reset} onBack={onBack} />
-      </GameShell>
+      <LevelComplete
+        level={level}
+        passed={lastPassed}
+        score={lastScore}
+        scoreLabel="Очки"
+        accent={game.accent}
+        showAd={lastPassed && shouldShowAdAfter(level)}
+        onContinue={startNextLevel}
+        onRetry={reset}
+        onBack={onBack}
+      />
     );
   }
 
   return (
-    <GameShell game={game} onBack={onBack} score={`${level + 1}/${LAYOUTS.length}`} label="Уровень">
+    <GameShell game={game} onBack={onBack} score={`${dots.length} точек`} label={`Ур. ${level}`}>
       <Text style={{ fontSize: 12, fontFamily: fontFamily.semibold, color: colors.textMuted, textAlign: 'center' }}>
         Соедини точки по порядку. Линии не должны пересекаться.
       </Text>
@@ -169,44 +176,31 @@ export function Connect({ game, onBack, onComplete }: Props) {
         }}
       >
         <Svg width={boardSize} height={boardSize}>
-          {/* Drawn segments */}
           {path.map((p, i) => {
             if (i === 0) return null;
             const prev = path[i - 1];
             return (
               <Line
                 key={`l-${i}`}
-                x1={prev.x * boardSize}
-                y1={prev.y * boardSize}
-                x2={p.x * boardSize}
-                y2={p.y * boardSize}
-                stroke={game.accent}
-                strokeWidth={4}
-                strokeLinecap="round"
+                x1={prev.x * boardSize} y1={prev.y * boardSize}
+                x2={p.x * boardSize} y2={p.y * boardSize}
+                stroke={game.accent} strokeWidth={4} strokeLinecap="round"
               />
             );
           })}
-          {/* Drag preview */}
           {path.length > 0 && drag ? (
             <Line
-              x1={path[path.length - 1].x * boardSize}
-              y1={path[path.length - 1].y * boardSize}
-              x2={drag.x}
-              y2={drag.y}
-              stroke={game.accent}
-              strokeWidth={3}
-              strokeOpacity={0.5}
-              strokeDasharray="4,4"
+              x1={path[path.length - 1].x * boardSize} y1={path[path.length - 1].y * boardSize}
+              x2={drag.x} y2={drag.y}
+              stroke={game.accent} strokeWidth={3} strokeOpacity={0.5} strokeDasharray="4,4"
             />
           ) : null}
-          {/* Dots */}
           {dots.map((d) => {
             const visited = !!path.find((p) => p.n === d.n);
             return (
               <Circle
                 key={d.n}
-                cx={d.x * boardSize}
-                cy={d.y * boardSize}
+                cx={d.x * boardSize} cy={d.y * boardSize}
                 r={visited ? 16 : 14}
                 fill={visited ? game.accent : 'rgba(255,255,255,0.16)'}
                 stroke={visited ? '#fff' : 'rgba(255,255,255,0.4)'}
@@ -215,19 +209,15 @@ export function Connect({ game, onBack, onComplete }: Props) {
             );
           })}
         </Svg>
-        {/* Number labels */}
         {dots.map((d) => (
           <View
             key={`n-${d.n}`}
             pointerEvents="none"
             style={{
               position: 'absolute',
-              left: d.x * boardSize - 9,
-              top: d.y * boardSize - 9,
-              width: 18,
-              height: 18,
-              alignItems: 'center',
-              justifyContent: 'center',
+              left: d.x * boardSize - 9, top: d.y * boardSize - 9,
+              width: 18, height: 18,
+              alignItems: 'center', justifyContent: 'center',
             }}
           >
             <Text style={{ fontSize: 12, fontFamily: fontFamily.bold, color: path.find((p) => p.n === d.n) ? '#000' : '#fff' }}>

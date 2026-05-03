@@ -15,6 +15,10 @@ import { EmojiMatch } from './EmojiMatch';
 import { NervePulse } from './NervePulse';
 import { FallingLetters } from './FallingLetters';
 import { Connect } from './Connect';
+import { Slide15 } from './Slide15';
+import { Wordle5 } from './Wordle5';
+import { Picross } from './Picross';
+import { TetrisMini } from './TetrisMini';
 import { logEvent } from '../store/events';
 
 type Props = {
@@ -43,6 +47,10 @@ export function GamePlayScreen({ game, onBack }: Props) {
     case 'nerve-pulse': return <NervePulse {...props} />;
     case 'falling-letters': return <FallingLetters {...props} />;
     case 'connect': return <Connect {...props} />;
+    case 'slide-15': return <Slide15 {...props} />;
+    case 'wordle-5': return <Wordle5 {...props} />;
+    case 'picross': return <Picross {...props} />;
+    case 'tetris-mini': return <TetrisMini {...props} />;
     default: return <TapRush {...props} />;
   }
 }

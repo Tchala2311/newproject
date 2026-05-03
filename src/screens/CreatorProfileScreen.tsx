@@ -36,6 +36,10 @@ const CREATOR_META: Record<string, { followers: string; following: number; bio: 
   'type.zhenya': { followers: '184.0K',  following: 76,  avatarColor: '#93C5FD', bio: 'ЙЦУКЕН-ниндзя. Слепая печать 350 знм ⌨️' },
   'graph.misha': { followers: '88.6K',   following: 145, avatarColor: '#C4B5FD', bio: 'Гамильтоновы пути и графы 🔗' },
   'loop.team':   { followers: '2.4M',    following: 0,   avatarColor: '#9B7EFF', bio: 'Команда Луп. Делаем самые залипательные мини-игры 💜' },
+  'tile.viktor': { followers: '94.0K',   following: 67,  avatarColor: '#D8B4FE', bio: 'Пятнашки и логика. Раскладываю всё по полочкам 🧩' },
+  'word.smith':  { followers: '618.0K',  following: 92,  avatarColor: '#86EFAC', bio: 'Угадай слово за 6 попыток. Я угадываю за 3 ✍️' },
+  'pixel.art':   { followers: '156.0K',  following: 134, avatarColor: '#F9A8D4', bio: 'Пиксель за пикселем. Картинки из чисел 🎨' },
+  'block.master':{ followers: '1.7M',    following: 14,  avatarColor: '#7DD3FC', bio: 'Тетрис с 1984 года. Чищу 4 линии за раз 🧱' },
 };
 
 export function CreatorProfileScreen({ creator, onBack, onPlay, bottomInset }: Props) {
