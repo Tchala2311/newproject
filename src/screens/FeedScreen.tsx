@@ -206,6 +206,7 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
         visible={!!commentsFor}
         onClose={() => setCommentsFor(null)}
         game={commentsFor}
+        onOpenCreator={onOpenCreator}
       />
     </View>
   );

@@ -206,3 +206,28 @@ from (select distinct game_id from public.likes
       union select distinct game_id from public.comments) g;
 
 grant select on public.game_stats to anon, authenticated;
+
+-- ---------- comment_like_counts RPC ----------------------------------------
+-- Bulk-counts likes for an array of comment ids in one round-trip.
+-- Used by CommentsSheet to avoid N queries.
+create or replace function public.comment_like_counts(ids uuid[])
+returns table(comment_id uuid, n bigint)
+language sql stable as $$
+  select comment_id, count(*)::bigint as n
+  from public.comment_likes
+  where comment_id = any(ids)
+  group by comment_id;
+$$;
+
+grant execute on function public.comment_like_counts(uuid[]) to anon, authenticated;
+
+-- ---------- find_profile_by_handle RPC -------------------------------------
+-- Case-insensitive lookup so tapping @handle in comments / share links can
+-- open a profile even if casing differs.
+create or replace function public.find_profile_by_handle(p_handle text)
+returns setof public.profiles
+language sql stable as $$
+  select * from public.profiles where lower(handle) = lower(p_handle) limit 1;
+$$;
+
+grant execute on function public.find_profile_by_handle(text) to anon, authenticated;

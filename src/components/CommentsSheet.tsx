@@ -13,62 +13,62 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { Game } from '../data/games';
+import { Game, Creator } from '../data/games';
 import { colors, fontFamily, radius } from '../theme';
 import { useUser } from '../store/useUser';
+import { supabase } from '../lib/supabase';
 
 type Props = {
   visible: boolean;
   onClose: () => void;
   game: Game | null;
+  onOpenCreator?: (creator: Creator) => void;
 };
 
-type SeedComment = {
+type CommentRow = {
   id: string;
-  handle: string;
-  avatar: string;
-  text: string;
-  ago: string;
-  likes: number;
-  liked?: boolean;
+  body: string;
+  created_at: string;
+  user_id: string;
+  profile: {
+    handle: string;
+    display_name: string | null;
+    avatar_color: string;
+  } | null;
 };
 
-// Seeded comments — visible on every game so the feature feels alive.
-const SEED_BY_SLUG: Record<string, SeedComment[]> = {
-  'color-flood': [
-    { id: '1', handle: 'art.kamilla', avatar: '#F0CE61', text: 'Залипла на час 😭 спасибо за ваше существование', ago: '2ч', likes: 2841 },
-    { id: '2', handle: 'pink.dreamz', avatar: '#E76F8E', text: 'на 12 уровне реально мозг ломается', ago: '5ч', likes: 814 },
-    { id: '3', handle: 'tema_t', avatar: '#79BCDD', text: 'кто прошёл за 30 ходов? 🙋‍♂️', ago: '8ч', likes: 412 },
-  ],
-  'tap-rush': [
-    { id: '1', handle: 'speed.ksu', avatar: '#5DD9B0', text: '83 шара за 30 сек, попробуй побей', ago: '1ч', likes: 5217 },
-    { id: '2', handle: 'reflex.den', avatar: '#79BCDD', text: 'палец отвалился 🥹', ago: '3ч', likes: 1820 },
-    { id: '3', handle: 'just.olya', avatar: '#F0CE61', text: 'играю в метро каждое утро вместо новостей', ago: '6ч', likes: 943 },
-  ],
-  'word-blast': [
-    { id: '1', handle: 'lit.dasha', avatar: '#F0CE61', text: 'словарь раскрыла на новые слова, спасибо!', ago: '4ч', likes: 1124 },
-    { id: '2', handle: 'gramota', avatar: '#C99FE6', text: 'подскажите, где взять слова на 7 букв?', ago: '7ч', likes: 287 },
-  ],
-  'stack-it': [
-    { id: '1', handle: 'tower.king', avatar: '#79BCDD', text: '47 этажей, рекорд держится 3 дня уже 👑', ago: '2ч', likes: 6432 },
-    { id: '2', handle: 'maks.b', avatar: '#5DD9B0', text: 'самая залипательная штука в этом году', ago: '5ч', likes: 2104 },
-    { id: '3', handle: 'nika.flood', avatar: '#C99FE6', text: 'на 30+ это уже спорт', ago: '9ч', likes: 887 },
-  ],
-  'merge-wave': [
-    { id: '1', handle: 'wave.x', avatar: '#6BD9C0', text: 'дошёл до 256 и заплакал ☺️', ago: '3ч', likes: 1872 },
-    { id: '2', handle: 'gleb_2048', avatar: '#79BCDD', text: 'тактика в комментах ниже 👇', ago: '6ч', likes: 612 },
-  ],
-};
+type CommentLikeRow = { comment_id: string };
 
-export function CommentsSheet({ visible, onClose, game }: Props) {
+function relativeTime(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return 'сейчас';
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}мин`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}ч`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d}д`;
+  const w = Math.floor(d / 7);
+  if (w < 5) return `${w}нед`;
+  const months = Math.floor(d / 30);
+  return `${months}мес`;
+}
+
+export function CommentsSheet({ visible, onClose, game, onOpenCreator }: Props) {
   const insets = useSafeAreaInsets();
   const { user } = useUser();
   const slide = useRef(new Animated.Value(0)).current;
-  const [draft, setDraft] = useState('');
-  const [extra, setExtra] = useState<SeedComment[]>([]);
 
+  const [draft, setDraft] = useState('');
+  const [comments, setComments] = useState<CommentRow[]>([]);
+  const [likedSet, setLikedSet] = useState<Record<string, boolean>>({});
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Slide animation
   useEffect(() => {
-    if (visible) setExtra([]);
     Animated.timing(slide, {
       toValue: visible ? 1 : 0,
       duration: 240,
@@ -76,24 +76,134 @@ export function CommentsSheet({ visible, onClose, game }: Props) {
     }).start();
   }, [visible, slide]);
 
-  const seed = useMemo(() => (game ? SEED_BY_SLUG[game.slug] ?? [] : []), [game]);
-  const all = useMemo(() => [...extra, ...seed], [extra, seed]);
+  // Fetch comments + my likes when sheet opens
+  useEffect(() => {
+    if (!visible || !game) return;
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      const { data, error } = await supabase
+        .from('comments')
+        .select(`
+          id, body, created_at, user_id,
+          profile:profiles ( handle, display_name, avatar_color )
+        `)
+        .eq('game_id', game.id)
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (cancelled) return;
+      if (error) {
+        console.warn('comments fetch failed', error.message);
+        setComments([]);
+      } else {
+        // Supabase returns profile as array OR object depending on relation type;
+        // normalize to single object
+        const rows: CommentRow[] = (data ?? []).map((r: any) => ({
+          id: r.id,
+          body: r.body,
+          created_at: r.created_at,
+          user_id: r.user_id,
+          profile: Array.isArray(r.profile) ? (r.profile[0] ?? null) : r.profile,
+        }));
+        setComments(rows);
+        // Fetch like counts
+        if (rows.length) {
+          const ids = rows.map((r) => r.id);
+          const [{ data: counts }, { data: mine }] = await Promise.all([
+            supabase.rpc('comment_like_counts', { ids }).then(
+              (r) => (r.error ? { data: null } : r),
+              () => ({ data: null })
+            ),
+            user
+              ? supabase
+                  .from('comment_likes')
+                  .select('comment_id')
+                  .eq('user_id', user.id)
+                  .in('comment_id', ids)
+              : Promise.resolve({ data: [] as CommentLikeRow[] }),
+          ]);
+          // Fallback if RPC not present: count manually
+          if (!counts) {
+            const { data: rawCounts } = await supabase
+              .from('comment_likes')
+              .select('comment_id')
+              .in('comment_id', ids);
+            const cm: Record<string, number> = {};
+            (rawCounts ?? []).forEach((r: any) => {
+              cm[r.comment_id] = (cm[r.comment_id] ?? 0) + 1;
+            });
+            setLikeCounts(cm);
+          } else {
+            const cm: Record<string, number> = {};
+            (counts as any[]).forEach((r) => { cm[r.comment_id] = r.n; });
+            setLikeCounts(cm);
+          }
+          const lm: Record<string, boolean> = {};
+          (mine as CommentLikeRow[] | null ?? []).forEach((r) => { lm[r.comment_id] = true; });
+          setLikedSet(lm);
+        } else {
+          setLikeCounts({});
+          setLikedSet({});
+        }
+      }
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [visible, game?.id, user?.id]);
 
-  const submit = () => {
-    if (!draft.trim() || !user) return;
+  const submit = async () => {
+    const body = draft.trim();
+    if (!body || !user || !game || submitting) return;
+    setSubmitting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    setExtra((prev) => [
-      {
-        id: `me-${Date.now()}`,
-        handle: user.handle,
-        avatar: user.avatarColor,
-        text: draft.trim(),
-        ago: 'сейчас',
-        likes: 0,
-      },
-      ...prev,
-    ]);
+    const { data, error } = await supabase
+      .from('comments')
+      .insert({ game_id: game.id, user_id: user.id, body })
+      .select(`
+        id, body, created_at, user_id,
+        profile:profiles ( handle, display_name, avatar_color )
+      `)
+      .single();
+    setSubmitting(false);
+    if (error) {
+      console.warn('comment insert failed', error.message);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      return;
+    }
+    const r: any = data;
+    const row: CommentRow = {
+      id: r.id,
+      body: r.body,
+      created_at: r.created_at,
+      user_id: r.user_id,
+      profile: Array.isArray(r.profile) ? (r.profile[0] ?? null) : r.profile,
+    };
+    setComments((prev) => [row, ...prev]);
     setDraft('');
+  };
+
+  const toggleLike = async (commentId: string) => {
+    if (!user) return;
+    Haptics.selectionAsync().catch(() => {});
+    const isLiked = !!likedSet[commentId];
+    setLikedSet((prev) => ({ ...prev, [commentId]: !isLiked }));
+    setLikeCounts((prev) => ({ ...prev, [commentId]: Math.max(0, (prev[commentId] ?? 0) + (isLiked ? -1 : 1)) }));
+    if (isLiked) {
+      await supabase.from('comment_likes').delete().match({ comment_id: commentId, user_id: user.id });
+    } else {
+      await supabase.from('comment_likes').upsert({ comment_id: commentId, user_id: user.id });
+    }
+  };
+
+  const handleHandleTap = (handle: string, displayName: string | null) => {
+    if (!onOpenCreator) return;
+    onClose();
+    setTimeout(() => {
+      onOpenCreator({
+        handle,
+        displayName: displayName ?? handle,
+      });
+    }, 180);
   };
 
   const screenH = Dimensions.get('window').height;
@@ -127,15 +237,21 @@ export function CommentsSheet({ visible, onClose, game }: Props) {
                 overflow: 'hidden',
               }}
             >
-              {/* Handle */}
               <View style={{ alignItems: 'center', paddingTop: 8 }}>
                 <View style={{ width: 38, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.25)' }} />
               </View>
 
-              {/* Title */}
-              <View style={{ paddingTop: 14, paddingBottom: 10, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+              <View
+                style={{
+                  paddingTop: 14,
+                  paddingBottom: 10,
+                  alignItems: 'center',
+                  borderBottomWidth: 1,
+                  borderBottomColor: 'rgba(255,255,255,0.06)',
+                }}
+              >
                 <Text style={{ fontSize: 14, fontFamily: fontFamily.bold, color: '#fff' }}>
-                  {all.length.toLocaleString('ru-RU')} комментариев
+                  {comments.length.toLocaleString('ru-RU')} комментариев
                 </Text>
               </View>
 
@@ -145,14 +261,27 @@ export function CommentsSheet({ visible, onClose, game }: Props) {
                 style={{ flex: 1 }}
               >
                 <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
-                  {all.map((c) => (
-                    <CommentRow key={c.id} c={c} />
-                  ))}
-                  {all.length === 0 ? (
+                  {loading ? (
+                    <Text style={{ textAlign: 'center', color: colors.textDim, fontSize: 13, fontFamily: fontFamily.medium, marginTop: 20 }}>
+                      Загружаем…
+                    </Text>
+                  ) : comments.length === 0 ? (
                     <Text style={{ textAlign: 'center', color: colors.textDim, fontSize: 13, fontFamily: fontFamily.medium, marginTop: 40 }}>
                       Будь первым 🎤
                     </Text>
-                  ) : null}
+                  ) : (
+                    comments.map((c) => (
+                      <CommentRowView
+                        key={c.id}
+                        c={c}
+                        liked={!!likedSet[c.id]}
+                        likeCount={likeCounts[c.id] ?? 0}
+                        onToggleLike={() => toggleLike(c.id)}
+                        onHandleTap={() => c.profile && handleHandleTap(c.profile.handle, c.profile.display_name)}
+                        isMine={c.user_id === user?.id}
+                      />
+                    ))
+                  )}
                 </ScrollView>
 
                 {/* Composer */}
@@ -195,19 +324,23 @@ export function CommentsSheet({ visible, onClose, game }: Props) {
                     <TextInput
                       value={draft}
                       onChangeText={setDraft}
-                      placeholder={`Ответить @${user?.handle ?? 'guest'}…`}
+                      maxLength={500}
+                      placeholder={user ? `Ответить @${user.handle}…` : 'Войди, чтобы комментировать'}
                       placeholderTextColor="rgba(255,255,255,0.4)"
                       style={{ fontSize: 13, color: '#fff', fontFamily: fontFamily.medium, padding: 0 }}
                       returnKeyType="send"
                       onSubmitEditing={submit}
+                      editable={!!user && !submitting}
                     />
                   </View>
                   <Pressable
                     onPress={submit}
-                    disabled={!draft.trim()}
-                    style={{ opacity: draft.trim() ? 1 : 0.4 }}
+                    disabled={!draft.trim() || submitting}
+                    style={{ opacity: draft.trim() && !submitting ? 1 : 0.4 }}
                   >
-                    <Text style={{ fontSize: 14, fontFamily: fontFamily.bold, color: '#5DD9B0' }}>Опубл.</Text>
+                    <Text style={{ fontSize: 14, fontFamily: fontFamily.bold, color: '#5DD9B0' }}>
+                      {submitting ? '…' : 'Опубл.'}
+                    </Text>
                   </Pressable>
                 </View>
               </KeyboardAvoidingView>
@@ -219,40 +352,59 @@ export function CommentsSheet({ visible, onClose, game }: Props) {
   );
 }
 
-function CommentRow({ c }: { c: SeedComment }) {
-  const [liked, setLiked] = useState(c.liked ?? false);
+function CommentRowView({
+  c,
+  liked,
+  likeCount,
+  onToggleLike,
+  onHandleTap,
+  isMine,
+}: {
+  c: CommentRow;
+  liked: boolean;
+  likeCount: number;
+  onToggleLike: () => void;
+  onHandleTap: () => void;
+  isMine: boolean;
+}) {
+  const handle = c.profile?.handle ?? 'удалён';
+  const avatarColor = c.profile?.avatar_color ?? '#777';
   return (
     <View style={{ flexDirection: 'row', gap: 10 }}>
-      <View
-        style={{
-          width: 32,
-          height: 32,
-          borderRadius: 16,
-          backgroundColor: c.avatar,
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginTop: 2,
-        }}
-      >
-        <Text style={{ fontSize: 13, fontFamily: fontFamily.bold, color: '#000' }}>
-          {c.handle[0].toUpperCase()}
-        </Text>
-      </View>
+      <Pressable onPress={onHandleTap} hitSlop={6}>
+        <View
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 16,
+            backgroundColor: avatarColor,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: 2,
+          }}
+        >
+          <Text style={{ fontSize: 13, fontFamily: fontFamily.bold, color: '#000' }}>
+            {handle[0]?.toUpperCase() ?? '?'}
+          </Text>
+        </View>
+      </Pressable>
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 11, fontFamily: fontFamily.semibold, color: colors.textMuted }}>
-          @{c.handle} · {c.ago}
-        </Text>
+        <Pressable onPress={onHandleTap} hitSlop={4}>
+          <Text style={{ fontSize: 11, fontFamily: fontFamily.semibold, color: colors.textMuted }}>
+            @{handle} · {relativeTime(c.created_at)}{isMine ? ' · ты' : ''}
+          </Text>
+        </Pressable>
         <Text style={{ fontSize: 13, fontFamily: fontFamily.medium, color: '#fff', marginTop: 2, lineHeight: 18 }}>
-          {c.text}
+          {c.body}
         </Text>
         <View style={{ flexDirection: 'row', gap: 14, marginTop: 6 }}>
           <Text style={{ fontSize: 11, fontFamily: fontFamily.semibold, color: colors.textDim }}>Ответить</Text>
         </View>
       </View>
-      <Pressable onPress={() => setLiked((p) => !p)} style={{ alignItems: 'center' }}>
+      <Pressable onPress={onToggleLike} style={{ alignItems: 'center' }} hitSlop={6}>
         <Text style={{ fontSize: 14, color: liked ? '#FF4D7A' : colors.textDim }}>{liked ? '♥' : '♡'}</Text>
         <Text style={{ fontSize: 10, fontFamily: fontFamily.semibold, color: colors.textDim, marginTop: 2 }}>
-          {(c.likes + (liked && !c.liked ? 1 : 0)).toLocaleString('ru-RU')}
+          {likeCount.toLocaleString('ru-RU')}
         </Text>
       </Pressable>
     </View>

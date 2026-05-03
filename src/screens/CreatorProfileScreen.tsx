@@ -1,14 +1,13 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { Glass } from '../components/Glass';
 import { GamePreview } from '../components/GamePreview';
 import { GAMES, Game, Creator } from '../data/games';
 import { colors, fontFamily, radius } from '../theme';
 import { useUser } from '../store/useUser';
-import { useLofi } from '../audio/LofiContext';
+import { supabase } from '../lib/supabase';
 
 type Props = {
   creator: Creator;
@@ -42,17 +41,39 @@ const CREATOR_META: Record<string, { followers: string; following: number; bio: 
 export function CreatorProfileScreen({ creator, onBack, onPlay, bottomInset }: Props) {
   const insets = useSafeAreaInsets();
   const SAFE_TOP = Math.max(insets.top, 14) + 8;
-  const { follows, toggleFollow } = useUser();
-  // Hide the global music badge here — it'll just create visual noise.
-  useLofi();
+  const { user, follows, toggleFollow } = useUser();
+  const [realProfile, setRealProfile] = useState<{ avatarColor: string; bio: string | null; displayName: string | null } | null>(null);
 
-  const meta = CREATOR_META[creator.handle] ?? {
-    followers: '—',
-    following: 0,
-    avatarColor: '#C99FE6',
-    bio: 'Создаёт игры для Лупа.',
+  // Look up a real profile row by handle — overrides seeded metadata when found.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .rpc('find_profile_by_handle', { p_handle: creator.handle })
+        .single();
+      if (cancelled) return;
+      if (data) {
+        const row = data as any;
+        setRealProfile({
+          avatarColor: row.avatar_color,
+          bio: row.bio,
+          displayName: row.display_name,
+        });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [creator.handle]);
+
+  const seed = CREATOR_META[creator.handle];
+  const meta = {
+    followers: seed?.followers ?? '—',
+    following: seed?.following ?? 0,
+    avatarColor: realProfile?.avatarColor ?? seed?.avatarColor ?? '#C99FE6',
+    bio: realProfile?.bio ?? seed?.bio ?? 'Игрок Лупа.',
   };
+  const displayName = realProfile?.displayName ?? creator.displayName;
   const isFollowing = !!follows[creator.handle];
+  const isMe = !!user && creator.handle === user.handle;
 
   const games = GAMES.filter((g) => g.creator.handle === creator.handle);
   const totalLikes = games.reduce((s, g) => {
@@ -121,7 +142,7 @@ export function CreatorProfileScreen({ creator, onBack, onPlay, bottomInset }: P
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 }}>
             <Text style={{ fontSize: 19, fontFamily: fontFamily.bold, color: '#fff' }}>
-              {creator.displayName}
+              {displayName}
             </Text>
             {creator.verified ? (
               <Text style={{ fontSize: 13, color: '#5DD9B0' }}>✓</Text>
@@ -139,39 +160,57 @@ export function CreatorProfileScreen({ creator, onBack, onPlay, bottomInset }: P
           <Stat n={`${Math.round(totalLikes)}K`} l="Лайки" />
         </View>
 
-        {/* Follow / Message buttons */}
-        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 18, paddingHorizontal: 16 }}>
-          <Pressable
-            onPress={handleFollow}
-            style={{
-              flex: 1,
-              paddingVertical: 11,
-              borderRadius: radius.pill,
-              backgroundColor: isFollowing ? 'transparent' : '#fff',
-              borderWidth: 1,
-              borderColor: isFollowing ? 'rgba(255,255,255,0.25)' : '#fff',
-              alignItems: 'center',
-            }}
-          >
-            <Text style={{ fontSize: 13, fontFamily: fontFamily.bold, color: isFollowing ? '#fff' : '#000' }}>
-              {isFollowing ? 'Вы подписаны' : 'Подписаться'}
-            </Text>
-          </Pressable>
-          <Pressable
-            style={{
-              flex: 1,
-              paddingVertical: 11,
-              borderRadius: radius.pill,
-              borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.25)',
-              alignItems: 'center',
-            }}
-          >
-            <Text style={{ fontSize: 13, fontFamily: fontFamily.bold, color: '#fff' }}>
-              Сообщение
-            </Text>
-          </Pressable>
-        </View>
+        {/* Follow / Message buttons (hidden on own profile) */}
+        {!isMe ? (
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 18, paddingHorizontal: 16 }}>
+            <Pressable
+              onPress={handleFollow}
+              style={{
+                flex: 1,
+                paddingVertical: 11,
+                borderRadius: radius.pill,
+                backgroundColor: isFollowing ? 'transparent' : '#fff',
+                borderWidth: 1,
+                borderColor: isFollowing ? 'rgba(255,255,255,0.25)' : '#fff',
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 13, fontFamily: fontFamily.bold, color: isFollowing ? '#fff' : '#000' }}>
+                {isFollowing ? 'Вы подписаны' : 'Подписаться'}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={{
+                flex: 1,
+                paddingVertical: 11,
+                borderRadius: radius.pill,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.25)',
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 13, fontFamily: fontFamily.bold, color: '#fff' }}>
+                Сообщение
+              </Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View style={{ marginBottom: 18, paddingHorizontal: 16 }}>
+            <View
+              style={{
+                paddingVertical: 11,
+                borderRadius: radius.pill,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.25)',
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 13, fontFamily: fontFamily.bold, color: '#fff' }}>
+                Это ты ✨
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Bio */}
         <Text style={{ fontSize: 13, fontFamily: fontFamily.medium, color: '#fff', textAlign: 'center', lineHeight: 18, paddingHorizontal: 18, marginBottom: 18 }}>
