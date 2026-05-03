@@ -3,7 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
 import { GameShell } from './GameShell';
-import { GameResult } from './GameResult';
+import { LevelComplete, shouldShowAdAfter } from './LevelComplete';
 import { colors, fontFamily, radius } from '../theme';
 
 type Props = {
@@ -13,22 +13,30 @@ type Props = {
 };
 
 const TUBE_HEIGHT = 4;
-const COLORS = ['#FF4D7A', '#3B82F6', '#22C55E', '#FACC15'];
+const ALL_COLORS = ['#FF4D7A', '#3B82F6', '#22C55E', '#FACC15', '#A855F7', '#F97316', '#0EA5E9'];
 
-type Tube = string[]; // bottom-to-top stack
+type Tube = string[];
 
-function makeBoard(): Tube[] {
+// (colors, buffers): higher levels = more colors, fewer empty buffer tubes.
+const LEVEL_CFG = (level: number) => {
+  if (level === 1) return { colorCount: 4, buffers: 2 };
+  if (level === 2) return { colorCount: 5, buffers: 2 };
+  if (level === 3) return { colorCount: 6, buffers: 2 };
+  if (level === 4) return { colorCount: 6, buffers: 1 };
+  return { colorCount: 7, buffers: 1 };
+};
+
+function makeBoard(colorCount: number, buffers: number): Tube[] {
+  const palette = ALL_COLORS.slice(0, colorCount);
   const all: string[] = [];
-  COLORS.forEach((c) => { for (let i = 0; i < TUBE_HEIGHT; i += 1) all.push(c); });
-  // shuffle
+  palette.forEach((c) => { for (let i = 0; i < TUBE_HEIGHT; i += 1) all.push(c); });
   for (let i = all.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
     [all[i], all[j]] = [all[j], all[i]];
   }
   const tubes: Tube[] = [];
-  for (let i = 0; i < COLORS.length; i += 1) tubes.push(all.slice(i * TUBE_HEIGHT, (i + 1) * TUBE_HEIGHT));
-  tubes.push([]); // empty buffer
-  tubes.push([]); // second empty buffer
+  for (let i = 0; i < palette.length; i += 1) tubes.push(all.slice(i * TUBE_HEIGHT, (i + 1) * TUBE_HEIGHT));
+  for (let i = 0; i < buffers; i += 1) tubes.push([]);
   return tubes;
 }
 
@@ -37,38 +45,36 @@ function isSolved(tubes: Tube[]): boolean {
 }
 
 export function WaterSort({ game, onBack, onComplete }: Props) {
-  const [tubes, setTubes] = useState<Tube[]>(makeBoard);
+  const [level, setLevel] = useState(1);
+  const cfg = LEVEL_CFG(level);
+  const [tubes, setTubes] = useState<Tube[]>(() => makeBoard(cfg.colorCount, cfg.buffers));
   const [picked, setPicked] = useState<number | null>(null);
   const [moves, setMoves] = useState(0);
-  const [won, setWon] = useState(false);
+  const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
+  const [lastPassed, setLastPassed] = useState(false);
+  const [lastScore, setLastScore] = useState(0);
 
   const tap = (i: number) => {
-    if (won) return;
+    if (phase !== 'playing') return;
     if (picked === null) {
       if (tubes[i].length === 0) return;
       setPicked(i);
       Haptics.selectionAsync().catch(() => {});
       return;
     }
-    if (picked === i) {
-      setPicked(null);
-      return;
-    }
+    if (picked === i) { setPicked(null); return; }
     const from = tubes[picked];
     const to = tubes[i];
     const top = from[from.length - 1];
-    if (!top) { setPicked(null); return; }
-    if (to.length >= TUBE_HEIGHT) { setPicked(null); return; }
-    if (to.length > 0 && to[to.length - 1] !== top) { setPicked(null); return; }
-
-    // Pour as many same-color as possible
+    if (!top || to.length >= TUBE_HEIGHT || (to.length > 0 && to[to.length - 1] !== top)) {
+      setPicked(null); return;
+    }
     let count = 0;
     while (
       from.length - 1 - count >= 0 &&
       from[from.length - 1 - count] === top &&
       to.length + count < TUBE_HEIGHT
     ) count += 1;
-
     const next = tubes.map((t, idx) => {
       if (idx === picked) return t.slice(0, t.length - count);
       if (idx === i) return [...t, ...Array(count).fill(top)];
@@ -79,40 +85,63 @@ export function WaterSort({ game, onBack, onComplete }: Props) {
     setPicked(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     if (isSolved(next)) {
-      setWon(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      const score = Math.max(50, 200 - moves * 2);
+      const score = Math.max(50, 200 - moves * 2) * level;
+      setLastPassed(true);
+      setLastScore(score);
+      setPhase('complete');
       onComplete(true, score);
     }
   };
 
   const reset = () => {
-    setTubes(makeBoard());
+    setTubes(makeBoard(cfg.colorCount, cfg.buffers));
     setPicked(null);
     setMoves(0);
-    setWon(false);
+    setPhase('playing');
   };
 
-  if (won) {
+  const startNextLevel = () => {
+    const nextLevel = level + 1;
+    const nextCfg = LEVEL_CFG(nextLevel);
+    setLevel(nextLevel);
+    setTubes(makeBoard(nextCfg.colorCount, nextCfg.buffers));
+    setPicked(null);
+    setMoves(0);
+    setPhase('playing');
+  };
+
+  if (phase === 'complete') {
     return (
-      <GameShell game={game} onBack={onBack} score={moves} label="Ходов">
-        <GameResult won score={Math.max(50, 200 - moves * 2)} accent={game.accent} onRestart={reset} onBack={onBack} />
-      </GameShell>
+      <LevelComplete
+        level={level}
+        passed={lastPassed}
+        score={lastScore}
+        scoreLabel="Очки"
+        accent={game.accent}
+        showAd={lastPassed && shouldShowAdAfter(level)}
+        onContinue={startNextLevel}
+        onRetry={reset}
+        onBack={onBack}
+      />
     );
   }
 
+  const tubeWidth = cfg.colorCount + cfg.buffers > 6 ? 38 : 50;
+  const tubeHeight = TUBE_HEIGHT * 36 + 4;
+
   return (
-    <GameShell game={game} onBack={onBack} score={moves} label="Ходов">
+    <GameShell game={game} onBack={onBack} score={moves} label={`Ур. ${level}`}>
       <Text style={{ fontSize: 12, fontFamily: fontFamily.semibold, color: colors.textMuted, textAlign: 'center' }}>
         Перелей жидкость так, чтобы в каждой колбе был один цвет.
       </Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 12, paddingHorizontal: 8 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10, paddingHorizontal: 8 }}>
         {tubes.map((t, i) => (
           <Pressable key={i} onPress={() => tap(i)}>
             <View
               style={{
-                width: 50,
-                height: 180,
+                width: tubeWidth,
+                height: tubeHeight,
                 borderWidth: 2,
                 borderColor: picked === i ? game.accent : 'rgba(255,255,255,0.4)',
                 borderTopWidth: 0,
@@ -129,7 +158,7 @@ export function WaterSort({ game, onBack, onComplete }: Props) {
                 <View
                   key={j}
                   style={{
-                    height: 40,
+                    height: 36,
                     backgroundColor: c,
                     borderTopWidth: j === t.length - 1 ? 1 : 0,
                     borderTopColor: 'rgba(255,255,255,0.25)',
@@ -142,7 +171,7 @@ export function WaterSort({ game, onBack, onComplete }: Props) {
       </View>
       <Pressable onPress={reset}>
         <View style={{ paddingHorizontal: 18, paddingVertical: 8, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.08)' }}>
-          <Text style={{ fontSize: 12, fontFamily: fontFamily.bold, color: '#fff' }}>Начать заново</Text>
+          <Text style={{ fontSize: 12, fontFamily: fontFamily.bold, color: '#fff' }}>Перезапуск уровня</Text>
         </View>
       </Pressable>
     </GameShell>

@@ -3,7 +3,7 @@ import { PanResponder, Text, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
 import { GameShell } from './GameShell';
-import { GameResult } from './GameResult';
+import { LevelComplete, shouldShowAdAfter } from './LevelComplete';
 import { colors, fontFamily, radius } from '../theme';
 
 type Props = {
@@ -14,12 +14,19 @@ type Props = {
 
 const COLS = 12;
 const ROWS = 18;
-const TICK_MS = 140;
 
 type Pt = { x: number; y: number };
 type Dir = 'U' | 'D' | 'L' | 'R';
 
 const opp: Record<Dir, Dir> = { U: 'D', D: 'U', L: 'R', R: 'L' };
+
+const LEVEL_CFG = (level: number) => {
+  if (level === 1) return { tickMs: 160, target: 12 };
+  if (level === 2) return { tickMs: 140, target: 18 };
+  if (level === 3) return { tickMs: 120, target: 24 };
+  if (level === 4) return { tickMs: 100, target: 30 };
+  return { tickMs: 85, target: 36 };
+};
 
 function spawnFood(snake: Pt[]): Pt {
   while (true) {
@@ -34,17 +41,20 @@ export function SwipeSnake({ game, onBack, onComplete }: Props) {
   const boardW = cell * COLS;
   const boardH = cell * ROWS;
 
+  const [level, setLevel] = useState(1);
+  const cfg = LEVEL_CFG(level);
+  const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
   const [snake, setSnake] = useState<Pt[]>([{ x: 6, y: 9 }, { x: 5, y: 9 }, { x: 4, y: 9 }]);
   const [dir, setDir] = useState<Dir>('R');
   const dirRef = useRef<Dir>('R');
   const [food, setFood] = useState<Pt>({ x: 9, y: 9 });
-  const [done, setDone] = useState(false);
-  const wonRef = useRef(false);
+  const [lastPassed, setLastPassed] = useState(false);
+  const [lastScore, setLastScore] = useState(0);
 
   useEffect(() => { dirRef.current = dir; }, [dir]);
 
   useEffect(() => {
-    if (done) return;
+    if (phase !== 'playing') return;
     const t = setInterval(() => {
       setSnake((prev) => {
         const head = prev[0];
@@ -53,16 +63,14 @@ export function SwipeSnake({ game, onBack, onComplete }: Props) {
           x: head.x + (d === 'L' ? -1 : d === 'R' ? 1 : 0),
           y: head.y + (d === 'U' ? -1 : d === 'D' ? 1 : 0),
         };
-        if (next.x < 0 || next.x >= COLS || next.y < 0 || next.y >= ROWS) {
-          setDone(true);
-          onComplete(false, prev.length - 3);
+        if (next.x < 0 || next.x >= COLS || next.y < 0 || next.y >= ROWS ||
+            prev.some((s) => s.x === next.x && s.y === next.y)) {
+          const len = prev.length - 3;
+          setLastPassed(false);
+          setLastScore(len * level);
+          setPhase('complete');
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-          return prev;
-        }
-        if (prev.some((s) => s.x === next.x && s.y === next.y)) {
-          setDone(true);
-          onComplete(false, prev.length - 3);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+          onComplete(false, len * level);
           return prev;
         }
         const ate = next.x === food.x && next.y === food.y;
@@ -71,17 +79,19 @@ export function SwipeSnake({ game, onBack, onComplete }: Props) {
         else {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
           setFood(spawnFood(newSnake));
-          if (newSnake.length >= 30) {
-            wonRef.current = true;
-            setDone(true);
-            onComplete(true, newSnake.length - 3);
+          const len = newSnake.length - 3;
+          if (len >= cfg.target) {
+            setLastPassed(true);
+            setLastScore(len * level * 10);
+            setPhase('complete');
+            onComplete(true, len * level * 10);
           }
         }
         return newSnake;
       });
-    }, TICK_MS);
+    }, cfg.tickMs);
     return () => clearInterval(t);
-  }, [done, food, onComplete]);
+  }, [phase, food, onComplete, cfg.tickMs, cfg.target, level]);
 
   const responder = useRef(
     PanResponder.create({
@@ -98,22 +108,34 @@ export function SwipeSnake({ game, onBack, onComplete }: Props) {
     setSnake([{ x: 6, y: 9 }, { x: 5, y: 9 }, { x: 4, y: 9 }]);
     setDir('R');
     setFood({ x: 9, y: 9 });
-    setDone(false);
-    wonRef.current = false;
+    setPhase('playing');
   };
 
-  if (done) {
+  const startNextLevel = () => {
+    setLevel((l) => l + 1);
+    reset();
+  };
+
+  if (phase === 'complete') {
     return (
-      <GameShell game={game} onBack={onBack} score={snake.length - 3} label="Длина">
-        <GameResult won={wonRef.current} score={snake.length - 3} accent={game.accent} onRestart={reset} onBack={onBack} />
-      </GameShell>
+      <LevelComplete
+        level={level}
+        passed={lastPassed}
+        score={lastScore}
+        scoreLabel="Очки"
+        accent={game.accent}
+        showAd={lastPassed && shouldShowAdAfter(level)}
+        onContinue={startNextLevel}
+        onRetry={reset}
+        onBack={onBack}
+      />
     );
   }
 
   return (
-    <GameShell game={game} onBack={onBack} score={snake.length - 3} label="Длина">
+    <GameShell game={game} onBack={onBack} score={`${snake.length - 3}/${cfg.target}`} label={`Ур. ${level}`}>
       <Text style={{ fontSize: 12, fontFamily: fontFamily.semibold, color: colors.textMuted, textAlign: 'center' }}>
-        Свайпай в любую сторону. Доберись до длины 30.
+        Свайпай в любую сторону. Цель — длина {cfg.target}.
       </Text>
       <View
         {...responder.panHandlers}

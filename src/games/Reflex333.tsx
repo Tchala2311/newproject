@@ -3,8 +3,8 @@ import { Pressable, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
 import { GameShell } from './GameShell';
-import { GameResult } from './GameResult';
-import { colors, fontFamily, radius } from '../theme';
+import { LevelComplete, shouldShowAdAfter } from './LevelComplete';
+import { fontFamily, radius } from '../theme';
 
 type Props = {
   game: Game;
@@ -12,16 +12,30 @@ type Props = {
   onComplete: (won: boolean, score: number) => void;
 };
 
-type State = 'idle' | 'waiting' | 'go' | 'tooEarly' | 'done';
+type State = 'idle' | 'waiting' | 'go' | 'tooEarly';
+
+// Level config: rounds and target avg ms.
+const LEVEL_CFG = (level: number) => {
+  if (level === 1) return { rounds: 3, targetMs: 380 };
+  if (level === 2) return { rounds: 4, targetMs: 340 };
+  if (level === 3) return { rounds: 5, targetMs: 300 };
+  if (level === 4) return { rounds: 5, targetMs: 270 };
+  return { rounds: 6, targetMs: 240 };
+};
 
 export function Reflex333({ game, onBack, onComplete }: Props) {
+  const [level, setLevel] = useState(1);
+  const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
   const [state, setState] = useState<State>('idle');
   const [ms, setMs] = useState<number | null>(null);
-  const [best, setBest] = useState<number | null>(null);
   const [round, setRound] = useState(0);
   const [scores, setScores] = useState<number[]>([]);
+  const [lastPassed, setLastPassed] = useState(false);
+  const [lastScore, setLastScore] = useState(0);
   const goAtRef = useRef<number>(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cfg = LEVEL_CFG(level);
 
   useEffect(() => () => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -48,15 +62,17 @@ export function Reflex333({ game, onBack, onComplete }: Props) {
     if (state === 'go') {
       const t = Date.now() - goAtRef.current;
       setMs(t);
-      const next = round + 1;
       const newScores = [...scores, t];
       setScores(newScores);
-      if (!best || t < best) setBest(t);
-      if (next >= 3) {
+      const next = round + 1;
+      if (next >= cfg.rounds) {
         const avg = Math.round(newScores.reduce((a, b) => a + b, 0) / newScores.length);
-        const won = avg < 350;
-        onComplete(won, Math.max(0, 1000 - avg));
-        setState('done');
+        const passed = avg <= cfg.targetMs;
+        const score = Math.max(0, (cfg.targetMs * 2 - avg) * level);
+        setLastPassed(passed);
+        setLastScore(score);
+        setPhase('complete');
+        onComplete(passed, score);
       } else {
         setRound(next);
         setState('idle');
@@ -69,10 +85,31 @@ export function Reflex333({ game, onBack, onComplete }: Props) {
   const reset = () => {
     setRound(0);
     setScores([]);
-    setBest(null);
     setMs(null);
     setState('idle');
+    setPhase('playing');
   };
+
+  const startNextLevel = () => {
+    setLevel((l) => l + 1);
+    reset();
+  };
+
+  if (phase === 'complete') {
+    return (
+      <LevelComplete
+        level={level}
+        passed={lastPassed}
+        score={lastScore}
+        scoreLabel="Очки"
+        accent={game.accent}
+        showAd={lastPassed && shouldShowAdAfter(level)}
+        onContinue={startNextLevel}
+        onRetry={reset}
+        onBack={onBack}
+      />
+    );
+  }
 
   const bg =
     state === 'go' ? '#22C55E' :
@@ -84,22 +121,20 @@ export function Reflex333({ game, onBack, onComplete }: Props) {
     state === 'idle' ? 'Тапни чтобы начать' :
     state === 'waiting' ? 'Жди зелёного…' :
     state === 'go' ? 'ТАПАЙ!' :
-    state === 'tooEarly' ? 'Слишком рано! Ещё раз.' :
-    'Готово';
+    'Слишком рано! Ещё раз.';
 
   const sub =
-    state === 'idle' ? `Раунд ${round + 1} / 3` :
+    state === 'idle' ? `Раунд ${round + 1} / ${cfg.rounds} · цель ≤ ${cfg.targetMs}мс` :
     state === 'waiting' ? 'Не дёргайся' :
-    state === 'tooEarly' ? 'Тапни чтобы попробовать снова' :
-    state === 'go' ? '' :
-    'Средний результат';
+    state === 'tooEarly' ? 'Тапни, чтобы попробовать снова' :
+    '';
 
   return (
     <GameShell
       game={game}
       onBack={onBack}
-      score={best ? `${best}мс` : '—'}
-      label="Лучшее"
+      score={`Ур. ${level}`}
+      label={`цель ≤${cfg.targetMs}мс`}
     >
       <Pressable
         onPress={tap}
@@ -113,40 +148,28 @@ export function Reflex333({ game, onBack, onComplete }: Props) {
           padding: 24,
         }}
       >
-        {state !== 'done' ? (
-          <>
-            <Text style={{ fontSize: 28, fontFamily: fontFamily.bold, color: '#fff', textAlign: 'center' }}>
-              {headline}
-            </Text>
-            {sub ? (
-              <Text style={{ fontSize: 14, fontFamily: fontFamily.medium, color: 'rgba(255,255,255,0.85)', marginTop: 8, textAlign: 'center' }}>
-                {sub}
+        <Text style={{ fontSize: 28, fontFamily: fontFamily.bold, color: '#fff', textAlign: 'center' }}>
+          {headline}
+        </Text>
+        {sub ? (
+          <Text style={{ fontSize: 14, fontFamily: fontFamily.medium, color: 'rgba(255,255,255,0.85)', marginTop: 8, textAlign: 'center' }}>
+            {sub}
+          </Text>
+        ) : null}
+        {ms !== null && state === 'idle' ? (
+          <Text style={{ fontSize: 56, fontFamily: fontFamily.bold, color: '#fff', marginTop: 12, fontVariant: ['tabular-nums'] }}>
+            {ms}мс
+          </Text>
+        ) : null}
+        {scores.length > 0 ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 18, justifyContent: 'center' }}>
+            {scores.map((s, i) => (
+              <Text key={i} style={{ fontSize: 14, fontFamily: fontFamily.bold, color: '#fff', fontVariant: ['tabular-nums'] }}>
+                {s}мс
               </Text>
-            ) : null}
-            {ms !== null && state === 'idle' ? (
-              <Text style={{ fontSize: 56, fontFamily: fontFamily.bold, color: '#fff', marginTop: 12, fontVariant: ['tabular-nums'] }}>
-                {ms}мс
-              </Text>
-            ) : null}
-            {scores.length > 0 ? (
-              <View style={{ flexDirection: 'row', gap: 14, marginTop: 18 }}>
-                {scores.map((s, i) => (
-                  <Text key={i} style={{ fontSize: 14, fontFamily: fontFamily.bold, color: '#fff', fontVariant: ['tabular-nums'] }}>
-                    {s}мс
-                  </Text>
-                ))}
-              </View>
-            ) : null}
-          </>
-        ) : (
-          <GameResult
-            won={Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) < 350}
-            score={Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)}
-            accent={game.accent}
-            onRestart={reset}
-            onBack={onBack}
-          />
-        )}
+            ))}
+          </View>
+        ) : null}
       </Pressable>
     </GameShell>
   );

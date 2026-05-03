@@ -1,10 +1,10 @@
 import React, { useRef, useState } from 'react';
-import { Animated, PanResponder, Text, View, useWindowDimensions } from 'react-native';
+import { PanResponder, Text, View, useWindowDimensions } from 'react-native';
 import Svg, { Circle, Polyline } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
 import { GameShell } from './GameShell';
-import { GameResult } from './GameResult';
+import { LevelComplete, shouldShowAdAfter } from './LevelComplete';
 import { colors, fontFamily } from '../theme';
 
 type Props = {
@@ -15,16 +15,29 @@ type Props = {
 
 type Pt = { x: number; y: number };
 
+// Threshold (% accuracy) required to pass each level.
+const LEVEL_THRESHOLD = (level: number) => {
+  if (level === 1) return 65;
+  if (level === 2) return 75;
+  if (level === 3) return 85;
+  if (level === 4) return 92;
+  return 95;
+};
+
 export function PerfectCircle({ game, onBack, onComplete }: Props) {
   const { width } = useWindowDimensions();
   const boardSize = Math.min(width - 32, 320);
   const cx = boardSize / 2;
   const cy = boardSize / 2;
 
+  const [level, setLevel] = useState(1);
   const [points, setPoints] = useState<Pt[]>([]);
-  const [score, setScore] = useState<number | null>(null);
+  const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
+  const [lastScore, setLastScore] = useState(0);
+  const [lastPassed, setLastPassed] = useState(false);
   const drawing = useRef(false);
   const ptsRef = useRef<Pt[]>([]);
+  const boardOriginRef = useRef<{ x: number; y: number } | null>(null);
 
   const computeScore = (pts: Pt[]) => {
     if (pts.length < 12) return 0;
@@ -35,52 +48,75 @@ export function PerfectCircle({ game, onBack, onComplete }: Props) {
     if (meanR < 30) return 0;
     const variance = radii.reduce((s, r) => s + (r - meanR) ** 2, 0) / pts.length;
     const std = Math.sqrt(variance);
-    // Score = 100 * (1 - std/meanR), clamped 0-99.9
     const raw = Math.max(0, 100 * (1 - std / meanR));
     return Math.min(99.9, raw);
   };
 
   const responder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponder: () => phase === 'playing',
+      onMoveShouldSetPanResponder: () => phase === 'playing',
       onPanResponderGrant: (_, g) => {
         drawing.current = true;
-        ptsRef.current = [{ x: g.x0 - 0, y: g.y0 - 0 }];
+        ptsRef.current = [{ x: g.x0, y: g.y0 }];
         setPoints(ptsRef.current);
-        setScore(null);
       },
       onPanResponderMove: (_, g) => {
         if (!drawing.current) return;
-        ptsRef.current = [...ptsRef.current, { x: g.moveX - 0, y: g.moveY - 0 }];
+        ptsRef.current = [...ptsRef.current, { x: g.moveX, y: g.moveY }];
         setPoints(ptsRef.current);
       },
       onPanResponderRelease: () => {
         drawing.current = false;
-        const s = computeScore(ptsRef.current);
-        setScore(s);
-        if (s >= 95) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        else if (s >= 80) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-        onComplete(s >= 80, Math.round(s * 10));
+        const accuracy = computeScore(ptsRef.current);
+        const threshold = LEVEL_THRESHOLD(level);
+        const passed = accuracy >= threshold;
+        const score = Math.round(accuracy * 10 * level);
+        setLastScore(score);
+        setLastPassed(passed);
+        setPhase('complete');
+        if (passed) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        else Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+        onComplete(passed, score);
       },
     })
   ).current;
 
-  const reset = () => {
-    setPoints([]);
-    setScore(null);
-  };
-
-  // Convert absolute touch to local board coords
-  const boardOriginRef = useRef<{ x: number; y: number } | null>(null);
   const onLayout = (e: any) => {
     boardOriginRef.current = { x: e.nativeEvent.layout.x, y: e.nativeEvent.layout.y };
   };
 
+  const startNextLevel = () => {
+    setLevel((l) => l + 1);
+    setPoints([]);
+    setPhase('playing');
+  };
+
+  const retry = () => {
+    setPoints([]);
+    setPhase('playing');
+  };
+
+  if (phase === 'complete') {
+    return (
+      <LevelComplete
+        level={level}
+        passed={lastPassed}
+        score={lastScore}
+        scoreLabel="Очки"
+        accent={game.accent}
+        showAd={lastPassed && shouldShowAdAfter(level)}
+        onContinue={startNextLevel}
+        onRetry={retry}
+        onBack={onBack}
+      />
+    );
+  }
+
   return (
-    <GameShell game={game} onBack={onBack} score={score !== null ? `${score.toFixed(1)}%` : '—'} label="Точность">
+    <GameShell game={game} onBack={onBack} score={`Ур. ${level}`} label={`нужно ${LEVEL_THRESHOLD(level)}%`}>
       <Text style={{ fontSize: 12, fontFamily: fontFamily.semibold, color: colors.textMuted, textAlign: 'center', marginBottom: 6 }}>
-        Нарисуй идеальный круг одним движением.{'\n'}Не отрывая палец.
+        Нарисуй круг одним движением.{'\n'}Точность ≥ {LEVEL_THRESHOLD(level)}%
       </Text>
       <View
         onLayout={onLayout}
@@ -109,15 +145,6 @@ export function PerfectCircle({ game, onBack, onComplete }: Props) {
           ) : null}
         </Svg>
       </View>
-
-      {score !== null ? (
-        <View style={{ alignItems: 'center', marginTop: 4, gap: 6 }}>
-          <Text style={{ fontSize: 36, fontFamily: fontFamily.bold, color: game.accent }}>
-            {score >= 95 ? '🎯' : score >= 80 ? '👍' : '😅'} {score.toFixed(1)}%
-          </Text>
-          <GameResult won={score >= 80} score={Math.round(score * 10)} accent={game.accent} onRestart={reset} onBack={onBack} />
-        </View>
-      ) : null}
     </GameShell>
   );
 }
