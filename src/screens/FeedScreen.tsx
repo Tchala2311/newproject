@@ -1,5 +1,6 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Pressable,
   Share,
@@ -19,6 +20,8 @@ import { usePrefs } from '../store/usePrefs';
 import { useUser } from '../store/useUser';
 import { logEvent } from '../store/events';
 import { fontFamily } from '../theme';
+import { getRankedFeed, logImpression, markEngaged } from '../lib/recommender';
+import type { FeedItem } from '../lib/recommender/mixer';
 
 type Props = {
   onPlay: (game: Game) => void;
@@ -29,12 +32,10 @@ type Props = {
   setFeedIdx: (i: number) => void;
 };
 
-// We interleave an ad-slot card after every Nth game.
-const AD_EVERY = 4;
-type FeedItem = { type: 'game'; game: Game } | { type: 'ad'; key: string; adIdx: number };
 type FeedTab = 'forYou' | 'following';
 
-function buildFeed(games: Game[]): FeedItem[] {
+const AD_EVERY = 4;
+function buildSimpleFeed(games: Game[]): FeedItem[] {
   const out: FeedItem[] = [];
   let adIdx = 0;
   games.forEach((g, i) => {
@@ -44,11 +45,6 @@ function buildFeed(games: Game[]): FeedItem[] {
       adIdx += 1;
     }
   });
-  if (games.length >= 1 && adIdx < 3) {
-    for (let i = adIdx; i < 3; i += 1) {
-      out.push({ type: 'ad', key: `ad-extra-${i}`, adIdx: i });
-    }
-  }
   return out;
 }
 
@@ -59,50 +55,79 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
   const insets = useSafeAreaInsets();
   const { playing, trackName, toggle, nextTrack } = useLofi();
   const { likes, saves, toggleLike, toggleSave } = usePrefs();
-  const { follows } = useUser();
+  const { user, follows } = useUser();
 
   const [tab, setTab] = useState<FeedTab>('forYou');
   const [commentsFor, setCommentsFor] = useState<Game | null>(null);
+  const [forYouItems, setForYouItems] = useState<FeedItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const listRef = useRef<FlatList<FeedItem>>(null);
+  const loggedImpressions = useRef<Set<number>>(new Set());
 
   const followingGames = useMemo(
     () => GAMES.filter((g) => follows[g.creator.handle]),
     [follows]
   );
 
-  const items = useMemo<FeedItem[]>(() => {
-    const games = tab === 'forYou' ? GAMES : followingGames;
-    return buildFeed(games);
-  }, [tab, followingGames]);
+  // Run the recommender on mount + when user/follows change.
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    getRankedFeed({ userId: user?.id ?? null, followsLocal: follows, targetLength: 22 })
+      .then((res) => {
+        if (cancelled) return;
+        setForYouItems(res.items);
+        setLoading(false);
+      })
+      .catch((e) => {
+        console.warn('recommender failed, falling back to catalog order', e);
+        if (cancelled) return;
+        setForYouItems(buildSimpleFeed(GAMES));
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [user?.id, follows]);
+
+  const followingItems = useMemo<FeedItem[]>(() => buildSimpleFeed(followingGames), [followingGames]);
+  const items = tab === 'forYou' ? forYouItems : followingItems;
 
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     if (!viewableItems.length) return;
     const idx = viewableItems[0].index ?? 0;
     setFeedIdx(idx);
     Haptics.selectionAsync().catch(() => {});
+    // Log impression once per (session, game)
+    const item = viewableItems[0].item as FeedItem | undefined;
+    if (item?.type === 'game' && !loggedImpressions.current.has(item.game.id)) {
+      loggedImpressions.current.add(item.game.id);
+      logImpression(user?.id ?? null, item.game.id, idx);
+    }
   }).current;
 
   const handleShare = useCallback(async (game: Game) => {
     try {
       await Share.share({ message: `Зацени «${game.name}» в Луп — ${game.tagline}` });
       logEvent({ type: 'share', gameId: game.id });
+      markEngaged(user?.id ?? null, game.id);
     } catch {
       onToast('Не получилось поделиться');
     }
-  }, [onToast]);
+  }, [onToast, user?.id]);
 
   const handleSave = useCallback((game: Game) => {
     const next = !saves[game.id];
     toggleSave(game.id);
     onToast(next ? '✅ Сохранено!' : 'Убрано из сохранённого');
     logEvent({ type: next ? 'save' : 'unsave', gameId: game.id });
-  }, [saves, toggleSave, onToast]);
+    if (next) markEngaged(user?.id ?? null, game.id);
+  }, [saves, toggleSave, onToast, user?.id]);
 
   const handleLike = useCallback((game: Game) => {
     const next = !likes[game.id];
     toggleLike(game.id);
     logEvent({ type: next ? 'like' : 'unlike', gameId: game.id });
-  }, [likes, toggleLike]);
+    if (next) markEngaged(user?.id ?? null, game.id);
+  }, [likes, toggleLike, user?.id]);
 
   const switchTab = (next: FeedTab) => {
     if (next === tab) return;
@@ -128,6 +153,7 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
           isActive={index === feedIdx}
           onPlay={() => {
             logEvent({ type: 'play', gameId: g.id });
+            markEngaged(user?.id ?? null, g.id);
             onPlay(g);
           }}
           liked={!!likes[g.id]}
@@ -135,7 +161,10 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
           saved={!!saves[g.id]}
           onSave={() => handleSave(g)}
           onShare={() => handleShare(g)}
-          onComment={() => setCommentsFor(g)}
+          onComment={() => {
+            setCommentsFor(g);
+            markEngaged(user?.id ?? null, g.id);
+          }}
           commentsCount={g.comments}
           creator={g.creator}
           onCreatorPress={() => onOpenCreator(g.creator)}
@@ -147,15 +176,24 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
         />
       );
     },
-    [feedIdx, height, bottomInset, likes, saves, playing, trackName, toggle, nextTrack, onPlay, handleLike, handleSave, handleShare]
+    [feedIdx, height, bottomInset, likes, saves, playing, trackName, toggle, nextTrack, onPlay, handleLike, handleSave, handleShare, onOpenCreator, user?.id]
   );
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
+      {loading && tab === 'forYou' && items.length === 0 ? (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color="#fff" />
+          <Text style={{ marginTop: 12, fontSize: 12, fontFamily: fontFamily.semibold, color: 'rgba(255,255,255,0.55)' }}>
+            Подбираем игры…
+          </Text>
+        </View>
+      ) : null}
+
       <FlatList
         ref={listRef}
         data={items}
-        keyExtractor={(it) => (it.type === 'ad' ? it.key : `g-${it.game.id}`)}
+        keyExtractor={(it, idx) => (it.type === 'ad' ? it.key : `g-${it.game.id}-${idx}`)}
         renderItem={renderItem}
         pagingEnabled
         snapToInterval={height}
@@ -171,7 +209,6 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
         extraData={tab}
       />
 
-      {/* Top tab toggle (For You / Following) */}
       <View
         pointerEvents="box-none"
         style={{
@@ -190,7 +227,6 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
         </View>
       </View>
 
-      {/* Empty state for Following */}
       {tab === 'following' && items.length === 0 ? (
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ fontSize: 16, fontFamily: fontFamily.bold, color: '#fff', marginBottom: 6 }}>

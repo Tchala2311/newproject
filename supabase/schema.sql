@@ -231,3 +231,118 @@ language sql stable as $$
 $$;
 
 grant execute on function public.find_profile_by_handle(text) to anon, authenticated;
+
+-- ============================================================================
+-- Recommender system (X-algorithm-inspired, small-scale heuristic version)
+-- ============================================================================
+
+-- ---------- feed_impressions -----------------------------------------------
+-- Every time the recommender shows a game card to a user we log one row.
+-- Position is the index in the feed at the time of impression.
+-- engaged becomes true if any like/save/comment/play happens during the
+-- session (updated by the client via mark_impression_engaged RPC).
+create table if not exists public.feed_impressions (
+  id           bigserial primary key,
+  user_id      uuid references public.profiles(id) on delete cascade,
+  game_id      int  not null,
+  position     int  not null default 0,
+  shown_at     timestamptz not null default now(),
+  dwell_ms     int,
+  engaged      boolean not null default false
+);
+
+create index if not exists feed_impressions_user_recent_idx
+  on public.feed_impressions (user_id, shown_at desc);
+create index if not exists feed_impressions_game_recent_idx
+  on public.feed_impressions (game_id, shown_at desc);
+
+alter table public.feed_impressions enable row level security;
+
+drop policy if exists "impressions_insert_self" on public.feed_impressions;
+create policy "impressions_insert_self" on public.feed_impressions
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "impressions_read_self" on public.feed_impressions;
+create policy "impressions_read_self" on public.feed_impressions
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "impressions_update_self" on public.feed_impressions;
+create policy "impressions_update_self" on public.feed_impressions
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- ---------- recommend_signals RPC ------------------------------------------
+-- Single round-trip that returns everything the client recommender needs.
+-- Returns one row per game with the engagement signals + recency.
+-- Trending = likes_24h * 3 + comments_24h * 5 + saves_24h * 4
+create or replace function public.recommend_signals()
+returns table(
+  game_id int,
+  total_likes bigint,
+  total_saves bigint,
+  total_comments bigint,
+  likes_24h bigint,
+  comments_24h bigint,
+  saves_24h bigint
+)
+language sql stable as $$
+  with games as (
+    select distinct game_id from public.likes
+    union select distinct game_id from public.comments
+    union select distinct game_id from public.saves
+  )
+  select
+    g.game_id,
+    coalesce((select count(*) from public.likes where game_id = g.game_id), 0) as total_likes,
+    coalesce((select count(*) from public.saves where game_id = g.game_id), 0) as total_saves,
+    coalesce((select count(*) from public.comments where game_id = g.game_id), 0) as total_comments,
+    coalesce((select count(*) from public.likes where game_id = g.game_id and created_at > now() - interval '24 hours'), 0) as likes_24h,
+    coalesce((select count(*) from public.comments where game_id = g.game_id and created_at > now() - interval '24 hours'), 0) as comments_24h,
+    coalesce((select count(*) from public.saves where game_id = g.game_id and created_at > now() - interval '24 hours'), 0) as saves_24h
+  from games g;
+$$;
+
+grant execute on function public.recommend_signals() to anon, authenticated;
+
+-- ---------- co_engagement RPC ----------------------------------------------
+-- For each game the current user has liked, find OTHER users who liked it,
+-- then collect THEIR other liked games. The output `score` is the count of
+-- co-occurrences. This is collaborative filtering — "people who liked X also
+-- liked Y" — implemented as one CTE-only SQL pass; works fine while the
+-- catalog is small. Maps to X's TwHIN co-engagement signal in spirit.
+create or replace function public.co_engagement_for_user(uid uuid, top_n int default 30)
+returns table(game_id int, score bigint)
+language sql stable as $$
+  with my_likes as (
+    select game_id from public.likes where user_id = uid
+  ),
+  others as (
+    select user_id from public.likes
+    where game_id in (select game_id from my_likes)
+      and user_id <> uid
+  ),
+  candidates as (
+    select l.game_id, count(*) as score
+    from public.likes l
+    where l.user_id in (select user_id from others)
+      and l.game_id not in (select game_id from my_likes)
+    group by l.game_id
+  )
+  select * from candidates order by score desc limit top_n;
+$$;
+
+grant execute on function public.co_engagement_for_user(uuid, int) to anon, authenticated;
+
+-- ---------- recent_impressions RPC -----------------------------------------
+-- Returns game_ids the user has been shown in the last N hours, with how many
+-- times. Used to apply a recency penalty so we don't repeat the feed.
+create or replace function public.recent_impressions_for_user(uid uuid, hours int default 24)
+returns table(game_id int, n bigint)
+language sql stable as $$
+  select game_id, count(*) as n
+  from public.feed_impressions
+  where user_id = uid
+    and shown_at > now() - (hours || ' hours')::interval
+  group by game_id;
+$$;
+
+grant execute on function public.recent_impressions_for_user(uuid, int) to anon, authenticated;
