@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { GAMES, Game } from '../data/games';
+import { GAMES, Game, Creator } from '../data/games';
 import { GameCard } from '../components/GameCard';
 import { AdSlot } from '../components/AdSlot';
 import { CommentsSheet } from '../components/CommentsSheet';
@@ -23,6 +23,7 @@ import { fontFamily } from '../theme';
 type Props = {
   onPlay: (game: Game) => void;
   onToast: (msg: string) => void;
+  onOpenCreator: (creator: Creator) => void;
   bottomInset: number;
   feedIdx: number;
   setFeedIdx: (i: number) => void;
@@ -53,7 +54,7 @@ function buildFeed(games: Game[]): FeedItem[] {
 
 const viewabilityConfig = { itemVisiblePercentThreshold: 60 };
 
-export function FeedScreen({ onPlay, onToast, bottomInset, feedIdx, setFeedIdx }: Props) {
+export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedIdx, setFeedIdx }: Props) {
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { playing, trackName, toggle, nextTrack } = useLofi();
@@ -137,6 +138,7 @@ export function FeedScreen({ onPlay, onToast, bottomInset, feedIdx, setFeedIdx }
           onComment={() => setCommentsFor(g)}
           commentsCount={g.comments}
           creator={g.creator}
+          onCreatorPress={() => onOpenCreator(g.creator)}
           musicPlaying={playing}
           trackName={trackName}
           onMusicToggle={toggle}

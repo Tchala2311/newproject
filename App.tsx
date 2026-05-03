@@ -20,11 +20,12 @@ import { ExploreScreen } from './src/screens/ExploreScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { AuthScreen } from './src/screens/AuthScreen';
+import { CreatorProfileScreen } from './src/screens/CreatorProfileScreen';
 import { GamePlayScreen } from './src/games';
 import { LofiProvider } from './src/audio/LofiContext';
 import { PrefsProvider } from './src/store/usePrefs';
 import { UserProvider, useUser } from './src/store/useUser';
-import { Game } from './src/data/games';
+import { Game, Creator } from './src/data/games';
 import { colors } from './src/theme';
 
 SystemUI.setBackgroundColorAsync(colors.bg).catch(() => {});
@@ -34,6 +35,7 @@ function Shell() {
   const [tab, setTab] = useState<Tab>('feed');
   const [feedIdx, setFeedIdx] = useState(0);
   const [playing, setPlaying] = useState<Game | null>(null);
+  const [viewingCreator, setViewingCreator] = useState<Creator | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -45,17 +47,29 @@ function Shell() {
     setPlaying(game);
   };
 
+  const handleOpenCreator = (creator: Creator) => {
+    setViewingCreator(creator);
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <AmbientBackground />
       {playing ? (
         <GamePlayScreen game={playing} onBack={() => setPlaying(null)} />
+      ) : viewingCreator ? (
+        <CreatorProfileScreen
+          creator={viewingCreator}
+          onBack={() => setViewingCreator(null)}
+          onPlay={(g) => { setViewingCreator(null); handlePlay(g); }}
+          bottomInset={insets.bottom}
+        />
       ) : (
         <>
           {tab === 'feed' ? (
             <FeedScreen
               onPlay={handlePlay}
               onToast={showToast}
+              onOpenCreator={handleOpenCreator}
               bottomInset={insets.bottom}
               feedIdx={feedIdx}
               setFeedIdx={setFeedIdx}

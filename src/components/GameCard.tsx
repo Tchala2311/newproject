@@ -23,6 +23,7 @@ type Props = {
   onComment?: () => void;
   commentsCount?: string;
   creator?: { handle: string; avatar?: string };
+  onCreatorPress?: () => void;
   musicPlaying: boolean;
   trackName: string;
   onMusicToggle: () => void;
@@ -44,6 +45,7 @@ export function GameCard({
   onComment,
   commentsCount,
   creator,
+  onCreatorPress,
   musicPlaying,
   trackName,
   onMusicToggle,
@@ -250,7 +252,7 @@ export function GameCard({
         }}
       >
         {/* Creator avatar with follow + */}
-        <Pressable hitSlop={8} style={{ alignItems: 'center' }}>
+        <Pressable hitSlop={8} onPress={onCreatorPress} style={{ alignItems: 'center' }}>
           <View
             style={{
               width: 46, height: 46, borderRadius: 23,
@@ -298,9 +300,11 @@ export function GameCard({
         }}
       >
         <View pointerEvents="box-none" style={{ marginBottom: 8 }}>
-          <Text style={{ fontSize: 14, fontFamily: fontFamily.bold, color: '#fff', marginBottom: 6 }}>
-            @{creator?.handle ?? game.slug.replace(/-/g, '_')}
-          </Text>
+          <Pressable onPress={onCreatorPress} hitSlop={6}>
+            <Text style={{ fontSize: 14, fontFamily: fontFamily.bold, color: '#fff', marginBottom: 6 }}>
+              @{creator?.handle ?? game.slug.replace(/-/g, '_')}
+            </Text>
+          </Pressable>
           <Text
             style={{
               fontSize: 26,
