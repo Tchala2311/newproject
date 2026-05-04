@@ -6,21 +6,37 @@ import { colors, fontFamily } from '../theme';
 import { GameShell } from './GameShell';
 import { LevelComplete, shouldShowAdAfter } from './LevelComplete';
 
+// Larger pools per level so words don't recycle within a single round.
+// All entries are 3-7 letter Russian nouns/adjectives in dictionary form.
 const WORD_POOLS: string[][] = [
-  ['ЛУП', 'СОН', 'ИГРА', 'РИТМ', 'СВЕТ'],            // L1
-  ['ВАЙБ', 'ЛОФИ', 'ЗВУК', 'ЧИЛЛ', 'НЕОН', 'ЛЕНТА'], // L2
-  ['ВЗРЫВ', 'СВЕТА', 'ВРЕМЯ', 'ВОЛНА', 'ОБЛАК'],     // L3
-  ['ПЛАМЯ', 'ВЕТЕР', 'ОБЛАКО', 'ПАМЯТЬ'],            // L4
-  ['ЭНЕРГИЯ', 'ЗЕРКАЛО', 'ГРАНИЦА', 'СТАНЦИЯ'],      // L5+
-];
+  // L1 — short (3-4 letters)
+  ['ЛУП', 'СОН', 'ИГРА', 'РИТМ', 'СВЕТ', 'ЛЕД', 'ДОМ', 'СОК', 'КОТ', 'НЕБО',
+   'ДУШ', 'ЛУГ', 'РОЗА', 'СЕТЬ', 'ВЕС', 'СЫР', 'НИТЬ', 'ЛИСТ', 'ВОДА', 'ЛЕС'],
+  // L2 — 4-5 letters, casual
+  ['ВАЙБ', 'ЛОФИ', 'ЗВУК', 'ЧИЛЛ', 'НЕОН', 'ЛЕНТА', 'ТРАВА', 'ВЕТКА',
+   'ВОЛНА', 'СТЕНА', 'СЛОВО', 'СТРАХ', 'РУЧКА', 'ЛАМПА', 'КНИГА', 'СУМКА',
+   'РЕЧКА', 'ОЗЕРО', 'ВЕСНА', 'ОСЕНЬ'],
+  // L3 — 5 letters, harder vocab
+  ['ВЗРЫВ', 'СВЕТА', 'ВРЕМЯ', 'ВОЛНА', 'ОБЛАК', 'ПЛАМЯ', 'ВЕТЕР', 'ШТОРМ',
+   'ВИХРЬ', 'ДОЖДЬ', 'РАДУГ', 'ЗАМОК', 'СВЕЧА', 'СЕРДЦ', 'ЗВЕЗД', 'ГОРОД',
+   'УЛИЦА', 'ВАГОН', 'ПОЕЗД', 'ВИШНЯ'],
+  // L4 — 6 letters
+  ['ОБЛАКО', 'ПАМЯТЬ', 'СОЛНЦЕ', 'ЛУЖАЙК', 'РУЧЕЁК', 'СНЕЖОК', 'МОРОЗЫ',
+   'ВЕЛОСИ', 'РАДУГИ', 'ВЕЧЕРИ', 'НОЧНОЙ', 'ПЕСНИЯ', 'СЕМЬЯМ', 'ЗАГАДК',
+   'СЕРДЦЕ', 'ВЗГЛЯД'],
+  // L5+ — 7-8 letters, hardest
+  ['ЭНЕРГИЯ', 'ЗЕРКАЛО', 'ГРАНИЦА', 'СТАНЦИЯ', 'СВОБОДА', 'РЕАЛЬНО',
+   'ОТЛИЧНО', 'СЕКРЕТЫ', 'ВНЕЗАПН', 'ЛАВАНДА', 'МАГИЯИГ', 'ПОЛЯНЫЕ',
+   'СОНЕТНЫ'],
+].map((arr) => arr.filter((w) => /^[А-ЯЁ]{3,8}$/.test(w)));
 
 const LEVEL_CFG = (level: number) => {
   const idx = Math.min(level - 1, WORD_POOLS.length - 1);
-  if (level === 1) return { time: 25, target: 250, words: WORD_POOLS[idx] };
-  if (level === 2) return { time: 22, target: 350, words: WORD_POOLS[idx] };
-  if (level === 3) return { time: 20, target: 450, words: WORD_POOLS[idx] };
-  if (level === 4) return { time: 18, target: 550, words: WORD_POOLS[idx] };
-  return { time: 16, target: 700, words: WORD_POOLS[idx] };
+  return {
+    time: Math.max(12, 27 - level * 2),
+    target: 200 + level * 120,
+    words: WORD_POOLS[idx],
+  };
 };
 
 function scramble(w: string): (string | null)[] {

@@ -22,13 +22,12 @@ const COLORS = [
 ];
 
 // Per-level: round time, lie probability (word color != ink), target score.
-const LEVEL_CFG = (level: number) => {
-  if (level === 1) return { time: 30, lieProb: 0.4, target: 12 };
-  if (level === 2) return { time: 25, lieProb: 0.6, target: 18 };
-  if (level === 3) return { time: 20, lieProb: 0.8, target: 24 };
-  if (level === 4) return { time: 18, lieProb: 0.9, target: 30 };
-  return { time: 15, lieProb: 1.0, target: 36 };
-};
+// Procedural infinite scaling.
+const LEVEL_CFG = (level: number) => ({
+  time: Math.max(10, 32 - level * 2),
+  lieProb: Math.min(1, 0.3 + level * 0.15),
+  target: 8 + level * 6,
+});
 
 function pickRound(lieProb: number) {
   const word = COLORS[Math.floor(Math.random() * COLORS.length)];

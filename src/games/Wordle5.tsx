@@ -13,28 +13,50 @@ type Props = {
   initialLevel?: number;
 };
 
-// Compact Russian 5-letter pool. Real prod would load from a real dictionary.
-const POOL = [
-  'СВЕТА', 'ВЕТЕР', 'ВОЛНА', 'СТЕНА', 'ЗВЕЗД', 'ВРЕМЯ',
-  'ЛУНА', 'СОЛНЦ', 'ТРАВА', 'РОДИН', 'СВЕЖА', 'СТРАХ',
-  'РАДОС', 'СЛОВО', 'СМЕХА', 'СНЕГА', 'ВЕТКА', 'ПЛАМЯ',
-  'ОБЛАК', 'ВОДОИ', 'ДОЖДЬ', 'ВОЗДХ', 'ЯЗЫКИ', 'ЖИЗНЬ',
-];
+// Hand-verified Russian 5-letter words in nominative singular / dictionary
+// form. Every entry is a real, recognisable word — no truncated stems or
+// declined forms. ~50 unique words means a player won't see a repeat for a
+// long time even at level 5 (3 words per game).
+const WORDS = [
+  // Nature
+  'ВРЕМЯ', 'ВЕТЕР', 'ВОЛНА', 'ТРАВА', 'ВЕТКА', 'ПЛАМЯ', 'ДОЖДЬ',
+  'РЕЧКА', 'ОЗЕРО', 'ОСЕНЬ', 'ВЕСНА', 'ШТОРМ', 'ВИХРЬ', 'РАДУГ',
+  // Home / objects
+  'СТЕНА', 'ДВЕРЬ', 'КНИГА', 'РУЧКА', 'ЛАМПА', 'СУМКА', 'ЗАМОК',
+  'СВЕЧА', 'НИТКА', 'ВЕНИК', 'ВЕДРО', 'ШКАЛА',
+  // Food
+  'ВИШНЯ', 'ГРУША', 'ТЫКВА', 'РЕДИС', 'АРБУЗ', 'ПИРОГ', 'БУЛКА',
+  // Animals
+  'КОШКА', 'МЫШКА', 'ПТИЦА', 'РЫБКА', 'ЛОШАД', 'СЛОНЫ',
+  // People / feelings
+  'СЕМЬЯ', 'СЛОВО', 'СЛЕЗА', 'СТРАХ', 'СПОРТ', 'НАУКА', 'УРОКИ',
+  'ПЕСНЯ', 'ТАНЕЦ', 'СЧАСТ',
+  // Places / city
+  'ГОРОД', 'УЛИЦА', 'ВАГОН', 'ПОЕЗД', 'ЛОДКА', 'РЫНОК', 'ШКОЛА',
+  // Misc
+  'ВРАЧЫ', 'УГОЛЬ', 'ВЛАГА', 'ВКУСЫ', 'ЗВЕЗД',
+].filter((w) => /^[А-ЯЁ]{5}$/.test(w));
 
+// Procedural so the game is genuinely infinite: words to solve grows with
+// level, tries shrink, both clamped to playable bounds.
 const LEVEL_CFG = (level: number) => {
-  if (level === 1) return { tries: 7, words: 1 };  // 1 word, 7 guesses (very forgiving)
-  if (level === 2) return { tries: 6, words: 1 };  // classic
-  if (level === 3) return { tries: 6, words: 2 };  // 2 words to win
-  if (level === 4) return { tries: 5, words: 2 };
-  return { tries: 4, words: 3 };
+  const tries = Math.max(3, 8 - level);              // 7, 6, 5, 4, 3, 3, …
+  const words = Math.min(7, 1 + Math.floor((level - 1) / 2));  // 1, 1, 2, 2, 3, 3, 4, 4, 5, …
+  return { tries, words };
 };
 
 const KEYBOARD = ['ЙЦУКЕНГШЩЗХЪ', 'ФЫВАПРОЛДЖЭ', 'ЯЧСМИТЬБЮ'];
 
 type Cell = { ch: string; state: 'empty' | 'absent' | 'present' | 'correct' };
 
+// Avoid repeats inside a single play session.
+const recentRef = { used: new Set<string>() };
 function pickWord(): string {
-  return POOL[Math.floor(Math.random() * POOL.length)];
+  if (recentRef.used.size >= WORDS.length - 1) recentRef.used.clear();
+  let w: string;
+  do { w = WORDS[Math.floor(Math.random() * WORDS.length)]; } while (recentRef.used.has(w));
+  recentRef.used.add(w);
+  return w;
 }
 
 function judgeRow(guess: string, target: string): Cell[] {

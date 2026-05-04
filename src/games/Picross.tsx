@@ -13,13 +13,11 @@ type Props = {
   initialLevel?: number;
 };
 
-const LEVEL_CFG = (level: number) => {
-  if (level === 1) return { size: 5, fillProb: 0.6, mistakes: 5 };
-  if (level === 2) return { size: 5, fillProb: 0.5, mistakes: 4 };
-  if (level === 3) return { size: 6, fillProb: 0.55, mistakes: 4 };
-  if (level === 4) return { size: 7, fillProb: 0.5, mistakes: 3 };
-  return { size: 8, fillProb: 0.5, mistakes: 3 };
-};
+const LEVEL_CFG = (level: number) => ({
+  size: Math.min(10, 4 + level),
+  fillProb: 0.5 + Math.max(0, 0.15 - level * 0.02),
+  mistakes: Math.max(2, 6 - level),
+});
 
 type Cell = 'empty' | 'filled' | 'crossed';
 

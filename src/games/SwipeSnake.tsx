@@ -21,13 +21,10 @@ type Dir = 'U' | 'D' | 'L' | 'R';
 
 const opp: Record<Dir, Dir> = { U: 'D', D: 'U', L: 'R', R: 'L' };
 
-const LEVEL_CFG = (level: number) => {
-  if (level === 1) return { tickMs: 160, target: 12 };
-  if (level === 2) return { tickMs: 140, target: 18 };
-  if (level === 3) return { tickMs: 120, target: 24 };
-  if (level === 4) return { tickMs: 100, target: 30 };
-  return { tickMs: 85, target: 36 };
-};
+const LEVEL_CFG = (level: number) => ({
+  tickMs: Math.max(60, 180 - level * 18),
+  target: 8 + level * 6,
+});
 
 function spawnFood(snake: Pt[]): Pt {
   while (true) {

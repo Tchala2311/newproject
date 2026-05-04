@@ -14,13 +14,11 @@ type Props = {
 };
 
 // Per-level: round duration, BPM, target score.
-const LEVEL_CFG = (level: number) => {
-  if (level === 1) return { time: 30, bpm: 88, target: 600 };
-  if (level === 2) return { time: 30, bpm: 100, target: 900 };
-  if (level === 3) return { time: 32, bpm: 116, target: 1300 };
-  if (level === 4) return { time: 32, bpm: 132, target: 1800 };
-  return { time: 35, bpm: 148, target: 2400 };
-};
+const LEVEL_CFG = (level: number) => ({
+  time: 28 + Math.min(level, 8),
+  bpm: Math.min(180, 80 + level * 12),
+  target: 400 + level * 350,
+});
 
 type Note = {
   id: number;

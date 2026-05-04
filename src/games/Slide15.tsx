@@ -14,11 +14,10 @@ type Props = {
 };
 
 const LEVEL_CFG = (level: number) => {
-  if (level === 1) return { size: 3, shuffles: 18, target: 30 };  // 3x3
-  if (level === 2) return { size: 3, shuffles: 35, target: 60 };
-  if (level === 3) return { size: 4, shuffles: 30, target: 60 };  // classic 15
-  if (level === 4) return { size: 4, shuffles: 60, target: 120 };
-  return { size: 5, shuffles: 80, target: 200 };
+  const size = level <= 2 ? 3 : level <= 4 ? 4 : 5;     // 3x3, 4x4, 5x5+
+  const shuffles = 12 + level * 12;
+  const target = 20 + level * 25;
+  return { size, shuffles, target };
 };
 
 type Board = number[][];

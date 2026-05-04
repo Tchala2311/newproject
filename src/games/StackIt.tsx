@@ -10,13 +10,10 @@ const ST_W = 240;
 const ST_BH = 18;
 const STAGE_H = 240;
 
-const LEVEL_CFG = (level: number) => {
-  if (level === 1) return { target: 6, baseSpeed: 1.6 };
-  if (level === 2) return { target: 8, baseSpeed: 2.0 };
-  if (level === 3) return { target: 10, baseSpeed: 2.6 };
-  if (level === 4) return { target: 12, baseSpeed: 3.2 };
-  return { target: 14, baseSpeed: 3.8 };
-};
+const LEVEL_CFG = (level: number) => ({
+  target: 4 + level * 2,                          // L1: 6, L2: 8, …, infinite
+  baseSpeed: Math.min(7, 1.2 + level * 0.5),
+});
 
 type Block = { x: number; w: number };
 type Props = { game: Game; onBack: () => void; onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void; initialLevel?: number };

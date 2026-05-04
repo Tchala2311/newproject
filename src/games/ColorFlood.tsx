@@ -8,13 +8,11 @@ import { LevelComplete, shouldShowAdAfter } from './LevelComplete';
 
 const CF_COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6', '#1abc9c'];
 
-const LEVEL_CFG = (level: number) => {
-  if (level === 1) return { size: 6, max: 22, palette: 5 };
-  if (level === 2) return { size: 7, max: 22, palette: 5 };
-  if (level === 3) return { size: 8, max: 24, palette: 6 };
-  if (level === 4) return { size: 9, max: 26, palette: 6 };
-  return { size: 10, max: 28, palette: 6 };
-};
+const LEVEL_CFG = (level: number) => ({
+  size: Math.min(12, 5 + level),
+  max: Math.min(34, 20 + level * 2),
+  palette: Math.min(6, 4 + Math.floor(level / 2)),
+});
 
 function makeGrid(size: number, palette: number): number[][] {
   return Array.from({ length: size }, () =>

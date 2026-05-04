@@ -15,13 +15,12 @@ type Props = {
 };
 
 // Each level: longer hold target + skinnier band + faster wobble.
-const LEVEL_CFG = (level: number) => {
-  if (level === 1) return { time: 30, targetMs: 16000, bandWidth: 36, wobbleMul: 1.0 };
-  if (level === 2) return { time: 30, targetMs: 20000, bandWidth: 30, wobbleMul: 1.2 };
-  if (level === 3) return { time: 30, targetMs: 23000, bandWidth: 26, wobbleMul: 1.4 };
-  if (level === 4) return { time: 30, targetMs: 25000, bandWidth: 22, wobbleMul: 1.7 };
-  return { time: 30, targetMs: 27000, bandWidth: 18, wobbleMul: 2.0 };
-};
+const LEVEL_CFG = (level: number) => ({
+  time: 30,
+  targetMs: Math.min(28500, 13000 + level * 3000),
+  bandWidth: Math.max(14, 40 - level * 4),
+  wobbleMul: Math.min(2.5, 0.9 + level * 0.25),
+});
 
 export function NervePulse({ game, onBack, onComplete, initialLevel }: Props) {
   const { width } = useWindowDimensions();

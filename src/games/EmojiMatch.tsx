@@ -16,11 +16,10 @@ type Props = {
 const ALL_EMOJIS = ['🦊', '🐼', '🦄', '🐙', '🦖', '🐧', '🦉', '🐝', '🦁', '🐸', '🐵', '🐢'];
 
 const LEVEL_CFG = (level: number) => {
-  if (level === 1) return { pairs: 6, time: 60, cols: 3 };  // 12 tiles
-  if (level === 2) return { pairs: 8, time: 60, cols: 4 };  // 16
-  if (level === 3) return { pairs: 10, time: 65, cols: 4 }; // 20
-  if (level === 4) return { pairs: 10, time: 50, cols: 4 };
-  return { pairs: 12, time: 55, cols: 4 };                  // 24
+  const pairs = Math.min(12, 5 + level);          // 6, 7, 8, …, capped at 12 (pool size)
+  const time = Math.max(35, 65 - level * 3);
+  const cols = pairs <= 6 ? 3 : 4;
+  return { pairs, time, cols };
 };
 
 type Tile = { idx: number; emoji: string; flipped: boolean; matched: boolean };

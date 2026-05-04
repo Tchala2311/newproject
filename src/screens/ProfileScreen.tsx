@@ -9,6 +9,7 @@ import { usePrefs } from '../store/usePrefs';
 import { useUser } from '../store/useUser';
 import { useAchievements } from '../store/useAchievements';
 import { ACHIEVEMENTS, RARITY_COLOR } from '../lib/achievements/catalog';
+import { AchievementDetailModal } from '../components/AchievementDetailModal';
 
 type Props = {
   onPlay: (g: Game) => void;
@@ -24,6 +25,7 @@ export function ProfileScreen({ onPlay, bottomInset }: Props) {
   const insets = useSafeAreaInsets();
   const SAFE_TOP = Math.max(insets.top, 14) + 8;
   const [view, setView] = useState<ProfileTab>('recent');
+  const [selectedAchievement, setSelectedAchievement] = useState<string | null>(null);
   const followCount = Object.values(follows).filter(Boolean).length;
   const ownedCount = unlocked.size;
 
@@ -242,8 +244,9 @@ export function ProfileScreen({ onPlay, bottomInset }: Props) {
               const owned = unlocked.has(a.id);
               const accent = RARITY_COLOR[a.rarity];
               return (
-                <View
+                <Pressable
                   key={a.id}
+                  onPress={() => setSelectedAchievement(a.id)}
                   style={{
                     width: '31%',
                     aspectRatio: 0.95,
@@ -269,12 +272,18 @@ export function ProfileScreen({ onPlay, bottomInset }: Props) {
                   >
                     {owned ? a.title : '???'}
                   </Text>
-                </View>
+                </Pressable>
               );
             })}
           </View>
         </View>
       </ScrollView>
+
+      <AchievementDetailModal
+        achievementId={selectedAchievement}
+        owned={selectedAchievement ? unlocked.has(selectedAchievement) : false}
+        onClose={() => setSelectedAchievement(null)}
+      />
     </View>
   );
 }

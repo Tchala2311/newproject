@@ -6,14 +6,8 @@ import { colors, fontFamily } from '../theme';
 import { GameShell } from './GameShell';
 import { LevelComplete, shouldShowAdAfter } from './LevelComplete';
 
-// Level scales the target tile to merge to. L1=64, L2=128, L3=256, L4=512, L5=1024.
-const LEVEL_TARGET = (level: number) => {
-  if (level === 1) return 64;
-  if (level === 2) return 128;
-  if (level === 3) return 256;
-  if (level === 4) return 512;
-  return 1024;
-};
+// Target doubles each level — L1: 64, L5: 1024, L8: 8192, etc. Truly infinite.
+const LEVEL_TARGET = (level: number) => 32 * Math.pow(2, level);
 
 const SIZE = 4;
 

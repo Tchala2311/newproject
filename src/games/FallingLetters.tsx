@@ -21,13 +21,12 @@ const KEYBOARD = [
 
 const RUSSIAN = 'АБВГДЕЁЖЗИКЛМНОПРСТУФХЦЧШЩЫЭЮЯЙЦУЕНГ';
 
-const LEVEL_CFG = (level: number) => {
-  if (level === 1) return { fall: 7000, spawn: 1300, missLimit: 8, target: 25 };
-  if (level === 2) return { fall: 6200, spawn: 1100, missLimit: 8, target: 35 };
-  if (level === 3) return { fall: 5400, spawn: 950, missLimit: 7, target: 50 };
-  if (level === 4) return { fall: 4600, spawn: 850, missLimit: 6, target: 60 };
-  return { fall: 4000, spawn: 750, missLimit: 5, target: 75 };
-};
+const LEVEL_CFG = (level: number) => ({
+  fall: Math.max(2800, 7800 - level * 800),
+  spawn: Math.max(550, 1400 - level * 100),
+  missLimit: Math.max(3, 9 - level),
+  target: 18 + level * 12,
+});
 
 type Letter = { id: number; ch: string; spawnAt: number; x: number };
 

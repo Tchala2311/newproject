@@ -26,13 +26,10 @@ const PIECES: Record<string, { cells: number[][][]; color: string }> = {
 
 const PIECE_KEYS = Object.keys(PIECES);
 
-const LEVEL_CFG = (level: number) => {
-  if (level === 1) return { tickMs: 700, target: 8 };  // 8 lines
-  if (level === 2) return { tickMs: 600, target: 12 };
-  if (level === 3) return { tickMs: 500, target: 16 };
-  if (level === 4) return { tickMs: 420, target: 20 };
-  return { tickMs: 350, target: 25 };
-};
+const LEVEL_CFG = (level: number) => ({
+  tickMs: Math.max(150, 800 - level * 80),
+  target: 4 + level * 4,
+});
 
 type Cell = string | null;
 type Board = Cell[][];

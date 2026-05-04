@@ -8,12 +8,14 @@ import { LevelComplete, shouldShowAdAfter } from './LevelComplete';
 
 type Bubble = { id: number; x: number; y: number; r: number; bomb?: boolean };
 
+// Each level: tighter time, higher target, more bombs. Pure procedural so the
+// game is genuinely infinite — past level 5 it keeps getting harder.
 const LEVEL_CFG = (level: number) => {
-  if (level === 1) return { time: 30, target: 80, count: 6, bombProb: 0 };
-  if (level === 2) return { time: 25, target: 110, count: 7, bombProb: 0.1 };
-  if (level === 3) return { time: 22, target: 150, count: 8, bombProb: 0.18 };
-  if (level === 4) return { time: 20, target: 200, count: 9, bombProb: 0.22 };
-  return { time: 18, target: 260, count: 10, bombProb: 0.28 };
+  const time = Math.max(12, 30 - (level - 1) * 2);
+  const target = 60 + level * 35;            // L1: 95, L2: 130, L3: 165, L4: 200, L5: 235, L6: 270…
+  const count = Math.min(12, 5 + level);
+  const bombProb = Math.min(0.35, (level - 1) * 0.07);
+  return { time, target, count, bombProb };
 };
 
 function makeBubble(id: number, bombProb: number): Bubble {
@@ -42,17 +44,24 @@ export function TapRush({ game, onBack, onComplete, initialLevel }: Props) {
 
   useEffect(() => {
     if (phase !== 'playing' || !started) return undefined;
+    // Early-pass: hit target → instantly advance, reward the speedrunners.
+    if (score >= cfg.target) {
+      setLastPassed(true);
+      setLastScore(score + timer * 5); // bonus for time remaining
+      setPhase('complete');
+      onComplete(true, score + timer * 5, { level });
+      return undefined;
+    }
     if (timer <= 0) {
-      const passed = score >= cfg.target;
-      setLastPassed(passed);
+      setLastPassed(false);
       setLastScore(score);
       setPhase('complete');
-      onComplete(passed, score, { level });
+      onComplete(false, score, { level });
       return undefined;
     }
     const t = setTimeout(() => setTimer((p) => p - 1), 1000);
     return () => clearTimeout(t);
-  }, [phase, started, timer, score, cfg.target, onComplete]);
+  }, [phase, started, timer, score, cfg.target, onComplete, level]);
 
   const reset = () => {
     setBubbles(Array.from({ length: cfg.count }, (_, i) => makeBubble(i, cfg.bombProb)));

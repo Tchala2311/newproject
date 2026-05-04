@@ -16,13 +16,10 @@ type Props = {
 type State = 'idle' | 'waiting' | 'go' | 'tooEarly';
 
 // Level config: rounds and target avg ms.
-const LEVEL_CFG = (level: number) => {
-  if (level === 1) return { rounds: 3, targetMs: 380 };
-  if (level === 2) return { rounds: 4, targetMs: 340 };
-  if (level === 3) return { rounds: 5, targetMs: 300 };
-  if (level === 4) return { rounds: 5, targetMs: 270 };
-  return { rounds: 6, targetMs: 240 };
-};
+const LEVEL_CFG = (level: number) => ({
+  rounds: Math.min(8, 2 + level),
+  targetMs: Math.max(180, 400 - level * 25),
+});
 
 export function Reflex333({ game, onBack, onComplete, initialLevel }: Props) {
   const [level, setLevel] = useState(initialLevel ?? 1);

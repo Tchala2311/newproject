@@ -19,13 +19,10 @@ const ALL_COLORS = ['#FF4D7A', '#3B82F6', '#22C55E', '#FACC15', '#A855F7', '#F97
 type Tube = string[];
 
 // (colors, buffers): higher levels = more colors, fewer empty buffer tubes.
-const LEVEL_CFG = (level: number) => {
-  if (level === 1) return { colorCount: 4, buffers: 2 };
-  if (level === 2) return { colorCount: 5, buffers: 2 };
-  if (level === 3) return { colorCount: 6, buffers: 2 };
-  if (level === 4) return { colorCount: 6, buffers: 1 };
-  return { colorCount: 7, buffers: 1 };
-};
+const LEVEL_CFG = (level: number) => ({
+  colorCount: Math.min(7, 3 + level),
+  buffers: level >= 4 ? 1 : 2,
+});
 
 function makeBoard(colorCount: number, buffers: number): Tube[] {
   const palette = ALL_COLORS.slice(0, colorCount);
