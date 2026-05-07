@@ -409,3 +409,112 @@ create policy "ach_insert_self" on public.user_achievements
 drop policy if exists "ach_delete_self" on public.user_achievements;
 create policy "ach_delete_self" on public.user_achievements
   for delete using (auth.uid() = user_id);
+
+-- ============================================================================
+-- v3 additions: creator_follows, daily_challenges, daily_scores, not_interested
+-- ============================================================================
+
+-- ---------- creator_follows -------------------------------------------------
+-- Users follow creators by handle (creators are seeded in code, not always
+-- profile rows). This is what the Following tab actually uses.
+create table if not exists public.creator_follows (
+  user_id        uuid not null references public.profiles(id) on delete cascade,
+  creator_handle text not null,
+  created_at     timestamptz not null default now(),
+  primary key (user_id, creator_handle)
+);
+
+create index if not exists creator_follows_handle_idx
+  on public.creator_follows (creator_handle);
+
+alter table public.creator_follows enable row level security;
+
+drop policy if exists "cfollows_read_all" on public.creator_follows;
+create policy "cfollows_read_all" on public.creator_follows for select using (true);
+
+drop policy if exists "cfollows_insert_self" on public.creator_follows;
+create policy "cfollows_insert_self" on public.creator_follows
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "cfollows_delete_self" on public.creator_follows;
+create policy "cfollows_delete_self" on public.creator_follows
+  for delete using (auth.uid() = user_id);
+
+-- Followers count per creator (cheap aggregate) — public.
+create or replace function public.creator_follower_count(handle text)
+returns bigint
+language sql stable as $$
+  select count(*)::bigint from public.creator_follows where creator_handle = handle;
+$$;
+
+grant execute on function public.creator_follower_count(text) to anon, authenticated;
+
+-- ---------- not_interested --------------------------------------------------
+-- Long-press → "Не интересно". Strong negative signal for the ranker.
+create table if not exists public.not_interested (
+  user_id    uuid not null references public.profiles(id) on delete cascade,
+  game_id    int  not null,
+  created_at timestamptz not null default now(),
+  primary key (user_id, game_id)
+);
+
+alter table public.not_interested enable row level security;
+
+drop policy if exists "ni_read_self" on public.not_interested;
+create policy "ni_read_self" on public.not_interested
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "ni_write_self" on public.not_interested;
+create policy "ni_write_self" on public.not_interested
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "ni_delete_self" on public.not_interested;
+create policy "ni_delete_self" on public.not_interested
+  for delete using (auth.uid() = user_id);
+
+-- ---------- daily_scores ----------------------------------------------------
+-- Per (user, day, game) best score. Powers the daily challenge leaderboard.
+create table if not exists public.daily_scores (
+  user_id    uuid not null references public.profiles(id) on delete cascade,
+  day        date not null default current_date,
+  game_id    int  not null,
+  score      int  not null,
+  created_at timestamptz not null default now(),
+  primary key (user_id, day, game_id)
+);
+
+create index if not exists daily_scores_day_game_idx
+  on public.daily_scores (day, game_id, score desc);
+
+alter table public.daily_scores enable row level security;
+
+drop policy if exists "dscores_read_all" on public.daily_scores;
+create policy "dscores_read_all" on public.daily_scores for select using (true);
+
+drop policy if exists "dscores_write_self" on public.daily_scores;
+create policy "dscores_write_self" on public.daily_scores
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "dscores_update_self" on public.daily_scores;
+create policy "dscores_update_self" on public.daily_scores
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Top-N leaderboard for today's challenge (public).
+create or replace function public.daily_leaderboard(p_game_id int, p_day date default current_date, p_limit int default 50)
+returns table(user_id uuid, handle text, display_name text, avatar_color text, score int, rank int)
+language sql stable as $$
+  select
+    s.user_id,
+    p.handle,
+    p.display_name,
+    p.avatar_color,
+    s.score,
+    (rank() over (order by s.score desc))::int as rank
+  from public.daily_scores s
+  join public.profiles p on p.id = s.user_id
+  where s.game_id = p_game_id and s.day = p_day
+  order by s.score desc
+  limit p_limit;
+$$;
+
+grant execute on function public.daily_leaderboard(int, date, int) to anon, authenticated;

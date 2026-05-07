@@ -20,7 +20,7 @@ type ProfileTab = 'recent' | 'saved' | 'liked';
 
 export function ProfileScreen({ onPlay, bottomInset }: Props) {
   const { likes, saves } = usePrefs();
-  const { user, follows, signOut } = useUser();
+  const { user, follows, signOut, followerCount } = useUser();
   const { unlocked } = useAchievements();
   const insets = useSafeAreaInsets();
   const SAFE_TOP = Math.max(insets.top, 14) + 8;
@@ -75,7 +75,7 @@ export function ProfileScreen({ onPlay, bottomInset }: Props) {
           </Text>
           <View style={{ flexDirection: 'row', gap: 18, marginTop: 6 }}>
             <Stat n={followCount} l="Подписки" />
-            <Stat n={0} l="Подписчики" />
+            <Stat n={followerCount} l="Подписчики" />
             <Stat n={likedGames.length} l="Лайки" />
           </View>
           <Pressable

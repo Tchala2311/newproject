@@ -21,8 +21,13 @@ Without Supabase env vars configured, the app will throw on launch.
 ### 2. Run the schema
 - In your project, open **SQL Editor → New query**
 - Paste the entire contents of `supabase/schema.sql`
-- Click **Run**. It creates tables (profiles, follows, likes, saves, comments,
-  events) with Row Level Security policies that protect every row.
+- Click **Run**. It creates tables (profiles, follows, creator_follows, likes,
+  saves, comments, events, feed_impressions, daily_scores, not_interested,
+  game_progress, user_achievements) with Row Level Security policies that
+  protect every row.
+- **If you already ran the schema before**, the new bottom section (after
+  `-- v3 additions`) is safe to re-run on top — it uses `IF NOT EXISTS` and
+  `DROP POLICY IF EXISTS` so it won't conflict with existing rows or policies.
 
 ### 3. Configure email auth
 - **Authentication → Providers → Email**: enable, leave "Confirm email" ON
@@ -46,6 +51,49 @@ backend job; never put it anywhere in this app.
 
 `.env` is git-ignored. Only `.env.example` (with placeholder values) is
 committed.
+
+---
+
+## Sharing the build with testers anywhere (any phone, any network)
+
+Three options, listed cheapest → polished.
+
+### Option A — Tunnel link (instant, free)
+
+```bash
+npm run tunnel
+```
+
+Copy the QR (or `exp://u.expo.dev/...` URL) and send it via Telegram or
+WhatsApp. Anyone with **Expo Go** installed can open it from any network
+worldwide. **Only lives while your laptop is on.**
+
+### Option B — EAS Build + EAS Update (recommended for sustained testing)
+
+```bash
+npm install -g eas-cli
+eas login
+npm run eas:init        # one-time: creates the project on Expo's servers
+npm run eas:build:dev   # builds a real iOS / Android dev client
+npm run eas:update      # later: push JS-only OTA updates without rebuilding
+```
+
+Send the build link to testers. They install once; future code changes arrive
+automatically. `eas.json` is preconfigured with three profiles:
+
+| Profile | Distribution | Use for |
+|---|---|---|
+| `development` | Internal | Day-to-day debugging on real devices |
+| `preview` | Internal (APK / IPA) | Closed beta, no app stores |
+| `production` | Store-ready | TestFlight / RuStore submission |
+
+The Supabase env vars are wired through `eas.json` so cloud builds pick them
+up automatically as long as your local `.env` is set when you trigger the build.
+
+### Option C — TestFlight / RuStore (public-ish beta)
+
+For iOS: `eas submit -p ios --profile production` after a production build →
+runs through App Store Connect → invite testers via TestFlight.
 
 ---
 

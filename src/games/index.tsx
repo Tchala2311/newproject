@@ -22,6 +22,9 @@ import { TetrisMini } from './TetrisMini';
 import { logEvent } from '../store/events';
 import { ResumePrompt } from '../components/ResumePrompt';
 import { useAchievements } from '../store/useAchievements';
+import { useUser } from '../store/useUser';
+import { getDailyChallenge } from '../lib/dailyChallenge';
+import { supabase } from '../lib/supabase';
 
 type Props = {
   game: Game;
@@ -30,6 +33,7 @@ type Props = {
 
 export function GamePlayScreen({ game, onBack }: Props) {
   const { getResumeFor, clearResume, report } = useAchievements();
+  const { user } = useUser();
   const resume = getResumeFor(game.id);
   const [decision, setDecision] = useState<'pending' | 'continue' | 'restart'>(resume ? 'pending' : 'restart');
   const [initialLevel, setInitialLevel] = useState<number>(1);
@@ -64,6 +68,34 @@ export function GamePlayScreen({ game, onBack }: Props) {
     logEvent({ type: 'complete', gameId: game.id, meta: { won: won ? 1 : 0, score, ...meta } });
     if (meta?.level !== undefined) {
       report({ type: 'level-complete', game, level: meta.level, passed: won, score, meta });
+    }
+    // If this is the daily challenge game, push to the daily leaderboard —
+    // but only if it beats the user's existing best for today.
+    const daily = getDailyChallenge();
+    if (won && user && game.id === daily.game.id && score > 0) {
+      (async () => {
+        try {
+          const { data: existing } = await supabase
+            .from('daily_scores')
+            .select('score')
+            .eq('user_id', user.id)
+            .eq('day', daily.day)
+            .eq('game_id', game.id)
+            .maybeSingle();
+          const prev = (existing as any)?.score ?? 0;
+          if (score > prev) {
+            const { error } = await supabase
+              .from('daily_scores')
+              .upsert(
+                { user_id: user.id, day: daily.day, game_id: game.id, score },
+                { onConflict: 'user_id,day,game_id' }
+              );
+            if (error) console.warn('daily score upsert failed', error.message);
+          }
+        } catch (e) {
+          console.warn('daily score check failed', e);
+        }
+      })();
     }
   };
 

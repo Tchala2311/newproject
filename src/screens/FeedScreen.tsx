@@ -16,14 +16,17 @@ import { GameCard } from '../components/GameCard';
 import { AdSlot } from '../components/AdSlot';
 import { CommentsSheet } from '../components/CommentsSheet';
 import { FeedSkeleton } from '../components/FeedSkeleton';
+import { DailyChallengeBanner } from '../components/DailyChallengeBanner';
 import { useLofi } from '../audio/LofiContext';
 import { usePrefs } from '../store/usePrefs';
 import { useUser } from '../store/useUser';
 import { useAchievements } from '../store/useAchievements';
+import { useNotInterested } from '../store/useNotInterested';
 import { logEvent } from '../store/events';
 import { fontFamily } from '../theme';
 import { getRankedFeed, logImpression, markEngaged } from '../lib/recommender';
 import type { FeedItem } from '../lib/recommender/mixer';
+import { getDailyChallenge } from '../lib/dailyChallenge';
 
 type Props = {
   onPlay: (game: Game) => void;
@@ -59,24 +62,34 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
   const { likes, saves, toggleLike, toggleSave } = usePrefs();
   const { user, follows } = useUser();
   const { report } = useAchievements();
+  const { notInterested, markNotInterested } = useNotInterested();
 
   const [tab, setTab] = useState<FeedTab>('forYou');
   const [commentsFor, setCommentsFor] = useState<Game | null>(null);
   const [forYouItems, setForYouItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const listRef = useRef<FlatList<FeedItem>>(null);
   const loggedImpressions = useRef<Set<number>>(new Set());
 
-  const buildFeed = useCallback(async () => {
+  const dailyChallenge = useMemo(() => getDailyChallenge(), []);
+
+  const buildFeed = useCallback(async (nonce = 0) => {
     try {
-      const res = await getRankedFeed({ userId: user?.id ?? null, followsLocal: follows, targetLength: 22 });
+      const res = await getRankedFeed({
+        userId: user?.id ?? null,
+        followsLocal: follows,
+        notInterestedLocal: notInterested,
+        targetLength: 22,
+        refreshNonce: nonce,
+      });
       setForYouItems(res.items);
     } catch (e) {
       console.warn('recommender failed, falling back to catalog order', e);
       setForYouItems(buildSimpleFeed(GAMES));
     }
-  }, [user?.id, follows]);
+  }, [user?.id, follows, notInterested]);
 
   const followingGames = useMemo(
     () => GAMES.filter((g) => follows[g.creator.handle]),
@@ -90,19 +103,26 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    buildFeed().finally(() => { if (!cancelled) setLoading(false); });
+    buildFeed(0).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [user?.id]);
 
-  // Pull-to-refresh handler — Reels/TikTok-style.
+  // Pull-to-refresh handler — Reels/TikTok-style. Re-runs the ranker with a
+  // fresh nonce so ordering visibly changes, scrolls to top, and fires a
+  // success haptic + toast so it's obvious the feed updated.
   const onRefresh = useCallback(async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     setRefreshing(true);
     loggedImpressions.current.clear();
-    await buildFeed();
+    const nonce = Date.now();
+    setRefreshNonce(nonce);
+    await buildFeed(nonce);
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+    setFeedIdx(0);
     setRefreshing(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-  }, [buildFeed]);
+    onToast('🎉 Лента обновлена');
+  }, [buildFeed, onToast, setFeedIdx]);
 
   const followingItems = useMemo<FeedItem[]>(() => buildSimpleFeed(followingGames), [followingGames]);
   const items = tab === 'forYou' ? forYouItems : followingItems;
@@ -122,7 +142,15 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
 
   const handleShare = useCallback(async (game: Game) => {
     try {
-      await Share.share({ message: `Зацени «${game.name}» в Луп — ${game.tagline}` });
+      // Include a deep link that resolves to the game (for v3 deep-link routing).
+      // For now share text with a `loop://` URL fragment that the receiving
+      // app — once installed — can intercept. Without an installed app it's
+      // just a recognisable token in the message that links back via app.json
+      // scheme on first launch.
+      const link = `loop://game/${game.slug}`;
+      await Share.share({
+        message: `Зацени «${game.name}» в Луп — ${game.tagline}\n${link}`,
+      });
       logEvent({ type: 'share', gameId: game.id });
       markEngaged(user?.id ?? null, game.id);
     } catch {
@@ -151,12 +179,18 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
     report({ type: 'comment' });
   }, [user?.id, report]);
 
+  const handleNotInterested = useCallback((game: Game) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    markNotInterested(game.id);
+    onToast('Не покажем больше 👌');
+    logEvent({ type: 'skip', gameId: game.id });
+    // Remove from current feed immediately so user sees instant feedback;
+    // the next refresh will rebuild from scratch with the negative weight.
+    setForYouItems((prev) => prev.filter((it) => it.type === 'ad' || it.game.id !== game.id));
+  }, [markNotInterested, onToast]);
+
   const switchTab = (next: FeedTab) => {
     if (next === tab) return;
-    if (next === 'following' && followingGames.length === 0) {
-      onToast('Подпишись на авторов в онбординге');
-      return;
-    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     setTab(next);
     setFeedIdx(0);
@@ -169,33 +203,38 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
         return <AdSlot height={height} bottomInset={bottomInset} index={item.adIdx} />;
       }
       const g = item.game;
+      const isDailyChallenge = g.id === dailyChallenge.game.id && index === 0 && tab === 'forYou';
       return (
-        <GameCard
-          game={g}
-          isActive={index === feedIdx}
-          onPlay={() => {
-            logEvent({ type: 'play', gameId: g.id });
-            markEngaged(user?.id ?? null, g.id);
-            onPlay(g);
-          }}
-          liked={!!likes[g.id]}
-          onLike={() => handleLike(g)}
-          saved={!!saves[g.id]}
-          onSave={() => handleSave(g)}
-          onShare={() => handleShare(g)}
-          onComment={() => handleComment(g)}
-          commentsCount={g.comments}
-          creator={g.creator}
-          onCreatorPress={() => onOpenCreator(g.creator)}
-          musicPlaying={playing}
-          trackName={trackName}
-          onMusicToggle={toggle}
-          onNextTrack={nextTrack}
-          bottomInset={bottomInset}
-        />
+        <View>
+          <GameCard
+            game={g}
+            isActive={index === feedIdx}
+            onPlay={() => {
+              logEvent({ type: 'play', gameId: g.id });
+              markEngaged(user?.id ?? null, g.id);
+              onPlay(g);
+            }}
+            liked={!!likes[g.id]}
+            onLike={() => handleLike(g)}
+            saved={!!saves[g.id]}
+            onSave={() => handleSave(g)}
+            onShare={() => handleShare(g)}
+            onComment={() => handleComment(g)}
+            onNotInterested={() => handleNotInterested(g)}
+            commentsCount={g.comments}
+            creator={g.creator}
+            onCreatorPress={() => onOpenCreator(g.creator)}
+            musicPlaying={playing}
+            trackName={trackName}
+            onMusicToggle={toggle}
+            onNextTrack={nextTrack}
+            bottomInset={bottomInset}
+          />
+          {isDailyChallenge ? <DailyChallengeBanner game={g} /> : null}
+        </View>
       );
     },
-    [feedIdx, height, bottomInset, likes, saves, playing, trackName, toggle, nextTrack, onPlay, handleLike, handleSave, handleShare, onOpenCreator, user?.id]
+    [feedIdx, height, bottomInset, likes, saves, playing, trackName, toggle, nextTrack, onPlay, handleLike, handleSave, handleShare, handleComment, handleNotInterested, onOpenCreator, user?.id, dailyChallenge.game.id, tab]
   );
 
   return (
@@ -205,7 +244,7 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
       <FlatList
         ref={listRef}
         data={items}
-        keyExtractor={(it, idx) => (it.type === 'ad' ? it.key : `g-${it.game.id}-${idx}`)}
+        keyExtractor={(it, idx) => (it.type === 'ad' ? it.key : `g-${it.game.id}-${idx}-${refreshNonce}`)}
         renderItem={renderItem}
         pagingEnabled
         snapToInterval={height}
@@ -227,6 +266,8 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
               tintColor="#fff"
               colors={['#C99FE6']}
               progressBackgroundColor="#13122A"
+              title="Тяни вниз чтобы обновить"
+              titleColor="rgba(255,255,255,0.7)"
             />
           ) : undefined
         }
@@ -251,13 +292,28 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
       </View>
 
       {tab === 'following' && items.length === 0 ? (
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 16, fontFamily: fontFamily.bold, color: '#fff', marginBottom: 6 }}>
-            Лента подписок пуста
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 }}>
+          <Text style={{ fontSize: 56, marginBottom: 12 }}>👥</Text>
+          <Text style={{ fontSize: 18, fontFamily: fontFamily.bold, color: '#fff', marginBottom: 6 }}>
+            Подписок пока нет
           </Text>
-          <Text style={{ fontSize: 13, fontFamily: fontFamily.medium, color: 'rgba(255,255,255,0.55)' }}>
-            Открой Профиль и подпишись на авторов
+          <Text style={{ fontSize: 13, fontFamily: fontFamily.medium, color: 'rgba(255,255,255,0.6)', textAlign: 'center', lineHeight: 20 }}>
+            Тапни по аватарке любого автора в ленте «Для тебя» чтобы подписаться. Их игры появятся здесь.
           </Text>
+          <Pressable
+            onPress={() => switchTab('forYou')}
+            style={{
+              marginTop: 18,
+              paddingHorizontal: 22,
+              paddingVertical: 11,
+              borderRadius: 999,
+              backgroundColor: '#C99FE6',
+            }}
+          >
+            <Text style={{ fontSize: 13, fontFamily: fontFamily.bold, color: '#000' }}>
+              Открыть «Для тебя»
+            </Text>
+          </Pressable>
         </View>
       ) : null}
 

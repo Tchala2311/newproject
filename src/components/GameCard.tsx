@@ -21,6 +21,7 @@ type Props = {
   onSave: () => void;
   onShare: () => void;
   onComment?: () => void;
+  onNotInterested?: () => void;
   commentsCount?: string;
   creator?: { handle: string; avatar?: string };
   onCreatorPress?: () => void;
@@ -43,6 +44,7 @@ export function GameCard({
   onSave,
   onShare,
   onComment,
+  onNotInterested,
   commentsCount,
   creator,
   onCreatorPress,
@@ -139,9 +141,15 @@ export function GameCard({
         <BgPattern type={game.patternType} accent={game.accent} />
       </View>
 
-      {/* Tap-to-play / double-tap-to-like overlay covers card body */}
+      {/* Tap-to-play / double-tap-to-like / long-press-to-not-interested overlay */}
       <Pressable
         onPress={handleCardTap}
+        onLongPress={() => {
+          if (!onNotInterested) return;
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+          onNotInterested();
+        }}
+        delayLongPress={550}
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
       />
 

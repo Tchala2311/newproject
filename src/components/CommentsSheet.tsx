@@ -93,8 +93,10 @@ export function CommentsSheet({ visible, onClose, game, onOpenCreator }: Props) 
         .limit(200);
       if (cancelled) return;
       if (error) {
-        console.warn('comments fetch failed', error.message);
+        console.warn('comments fetch failed', error.message, error.details, error.hint);
         setComments([]);
+        setLoading(false);
+        return;
       } else {
         // Supabase returns profile as array OR object depending on relation type;
         // normalize to single object
@@ -266,9 +268,15 @@ export function CommentsSheet({ visible, onClose, game, onOpenCreator }: Props) 
                       Загружаем…
                     </Text>
                   ) : comments.length === 0 ? (
-                    <Text style={{ textAlign: 'center', color: colors.textDim, fontSize: 13, fontFamily: fontFamily.medium, marginTop: 40 }}>
-                      Будь первым 🎤
-                    </Text>
+                    <View style={{ alignItems: 'center', marginTop: 56, paddingHorizontal: 20 }}>
+                      <Text style={{ fontSize: 48, marginBottom: 8 }}>🎤</Text>
+                      <Text style={{ fontSize: 16, fontFamily: fontFamily.bold, color: '#fff', marginBottom: 6 }}>
+                        Пока тихо
+                      </Text>
+                      <Text style={{ fontSize: 12, fontFamily: fontFamily.medium, color: colors.textDim, textAlign: 'center', lineHeight: 18 }}>
+                        Будь первым, кто оставит комментарий к этой игре
+                      </Text>
+                    </View>
                   ) : (
                     comments.map((c) => (
                       <CommentRowView

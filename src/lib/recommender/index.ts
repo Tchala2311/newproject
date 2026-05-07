@@ -19,7 +19,12 @@ import { assembleFeed, FeedItem } from './mixer';
 export type FeedRequest = {
   userId: string | null;
   followsLocal: Record<string, boolean>;
+  notInterestedLocal?: Record<number, boolean>;
   targetLength?: number;
+  // Refresh nonce — increments on pull-to-refresh. Adds light jitter to scores
+  // so the user sees a *visibly* different feed when they pull, even when no
+  // backend signal has changed. (TikTok / Reels behaviour.)
+  refreshNonce?: number;
 };
 
 export type FeedResult = {
@@ -29,9 +34,9 @@ export type FeedResult = {
 };
 
 export async function getRankedFeed(req: FeedRequest): Promise<FeedResult> {
-  const { userId, followsLocal, targetLength = 20 } = req;
+  const { userId, followsLocal, notInterestedLocal = {}, targetLength = 20, refreshNonce = 0 } = req;
 
-  const profile = await buildUserProfile(userId, followsLocal);
+  const profile = await buildUserProfile(userId, followsLocal, notInterestedLocal);
   const signals = await fetchSignals();
 
   // Cold-start path: no behavioral data → diversified curated catalog,
@@ -66,6 +71,15 @@ export async function getRankedFeed(req: FeedRequest): Promise<FeedResult> {
 
   const ranked = [...merged.values()]
     .map(({ game, sources }) => rankCandidate(game, sources, profile));
+
+  // Refresh jitter: small random perturbation that shuffles ties + the middle
+  // of the ranking so consecutive refreshes feel fresh. The top 1–2 items stay
+  // largely stable so the user's actual best matches still surface.
+  if (refreshNonce > 0) {
+    for (const r of ranked) {
+      r.total += (Math.random() - 0.5) * 0.6;
+    }
+  }
 
   return { items: assembleFeed(ranked, targetLength), profile, ranked };
 }

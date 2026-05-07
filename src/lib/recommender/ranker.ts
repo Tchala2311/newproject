@@ -22,6 +22,7 @@ export const W = {
   priorAffinity: 0.4,        // already liked this game — show again with less weight
   matchPrior: 0.3,           // hand-curated match% as a tie-breaker
   recencyPenalty: -0.6,      // per-impression penalty (last 24h)
+  notInterested: -1000,      // long-press → "Не интересно" — effectively banished
   diversityCarry: 0,         // mutated by mixer at assemble time
 } as const;
 
@@ -54,6 +55,12 @@ export function rankCandidate(
   // Recency penalty: how often we've shown this game in the last 24h.
   const recent = profile.recentImpressions.get(game.id) ?? 0;
   parts.recencyPenalty = W.recencyPenalty * recent;
+
+  // Hard suppression for "Не интересно". Large negative weight so the game
+  // sinks to the bottom regardless of any positive signals.
+  if (profile.notInterested.has(game.id)) {
+    parts.notInterested = W.notInterested;
+  }
 
   const total = Object.values(parts).reduce((s, v) => s + v, 0);
 

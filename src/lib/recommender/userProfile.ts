@@ -37,6 +37,9 @@ export type UserProfile = {
   following: Set<string>;
   // Recent impressions (game_id -> count) for repeat penalty
   recentImpressions: Map<number, number>;
+  // Set of game IDs the user has explicitly marked "Не интересно" — strong
+  // negative ranker weight so we suppress them aggressively.
+  notInterested: Set<number>;
   // Cold-start indicator
   isColdStart: boolean;
 };
@@ -72,9 +75,13 @@ function normalizeVec(v: GameFeatureVector) {
 
 export async function buildUserProfile(
   userId: string | null,
-  followsLocal: Record<string, boolean>
+  followsLocal: Record<string, boolean>,
+  notInterestedLocal: Record<number, boolean> = {}
 ): Promise<UserProfile> {
   const following = new Set<string>(Object.entries(followsLocal).filter(([, v]) => v).map(([k]) => k));
+  const notInterested = new Set<number>(
+    Object.entries(notInterestedLocal).filter(([, v]) => v).map(([k]) => Number(k))
+  );
 
   if (!userId) {
     return {
@@ -83,18 +90,25 @@ export async function buildUserProfile(
       contentVector: null,
       following,
       recentImpressions: new Map(),
+      notInterested,
       isColdStart: true,
     };
   }
 
   // Fetch all engagement signals in parallel.
-  const [likesRes, savesRes, commentsRes, eventsRes, impressionsRes] = await Promise.all([
+  const [likesRes, savesRes, commentsRes, eventsRes, impressionsRes, niRes] = await Promise.all([
     supabase.from('likes').select('game_id, created_at').eq('user_id', userId),
     supabase.from('saves').select('game_id, created_at').eq('user_id', userId),
     supabase.from('comments').select('game_id, created_at').eq('user_id', userId),
     supabase.from('events').select('game_id, type, meta, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(500),
     supabase.rpc('recent_impressions_for_user', { uid: userId, hours: 24 }),
+    supabase.from('not_interested').select('game_id').eq('user_id', userId),
   ]);
+
+  // Merge DB not_interested with local cache
+  for (const r of (niRes.data ?? []) as Array<{ game_id: number }>) {
+    notInterested.add(r.game_id);
+  }
 
   const perGame = new Map<number, number>();
   const contentVec = zeroVec();
@@ -144,6 +158,7 @@ export async function buildUserProfile(
     contentVector: totalWeight > 0 ? contentVec : null,
     following,
     recentImpressions,
+    notInterested,
     isColdStart: totalSignals < 5,
   };
 }

@@ -26,6 +26,7 @@ import { LofiProvider } from './src/audio/LofiContext';
 import { PrefsProvider } from './src/store/usePrefs';
 import { UserProvider, useUser } from './src/store/useUser';
 import { AchievementsProvider, useAchievements } from './src/store/useAchievements';
+import { NotInterestedProvider } from './src/store/useNotInterested';
 import { Game, Creator } from './src/data/games';
 import { colors } from './src/theme';
 import { AchievementToast } from './src/components/AchievementToast';
@@ -148,12 +149,14 @@ export default function App() {
       <SafeAreaProvider>
         <UserProvider>
           <PrefsProvider>
-            <AchievementsProvider>
-              <LofiProvider>
-                <StatusBar style="light" />
-                <Gate />
-              </LofiProvider>
-            </AchievementsProvider>
+            <NotInterestedProvider>
+              <AchievementsProvider>
+                <LofiProvider>
+                  <StatusBar style="light" />
+                  <Gate />
+                </LofiProvider>
+              </AchievementsProvider>
+            </NotInterestedProvider>
           </PrefsProvider>
         </UserProvider>
       </SafeAreaProvider>

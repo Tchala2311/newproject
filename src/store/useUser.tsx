@@ -27,9 +27,11 @@ type State = {
   setUser: (u: { handle: string; displayName: string; avatarColor: string; bio?: string }) => Promise<{ ok: true } | { ok: false; error: string }>;
   updateUser: (patch: Partial<Pick<User, 'displayName' | 'avatarColor' | 'bio'>>) => Promise<void>;
 
-  // follows (still local-only for now; v2 wires to public.follows)
+  // follows: creator-handle based, persisted to public.creator_follows.
+  // Local cache (AsyncStorage) gives instant UI; DB sync happens on every toggle.
   follows: Record<string, boolean>;
   toggleFollow: (handle: string) => void;
+  followerCount: number;
 
   pickAvatarColor: () => string;
 };
@@ -52,6 +54,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUserState] = useState<User | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [follows, setFollows] = useState<Record<string, boolean>>({});
+  const [followerCount, setFollowerCount] = useState(0);
 
   // Bootstrap session
   useEffect(() => {
@@ -97,7 +100,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; };
   }, [session?.user?.id]);
 
-  // Follows — still local for now
+  // Follows: hydrate from local cache instantly, then reconcile with DB.
+  // Toggles write to both immediately (local optimistic update + DB upsert/delete).
   useEffect(() => {
     AsyncStorage.getItem(FOLLOWS_KEY).then((f) => {
       if (f) try { setFollows(JSON.parse(f)); } catch {}
@@ -106,6 +110,58 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     AsyncStorage.setItem(FOLLOWS_KEY, JSON.stringify(follows)).catch(() => {});
   }, [follows]);
+
+  // When user logs in, fetch real follows from DB and merge with any local
+  // follows (e.g. ones picked during onboarding before DB write succeeded).
+  useEffect(() => {
+    if (!session?.user) return;
+    let cancelled = false;
+    (async () => {
+      const uid = session.user.id;
+      // Read user's followed creators
+      const { data, error } = await supabase
+        .from('creator_follows')
+        .select('creator_handle')
+        .eq('user_id', uid);
+      if (!cancelled && !error && data) {
+        const dbFollows: Record<string, boolean> = {};
+        for (const r of data as Array<{ creator_handle: string }>) {
+          dbFollows[r.creator_handle] = true;
+        }
+        // Backfill: if local has follows that DB doesn't, push them up so the
+        // user doesn't lose anything they did pre-login.
+        setFollows((prev) => {
+          const merged = { ...dbFollows };
+          const toBackfill: string[] = [];
+          for (const [h, on] of Object.entries(prev)) {
+            if (on && !dbFollows[h]) {
+              merged[h] = true;
+              toBackfill.push(h);
+            }
+          }
+          if (toBackfill.length) {
+            supabase
+              .from('creator_follows')
+              .upsert(toBackfill.map((h) => ({ user_id: uid, creator_handle: h })))
+              .then(({ error: e }) => { if (e) console.warn('follow backfill failed', e.message); });
+          }
+          return merged;
+        });
+      }
+      // Followers count = how many people follow you (by your own handle)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('handle')
+        .eq('id', uid)
+        .maybeSingle();
+      if (!cancelled && profile?.handle) {
+        const { data: cnt } = await supabase
+          .rpc('creator_follower_count', { handle: (profile as any).handle });
+        if (!cancelled && typeof cnt === 'number') setFollowerCount(cnt);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [session?.user?.id]);
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
@@ -153,8 +209,29 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, [session?.user?.id, user]);
 
   const toggleFollow = useCallback((handle: string) => {
-    setFollows((prev) => ({ ...prev, [handle]: !prev[handle] }));
-  }, []);
+    setFollows((prev) => {
+      const isOn = !!prev[handle];
+      const next = { ...prev, [handle]: !isOn };
+      // Sync to DB if signed in (fire-and-forget; local state is the truth
+      // for snappy UI).
+      if (session?.user) {
+        const uid = session.user.id;
+        if (isOn) {
+          supabase
+            .from('creator_follows')
+            .delete()
+            .match({ user_id: uid, creator_handle: handle })
+            .then(({ error }) => { if (error) console.warn('unfollow failed', error.message); });
+        } else {
+          supabase
+            .from('creator_follows')
+            .upsert({ user_id: uid, creator_handle: handle })
+            .then(({ error }) => { if (error) console.warn('follow failed', error.message); });
+        }
+      }
+      return next;
+    });
+  }, [session?.user?.id]);
 
   const pickAvatarColor = useCallback(() => {
     return AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
@@ -171,9 +248,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       updateUser,
       follows,
       toggleFollow,
+      followerCount,
       pickAvatarColor,
     }),
-    [session, authLoading, signOut, user, hydrated, setUser, updateUser, follows, toggleFollow, pickAvatarColor]
+    [session, authLoading, signOut, user, hydrated, setUser, updateUser, follows, toggleFollow, followerCount, pickAvatarColor]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
