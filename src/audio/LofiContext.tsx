@@ -12,11 +12,11 @@ import { createAudioPlayer, setAudioModeAsync, AudioPlayer, AudioSource } from '
 type Track = { name: string; source: AudioSource | null };
 
 const TRACKS: Track[] = [
-  { name: 'Полночный лофи', source: null /* require('../../assets/lofi/midnight.mp3') */ },
-  { name: 'Поезд в метро', source: null /* require('../../assets/lofi/subway.mp3') */ },
-  { name: 'Дождь и вайб', source: null /* require('../../assets/lofi/rain.mp3') */ },
-  { name: 'Спокойный поток', source: null /* require('../../assets/lofi/flow.mp3') */ },
-  { name: 'Утренний кофе', source: null /* require('../../assets/lofi/coffee.mp3') */ },
+  { name: 'I Can\'t Take My Eyes Out of You · BarradeenLofi', source: require('../../assets/lofi/barradeen-i-cant-take-my-eyes-out-of-you.mp3') },
+  { name: 'I Fell in Love with a Girl · Barradeen', source: require('../../assets/lofi/barradeen-i-fell-in-love-with-a-girl.mp3') },
+  { name: 'The Girl I Haven\'t Met · Barradeen', source: require('../../assets/lofi/barradeen-the-girl-i-havent-met.mp3') },
+  { name: 'Intermezzo · Friendzoned', source: require('../../assets/lofi/friendzoned-intermezzo.mp3') },
+  { name: 'Subtle Break · Ghostrifter', source: require('../../assets/lofi/ghostrifter-subtle-break.mp3') },
 ];
 
 type LofiState = {
@@ -33,17 +33,20 @@ export function LofiProvider({ children }: { children: React.ReactNode }) {
   const [trackIdx, setTrackIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
   const playerRef = useRef<AudioPlayer | null>(null);
+  const audioModeReady = useRef<Promise<void> | null>(null);
 
   const hasAudio = TRACKS.some((t) => t.source !== null);
 
   useEffect(() => {
-    setAudioModeAsync({
+    audioModeReady.current = setAudioModeAsync({
       playsInSilentMode: true,
       shouldPlayInBackground: true,
-      interruptionMode: 'mixWithOthers',
-    }).catch(() => {});
+      interruptionMode: 'doNotMix',
+    }).catch((e) => {
+      console.warn('audio mode setup failed', e);
+    });
     return () => {
-      playerRef.current?.release();
+      try { playerRef.current?.release(); } catch {}
       playerRef.current = null;
     };
   }, []);
@@ -52,13 +55,17 @@ export function LofiProvider({ children }: { children: React.ReactNode }) {
     const track = TRACKS[idx];
     if (!track?.source) return false;
     try {
+      // Make sure the iOS audio session is configured before we touch a player.
+      if (audioModeReady.current) await audioModeReady.current;
       if (playerRef.current) {
-        playerRef.current.release();
+        try { playerRef.current.release(); } catch {}
         playerRef.current = null;
       }
       const player = createAudioPlayer(track.source);
       player.loop = true;
-      player.volume = 0.7;
+      player.volume = 1.0;
+      // Some Expo builds need a tick before play() lands.
+      await new Promise((r) => setTimeout(r, 50));
       player.play();
       playerRef.current = player;
       return true;

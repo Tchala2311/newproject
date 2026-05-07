@@ -1,55 +1,122 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../lib/supabase';
+import { useUser } from './useUser';
 
-const LIKES_KEY = 'loop:likes:v1';
-const SAVES_KEY = 'loop:saves:v1';
+const LIKES_CACHE = 'loop:likes:cache:v2';
+const SAVES_CACHE = 'loop:saves:cache:v2';
 
 type IDMap = Record<number, boolean>;
 
 type PrefsState = {
   likes: IDMap;
   saves: IDMap;
+  hydrated: boolean;
   toggleLike: (id: number) => void;
   toggleSave: (id: number) => void;
 };
 
 const PrefsCtx = createContext<PrefsState | null>(null);
 
+// AsyncStorage doubles as an offline cache so the UI is instant on cold start;
+// Supabase is the source of truth and overrides cache on first hydrate.
 export function PrefsProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useUser();
   const [likes, setLikes] = useState<IDMap>({});
   const [saves, setSaves] = useState<IDMap>({});
   const [hydrated, setHydrated] = useState(false);
 
+  // 1) Cache hydrate (instant)
   useEffect(() => {
     (async () => {
       try {
-        const [l, s] = await Promise.all([AsyncStorage.getItem(LIKES_KEY), AsyncStorage.getItem(SAVES_KEY)]);
+        const [l, s] = await Promise.all([
+          AsyncStorage.getItem(LIKES_CACHE),
+          AsyncStorage.getItem(SAVES_CACHE),
+        ]);
         if (l) setLikes(JSON.parse(l));
         if (s) setSaves(JSON.parse(s));
       } catch {}
-      setHydrated(true);
     })();
   }, []);
 
+  // 2) Server hydrate — always overwrite cache with DB truth
+  useEffect(() => {
+    let cancelled = false;
+    if (!user) {
+      setHydrated(true);
+      return;
+    }
+    (async () => {
+      const [{ data: likeRows }, { data: saveRows }] = await Promise.all([
+        supabase.from('likes').select('game_id').eq('user_id', user.id),
+        supabase.from('saves').select('game_id').eq('user_id', user.id),
+      ]);
+      if (cancelled) return;
+      const lm: IDMap = {};
+      const sm: IDMap = {};
+      (likeRows ?? []).forEach((r: { game_id: number }) => { lm[r.game_id] = true; });
+      (saveRows ?? []).forEach((r: { game_id: number }) => { sm[r.game_id] = true; });
+      setLikes(lm);
+      setSaves(sm);
+      AsyncStorage.setItem(LIKES_CACHE, JSON.stringify(lm)).catch(() => {});
+      AsyncStorage.setItem(SAVES_CACHE, JSON.stringify(sm)).catch(() => {});
+      setHydrated(true);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  // 3) Persist cache when local state changes (AsyncStorage only, post-hydrate)
   useEffect(() => {
     if (!hydrated) return;
-    AsyncStorage.setItem(LIKES_KEY, JSON.stringify(likes)).catch(() => {});
+    AsyncStorage.setItem(LIKES_CACHE, JSON.stringify(likes)).catch(() => {});
   }, [likes, hydrated]);
 
   useEffect(() => {
     if (!hydrated) return;
-    AsyncStorage.setItem(SAVES_KEY, JSON.stringify(saves)).catch(() => {});
+    AsyncStorage.setItem(SAVES_CACHE, JSON.stringify(saves)).catch(() => {});
   }, [saves, hydrated]);
 
   const toggleLike = useCallback((id: number) => {
-    setLikes((prev) => ({ ...prev, [id]: !prev[id] }));
-  }, []);
+    setLikes((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      if (user) {
+        if (next[id]) {
+          supabase.from('likes').upsert({ user_id: user.id, game_id: id }).then(({ error }) => {
+            if (error) console.warn('like upsert failed', error.message);
+          });
+        } else {
+          supabase.from('likes').delete().match({ user_id: user.id, game_id: id }).then(({ error }) => {
+            if (error) console.warn('like delete failed', error.message);
+          });
+        }
+      }
+      return next;
+    });
+  }, [user?.id]);
 
   const toggleSave = useCallback((id: number) => {
-    setSaves((prev) => ({ ...prev, [id]: !prev[id] }));
-  }, []);
+    setSaves((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      if (user) {
+        if (next[id]) {
+          supabase.from('saves').upsert({ user_id: user.id, game_id: id }).then(({ error }) => {
+            if (error) console.warn('save upsert failed', error.message);
+          });
+        } else {
+          supabase.from('saves').delete().match({ user_id: user.id, game_id: id }).then(({ error }) => {
+            if (error) console.warn('save delete failed', error.message);
+          });
+        }
+      }
+      return next;
+    });
+  }, [user?.id]);
 
-  const value = useMemo<PrefsState>(() => ({ likes, saves, toggleLike, toggleSave }), [likes, saves, toggleLike, toggleSave]);
+  const value = useMemo<PrefsState>(
+    () => ({ likes, saves, hydrated, toggleLike, toggleSave }),
+    [likes, saves, hydrated, toggleLike, toggleSave]
+  );
 
   return <PrefsCtx.Provider value={value}>{children}</PrefsCtx.Provider>;
 }

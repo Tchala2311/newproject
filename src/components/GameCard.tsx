@@ -1,10 +1,11 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import Svg, { Polygon } from 'react-native-svg';
 import { Game } from '../data/games';
-import { colors, fontFamily, radius, SAFE_TOP } from '../theme';
+import { colors, fontFamily, radius } from '../theme';
 import { Glass } from './Glass';
 import { BgPattern } from './BgPattern';
 import { ActionButton } from './ActionButton';
@@ -19,12 +20,19 @@ type Props = {
   saved: boolean;
   onSave: () => void;
   onShare: () => void;
+  onComment?: () => void;
+  onNotInterested?: () => void;
+  commentsCount?: string;
+  creator?: { handle: string; avatar?: string };
+  onCreatorPress?: () => void;
   musicPlaying: boolean;
   trackName: string;
   onMusicToggle: () => void;
   onNextTrack: () => void;
   bottomInset: number;
 };
+
+const NAV_HEIGHT = 60;
 
 export function GameCard({
   game,
@@ -35,6 +43,11 @@ export function GameCard({
   saved,
   onSave,
   onShare,
+  onComment,
+  onNotInterested,
+  commentsCount,
+  creator,
+  onCreatorPress,
   musicPlaying,
   trackName,
   onMusicToggle,
@@ -42,10 +55,15 @@ export function GameCard({
   bottomInset,
 }: Props) {
   const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const topPad = Math.max(insets.top, 14) + 8;
+  const bottomPad = NAV_HEIGHT + bottomInset + 14;
+
   const pulse1 = useRef(new Animated.Value(0)).current;
   const pulse2 = useRef(new Animated.Value(0)).current;
   const pulse3 = useRef(new Animated.Value(0)).current;
   const playScale = useRef(new Animated.Value(1)).current;
+  const heartBurst = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (!isActive) return undefined;
@@ -84,8 +102,26 @@ export function GameCard({
     onPlay();
   };
 
+  // TikTok-style double-tap to like
+  const lastTap = useRef<number>(0);
+  const handleCardTap = () => {
+    const now = Date.now();
+    if (now - lastTap.current < 280) {
+      if (!liked) onLike();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+      heartBurst.setValue(0);
+      Animated.sequence([
+        Animated.timing(heartBurst, { toValue: 1, duration: 220, easing: Easing.out(Easing.back(2)), useNativeDriver: true }),
+        Animated.timing(heartBurst, { toValue: 0, duration: 320, delay: 140, useNativeDriver: true }),
+      ]).start();
+      lastTap.current = 0;
+      return;
+    }
+    lastTap.current = now;
+  };
+
   return (
-    <View style={{ width, height, overflow: 'hidden' }}>
+    <View style={{ width, height, overflow: 'hidden', backgroundColor: '#000' }}>
       <LinearGradient
         colors={[game.gradient[0], game.gradient[1]]}
         start={{ x: 0, y: 0 }}
@@ -105,55 +141,62 @@ export function GameCard({
         <BgPattern type={game.patternType} accent={game.accent} />
       </View>
 
-      {/* Top badges */}
+      {/* Tap-to-play / double-tap-to-like / long-press-to-not-interested overlay */}
+      <Pressable
+        onPress={handleCardTap}
+        onLongPress={() => {
+          if (!onNotInterested) return;
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+          onNotInterested();
+        }}
+        delayLongPress={550}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+      />
+
+      {/* Top row: tag chip + AI match */}
       <View
+        pointerEvents="box-none"
         style={{
           position: 'absolute',
-          top: SAFE_TOP,
-          left: 12,
-          right: 12,
+          top: topPad,
+          left: 14,
+          right: 14,
           flexDirection: 'row',
           justifyContent: 'space-between',
           zIndex: 5,
         }}
       >
-        <Glass
-          borderRadius={radius.pill}
-          style={{ paddingHorizontal: 11, paddingVertical: 4 }}
-        >
+        <Glass borderRadius={radius.pill} style={{ paddingHorizontal: 12, paddingVertical: 5 }}>
           <Text style={{ fontSize: 11, fontFamily: fontFamily.bold, color: 'rgba(255,255,255,0.92)' }}>
             {game.tag}
           </Text>
         </Glass>
         <Glass
           borderRadius={radius.pill}
-          style={{ paddingHorizontal: 11, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 5 }}
+          style={{ paddingHorizontal: 11, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 6 }}
         >
           <View
             style={{
-              width: 13,
-              height: 13,
-              borderRadius: 7,
-              backgroundColor: game.accent,
-              alignItems: 'center',
-              justifyContent: 'center',
+              width: 14, height: 14, borderRadius: 7, backgroundColor: game.accent,
+              alignItems: 'center', justifyContent: 'center',
             }}
           >
             <Text style={{ fontSize: 8, fontFamily: fontFamily.bold, color: '#000' }}>AI</Text>
           </View>
           <Text style={{ fontSize: 11, fontFamily: fontFamily.bold, color: game.accent }}>
-            {game.match}% совпадение
+            {game.match}%
           </Text>
         </Glass>
       </View>
 
-      {/* Center play button */}
+      {/* Center play button (no padding-stack — actually centered) */}
       <View
+        pointerEvents="box-none"
         style={{
-          flex: 1,
+          position: 'absolute',
+          top: 0, left: 0, right: 0, bottom: 0,
           alignItems: 'center',
           justifyContent: 'center',
-          paddingTop: SAFE_TOP + 40,
         }}
       >
         <View style={{ width: 240, height: 240, alignItems: 'center', justifyContent: 'center' }}>
@@ -164,7 +207,7 @@ export function GameCard({
               <Animated.View style={ring(pulse3, 240)} />
             </>
           )}
-          <Pressable onPress={handlePlay}>
+          <Pressable onPress={handlePlay} hitSlop={20}>
             <Animated.View
               style={{
                 width: 88,
@@ -184,15 +227,74 @@ export function GameCard({
               }}
             >
               <Svg width={28} height={28} viewBox="0 0 28 28">
-                <Polygon points="8,5 24,14 8,23" fill="white" />
+                <Polygon points="9,5 24,14 9,23" fill="white" />
               </Svg>
             </Animated.View>
           </Pressable>
         </View>
+
+        {/* Heart burst on double-tap */}
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            opacity: heartBurst,
+            transform: [
+              { scale: heartBurst.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1.6] }) },
+            ],
+          }}
+        >
+          <Text style={{ fontSize: 120 }}>❤️</Text>
+        </Animated.View>
       </View>
 
-      {/* Bottom overlay */}
+      {/* Right rail — TikTok-style vertical actions */}
+      <View
+        style={{
+          position: 'absolute',
+          right: 10,
+          bottom: bottomPad + 4,
+          alignItems: 'center',
+          gap: 14,
+          zIndex: 6,
+        }}
+      >
+        {/* Creator avatar with follow + */}
+        <Pressable hitSlop={8} onPress={onCreatorPress} style={{ alignItems: 'center' }}>
+          <View
+            style={{
+              width: 46, height: 46, borderRadius: 23,
+              backgroundColor: game.accent,
+              borderWidth: 2, borderColor: '#fff',
+              alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <Text style={{ fontSize: 18, fontFamily: fontFamily.bold, color: '#000' }}>
+              {(creator?.handle?.[0] ?? game.name[0]).toUpperCase()}
+            </Text>
+          </View>
+          <View
+            style={{
+              position: 'absolute', bottom: -8,
+              width: 18, height: 18, borderRadius: 9,
+              backgroundColor: game.accent,
+              alignItems: 'center', justifyContent: 'center',
+              borderWidth: 1.5, borderColor: '#000',
+            }}
+          >
+            <Text style={{ fontSize: 12, color: '#000', fontFamily: fontFamily.bold, marginTop: -2 }}>+</Text>
+          </View>
+        </Pressable>
+
+        <ActionButton icon="♥" label={game.likes} active={liked} color={game.accent} onPress={onLike} />
+        <ActionButton icon="💬" label={commentsCount ?? '—'} onPress={onComment ?? (() => {})} />
+        <ActionButton icon="＋" label={saved ? 'Сохр.' : 'Сохр.'} active={saved} color={game.accent} onPress={onSave} />
+        <ActionButton icon="↗" label="Ещё" onPress={onShare} />
+      </View>
+
+      {/* Bottom-left content (TikTok title/desc) */}
       <LinearGradient
+        pointerEvents="box-none"
         colors={['transparent', 'rgba(0,0,0,0.85)']}
         style={{
           position: 'absolute',
@@ -200,11 +302,52 @@ export function GameCard({
           left: 0,
           right: 0,
           paddingTop: 80,
-          paddingBottom: 76 + bottomInset,
-          paddingHorizontal: 14,
+          paddingBottom: bottomPad,
+          paddingLeft: 14,
+          paddingRight: 88, // leave room for right rail
         }}
       >
-        <View style={{ marginBottom: 10 }}>
+        <View pointerEvents="box-none" style={{ marginBottom: 8 }}>
+          <Pressable onPress={onCreatorPress} hitSlop={6}>
+            <Text style={{ fontSize: 14, fontFamily: fontFamily.bold, color: '#fff', marginBottom: 6 }}>
+              @{creator?.handle ?? game.slug.replace(/-/g, '_')}
+            </Text>
+          </Pressable>
+          <Text
+            style={{
+              fontSize: 26,
+              fontFamily: fontFamily.bold,
+              color: colors.text,
+              letterSpacing: -0.5,
+              lineHeight: 30,
+              textShadowColor: 'rgba(0,0,0,0.4)',
+              textShadowOffset: { width: 0, height: 2 },
+              textShadowRadius: 10,
+            }}
+          >
+            {game.name}
+          </Text>
+          <Text
+            style={{
+              fontSize: 13,
+              fontFamily: fontFamily.medium,
+              color: colors.textMuted,
+              marginTop: 4,
+            }}
+          >
+            {game.tagline}
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 14, marginTop: 8 }}>
+            <Text style={{ fontSize: 11, fontFamily: fontFamily.semibold, color: colors.textMuted }}>
+              ⏱ {game.duration}
+            </Text>
+            <Text style={{ fontSize: 11, fontFamily: fontFamily.semibold, color: colors.textMuted }}>
+              ▶ {game.plays}
+            </Text>
+          </View>
+        </View>
+
+        <View pointerEvents="box-none">
           <MusicBadge
             playing={musicPlaying}
             trackName={trackName}
@@ -212,85 +355,6 @@ export function GameCard({
             onNext={onNextTrack}
           />
         </View>
-
-        <Text
-          style={{
-            fontSize: 28,
-            fontFamily: fontFamily.bold,
-            color: colors.text,
-            letterSpacing: -0.5,
-            lineHeight: 32,
-            textShadowColor: 'rgba(0,0,0,0.4)',
-            textShadowOffset: { width: 0, height: 2 },
-            textShadowRadius: 10,
-          }}
-        >
-          {game.name}
-        </Text>
-        <Text
-          style={{
-            fontSize: 13,
-            fontFamily: fontFamily.medium,
-            color: colors.textMuted,
-            marginTop: 3,
-          }}
-        >
-          {game.tagline}
-        </Text>
-
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'flex-end',
-            justifyContent: 'space-between',
-            marginTop: 12,
-            marginBottom: 10,
-          }}
-        >
-          <View style={{ gap: 5 }}>
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <Text style={{ fontSize: 11, fontFamily: fontFamily.semibold, color: colors.textMuted }}>
-                ⏱ {game.duration}
-              </Text>
-              <Text style={{ fontSize: 11, fontFamily: fontFamily.semibold, color: colors.textMuted }}>
-                ▶ {game.plays}
-              </Text>
-            </View>
-            <View style={{ flexDirection: 'row', gap: 4 }}>
-              {[1, 2, 3].map((i) => (
-                <View key={i} style={{ width: 16, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.75)' }} />
-              ))}
-            </View>
-          </View>
-          <View style={{ flexDirection: 'row', gap: 7 }}>
-            <ActionButton icon="♥" label={game.likes} active={liked} color={game.accent} onPress={onLike} />
-            <ActionButton icon="↗" label="Поделиться" onPress={onShare} />
-            <ActionButton
-              icon="＋"
-              label={saved ? 'В сохр.' : 'Сохранить'}
-              active={saved}
-              color={game.accent}
-              onPress={onSave}
-            />
-          </View>
-        </View>
-
-        <Pressable onPress={handlePlay}>
-          <Glass
-            borderRadius={radius.pill}
-            style={{
-              height: 50,
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexDirection: 'row',
-              gap: 8,
-            }}
-          >
-            <Text style={{ fontSize: 15, fontFamily: fontFamily.bold, color: colors.text }}>
-              ▶ Играть
-            </Text>
-          </Glass>
-        </Pressable>
       </LinearGradient>
     </View>
   );
