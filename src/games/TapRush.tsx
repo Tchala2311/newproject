@@ -41,10 +41,13 @@ export function TapRush({ game, onBack, onComplete }: Props) {
     return () => clearInterval(t);
   }, [started, done]);
 
+  const firedRef = useRef(false);
   useEffect(() => {
-    if (done) onComplete(score >= 100, score);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [done]);
+    if (done && !firedRef.current) {
+      firedRef.current = true;
+      onComplete(score >= 100, score);
+    }
+  }, [done, score, onComplete]);
 
   const reset = () => {
     setBubbles(Array.from({ length: 6 }, (_, i) => makeBubble(i)));
@@ -52,6 +55,7 @@ export function TapRush({ game, onBack, onComplete }: Props) {
     setTimer(30);
     setStarted(false);
     setDone(false);
+    firedRef.current = false;
   };
 
   const pop = (id: number) => {
@@ -69,7 +73,7 @@ export function TapRush({ game, onBack, onComplete }: Props) {
   return (
     <GameShell game={game} onBack={onBack} score={score} label="Очки" timer={timer} timerMax={30}>
       {done ? (
-        <GameResult won={score >= 100} score={score} accent={game.accent} onRestart={reset} onBack={onBack} />
+        <GameResult won={score >= 100} score={score} accent={game.accent} onRestart={reset} onBack={onBack} game={game} />
       ) : (
         <View style={{ width: '100%', flex: 1, position: 'relative' }}>
           {!started ? (

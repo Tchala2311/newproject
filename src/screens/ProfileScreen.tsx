@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Glass } from '../components/Glass';
 import { GAMES, Game } from '../data/games';
 import { colors, fontFamily, radius, SAFE_TOP } from '../theme';
 import { usePrefs } from '../store/usePrefs';
+import { useStats } from '../store/useStats';
 
 type Props = {
   onPlay: (g: Game) => void;
@@ -15,13 +16,30 @@ type ProfileTab = 'recent' | 'saved' | 'liked';
 
 export function ProfileScreen({ onPlay, bottomInset }: Props) {
   const { likes, saves } = usePrefs();
+  const { totals, streak, recentIds, topCategory, bests } = useStats();
   const [view, setView] = useState<ProfileTab>('recent');
 
-  const likedGames = GAMES.filter((g) => likes[g.id]);
-  const savedGames = GAMES.filter((g) => saves[g.id]);
-  const recent = GAMES.slice(0, 4);
+  const likedGames = useMemo(() => GAMES.filter((g) => likes[g.id]), [likes]);
+  const savedGames = useMemo(() => GAMES.filter((g) => saves[g.id]), [saves]);
+  const recentGames = useMemo(() => {
+    const byId = new Map(GAMES.map((g) => [g.id, g]));
+    const list = recentIds.map((id) => byId.get(id)).filter(Boolean) as Game[];
+    // Pad with top-ranked games for new users so the screen never looks empty.
+    if (list.length < 4) {
+      for (const g of GAMES) {
+        if (list.length >= 4) break;
+        if (!list.find((x) => x.id === g.id)) list.push(g);
+      }
+    }
+    return list;
+  }, [recentIds]);
 
-  const list = view === 'recent' ? recent : view === 'saved' ? savedGames : likedGames;
+  const list = view === 'recent' ? recentGames : view === 'saved' ? savedGames : likedGames;
+
+  // Level: 1 level per 5 completed games, capped at 99.
+  const level = Math.min(99, 1 + Math.floor(totals.totalCompletes / 5));
+  const roleLabel = topCategory ? `Любит ${topCategory}` : 'Новичок';
+  const streakLabel = streak > 0 ? `${streak}🔥` : '0';
 
   return (
     <View style={{ flex: 1 }}>
@@ -59,11 +77,11 @@ export function ProfileScreen({ onPlay, bottomInset }: Props) {
           </View>
           <Text style={{ fontSize: 18, fontFamily: fontFamily.bold, color: colors.text }}>@gamer_z</Text>
           <Text style={{ fontSize: 11, fontFamily: fontFamily.semibold, color: colors.textDim }}>
-            12 уровень · Исследователь
+            {level} уровень · {roleLabel}
           </Text>
         </View>
 
-        {/* Stats */}
+        {/* Stats — real data */}
         <Glass
           borderRadius={radius.xl}
           style={{
@@ -73,9 +91,9 @@ export function ProfileScreen({ onPlay, bottomInset }: Props) {
           }}
         >
           {[
-            { v: '142', l: 'Игр' },
-            { v: `${likedGames.length + 3}`, l: 'Лайков' },
-            { v: '7🔥', l: 'Дней подряд' },
+            { v: `${totals.totalPlays}`, l: 'Игр' },
+            { v: `${likedGames.length}`, l: 'Лайков' },
+            { v: streakLabel, l: 'Дней подряд' },
           ].map((s, i) => (
             <View
               key={i}
@@ -106,6 +124,8 @@ export function ProfileScreen({ onPlay, bottomInset }: Props) {
               <Pressable
                 key={t.id}
                 onPress={() => setView(t.id)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
                 style={{
                   flex: 1,
                   paddingVertical: 8,
@@ -131,55 +151,59 @@ export function ProfileScreen({ onPlay, bottomInset }: Props) {
         </View>
 
         {/* List */}
-        {list.map((g) => (
-          <Pressable key={g.id} onPress={() => onPlay(g)}>
-            <Glass
-              borderRadius={radius.lg}
-              style={{
-                marginBottom: 8,
-                padding: 12,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 10,
-              }}
-            >
-              <View
+        {list.map((g) => {
+          const best = bests[g.id] || 0;
+          return (
+            <Pressable key={g.id} onPress={() => onPlay(g)}>
+              <Glass
+                borderRadius={radius.lg}
                 style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 10,
+                  marginBottom: 8,
+                  padding: 12,
+                  flexDirection: 'row',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  overflow: 'hidden',
+                  gap: 10,
                 }}
               >
-                <LinearGradient
-                  colors={[g.gradient[0], g.gradient[1]]}
-                  style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-                />
-                <Text style={{ fontSize: 14, color: colors.text }}>▶</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 13, fontFamily: fontFamily.bold, color: colors.text }}>{g.name}</Text>
-                <Text style={{ fontSize: 10, fontFamily: fontFamily.semibold, color: colors.textDim, marginTop: 2 }}>
-                  {g.tag} · {g.duration}
-                </Text>
-              </View>
-              <View
-                style={{
-                  paddingHorizontal: 10,
-                  paddingVertical: 4,
-                  borderRadius: radius.pill,
-                  backgroundColor: `${g.accent}1f`,
-                }}
-              >
-                <Text style={{ fontSize: 10, fontFamily: fontFamily.bold, color: g.accent, letterSpacing: 0.5 }}>
-                  ИГРАТЬ
-                </Text>
-              </View>
-            </Glass>
-          </Pressable>
-        ))}
+                <View
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 10,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <LinearGradient
+                    colors={[g.gradient[0], g.gradient[1]]}
+                    style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                  />
+                  <Text style={{ fontSize: 14, color: colors.text }}>▶</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 13, fontFamily: fontFamily.bold, color: colors.text }}>{g.name}</Text>
+                  <Text style={{ fontSize: 10, fontFamily: fontFamily.semibold, color: colors.textDim, marginTop: 2 }}>
+                    {g.tag} · {g.duration}
+                    {best > 0 ? ` · 🏆 ${best}` : ''}
+                  </Text>
+                </View>
+                <View
+                  style={{
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    borderRadius: radius.pill,
+                    backgroundColor: `${g.accent}1f`,
+                  }}
+                >
+                  <Text style={{ fontSize: 10, fontFamily: fontFamily.bold, color: g.accent, letterSpacing: 0.5 }}>
+                    ИГРАТЬ
+                  </Text>
+                </View>
+              </Glass>
+            </Pressable>
+          );
+        })}
 
         {view !== 'recent' && list.length === 0 ? (
           <Text

@@ -113,10 +113,13 @@ export function MergeWave({ game, onBack, onComplete }: Props) {
   useEffect(() => { gridRef.current = grid; }, [grid]);
   useEffect(() => { doneRef.current = done; }, [done]);
 
+  const firedRef = useRef(false);
   useEffect(() => {
-    if (done) onComplete(won, score);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [done]);
+    if (done && !firedRef.current) {
+      firedRef.current = true;
+      onComplete(won, score);
+    }
+  }, [done, won, score, onComplete]);
 
   const apply = (dir: Direction) => {
     if (doneRef.current) return;
@@ -150,6 +153,7 @@ export function MergeWave({ game, onBack, onComplete }: Props) {
     setScore(0);
     setDone(false);
     setWon(false);
+    firedRef.current = false;
   };
 
   const panResponder = useRef(
@@ -167,7 +171,7 @@ export function MergeWave({ game, onBack, onComplete }: Props) {
   return (
     <GameShell game={game} onBack={onBack} score={score} label="Очки">
       {done ? (
-        <GameResult won={won} score={score} accent={game.accent} onRestart={reset} onBack={onBack} />
+        <GameResult won={won} score={score} accent={game.accent} onRestart={reset} onBack={onBack} game={game} />
       ) : (
         <>
           <Text style={{ fontSize: 11, color: colors.textDim, fontFamily: fontFamily.semibold }}>

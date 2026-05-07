@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { ScrollView, Text, View, Pressable, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { CATEGORIES, GAMES, Game } from '../data/games';
+import { CATEGORIES, Game } from '../data/games';
 import { GamePreview } from '../components/GamePreview';
 import { colors, fontFamily, radius, SAFE_TOP } from '../theme';
 import { usePrefs } from '../store/usePrefs';
+import { useStats } from '../store/useStats';
 
 type Props = {
   onPlay: (g: Game) => void;
@@ -15,9 +16,10 @@ type Props = {
 export function ExploreScreen({ onPlay, bottomInset }: Props) {
   const { width } = useWindowDimensions();
   const { saves } = usePrefs();
+  const { ranked } = useStats();
   const [cat, setCat] = useState<(typeof CATEGORIES)[number]['id']>('all');
 
-  const filtered = cat === 'all' ? GAMES : GAMES.filter((g) => g.category === cat);
+  const filtered = cat === 'all' ? ranked : ranked.filter((g) => g.category === cat);
   const cardW = (width - 14 * 2 - 10) / 2;
 
   return (

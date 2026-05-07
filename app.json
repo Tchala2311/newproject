@@ -30,6 +30,12 @@
     "experiments": {
       "typedRoutes": false
     },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
     "extra": {
       "eas": {
         "projectId": ""

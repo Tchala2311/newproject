@@ -49,10 +49,13 @@ export function StackIt({ game, onBack, onComplete }: Props) {
     return () => cancelAnimationFrame(raf);
   }, [done, score]);
 
+  const firedRef = useRef(false);
   useEffect(() => {
-    if (done) onComplete(won, score);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [done]);
+    if (done && !firedRef.current) {
+      firedRef.current = true;
+      onComplete(won, score);
+    }
+  }, [done, won, score, onComplete]);
 
   const drop = () => {
     if (done) return;
@@ -94,6 +97,7 @@ export function StackIt({ game, onBack, onComplete }: Props) {
     setScore(0);
     setDone(false);
     setWon(false);
+    firedRef.current = false;
   };
 
   const visible = blocks.slice(-9);
@@ -101,7 +105,7 @@ export function StackIt({ game, onBack, onComplete }: Props) {
   return (
     <GameShell game={game} onBack={onBack} score={score} label="Очки">
       {done ? (
-        <GameResult won={won} score={score} accent={game.accent} onRestart={reset} onBack={onBack} />
+        <GameResult won={won} score={score} accent={game.accent} onRestart={reset} onBack={onBack} game={game} />
       ) : (
         <>
           <Text style={{ fontSize: 11, color: colors.textDim, fontFamily: fontFamily.semibold, textAlign: 'center' }}>

@@ -10,7 +10,11 @@
     "web": "expo start --web",
     "tunnel": "expo start --tunnel",
     "fix": "expo install --fix",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "eas:init": "eas init",
+    "eas:build:dev": "eas build --profile development --platform all",
+    "eas:build:preview": "eas build --profile preview --platform all",
+    "eas:update": "eas update --branch preview --message \"$(git log -1 --pretty=%B)\""
   },
   "dependencies": {
     "@expo-google-fonts/space-grotesk": "^0.4.0",

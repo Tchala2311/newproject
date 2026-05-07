@@ -21,6 +21,8 @@ import { ProfileScreen } from './src/screens/ProfileScreen';
 import { GamePlayScreen } from './src/games';
 import { LofiProvider } from './src/audio/LofiContext';
 import { PrefsProvider } from './src/store/usePrefs';
+import { StatsProvider } from './src/store/useStats';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { Game } from './src/data/games';
 import { colors } from './src/theme';
 
@@ -87,12 +89,16 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaProvider>
-        <PrefsProvider>
-          <LofiProvider>
-            <StatusBar style="light" />
-            <Shell />
-          </LofiProvider>
-        </PrefsProvider>
+        <ErrorBoundary>
+          <PrefsProvider>
+            <StatsProvider>
+              <LofiProvider>
+                <StatusBar style="light" />
+                <Shell />
+              </LofiProvider>
+            </StatsProvider>
+          </PrefsProvider>
+        </ErrorBoundary>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

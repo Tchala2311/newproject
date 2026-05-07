@@ -46,10 +46,13 @@ export function WordBlast({ game, onBack, onComplete }: Props) {
     return () => clearInterval(t);
   }, [done, wi]);
 
+  const firedRef = useRef(false);
   useEffect(() => {
-    if (done) onComplete(score >= 150, score);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [done]);
+    if (done && !firedRef.current) {
+      firedRef.current = true;
+      onComplete(score >= 150, score);
+    }
+  }, [done, score, onComplete]);
 
   const reset = () => {
     setWi(0);
@@ -57,6 +60,7 @@ export function WordBlast({ game, onBack, onComplete }: Props) {
     setTimer(20);
     setDone(false);
     setInput([]);
+    firedRef.current = false;
   };
 
   const triggerShake = () => {
@@ -102,7 +106,7 @@ export function WordBlast({ game, onBack, onComplete }: Props) {
   return (
     <GameShell game={game} onBack={onBack} score={score} label="Очки" timer={timer} timerMax={20}>
       {done ? (
-        <GameResult won={score >= 150} score={score} accent={game.accent} onRestart={reset} onBack={onBack} />
+        <GameResult won={score >= 150} score={score} accent={game.accent} onRestart={reset} onBack={onBack} game={game} />
       ) : (
         <>
           <Text style={{ fontSize: 11, color: colors.textDim, fontFamily: fontFamily.semibold, letterSpacing: 0.6 }}>

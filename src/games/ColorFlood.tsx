@@ -79,6 +79,7 @@ export function ColorFlood({ game, onBack, onComplete }: Props) {
           accent={game.accent}
           onRestart={reset}
           onBack={onBack}
+          game={game}
         />
       ) : (
         <>
