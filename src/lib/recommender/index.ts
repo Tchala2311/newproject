@@ -72,13 +72,15 @@ export async function getRankedFeed(req: FeedRequest): Promise<FeedResult> {
   const ranked = [...merged.values()]
     .map(({ game, sources }) => rankCandidate(game, sources, profile));
 
-  // Refresh jitter: small random perturbation that shuffles ties + the middle
-  // of the ranking so consecutive refreshes feel fresh. The top 1–2 items stay
-  // largely stable so the user's actual best matches still surface.
+  // Refresh jitter: large enough to visibly reorder the feed on every pull.
+  // Top item gets mild jitter so the best match still tends to surface;
+  // everything else gets strong jitter so the order feels genuinely fresh.
   if (refreshNonce > 0) {
-    for (const r of ranked) {
-      r.total += (Math.random() - 0.5) * 0.6;
-    }
+    ranked.sort((a, b) => b.total - a.total);
+    ranked.forEach((r, i) => {
+      const strength = i === 0 ? 0.4 : 2.5;
+      r.total += (Math.random() - 0.5) * strength;
+    });
   }
 
   return { items: assembleFeed(ranked, targetLength), profile, ranked };

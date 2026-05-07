@@ -19,6 +19,16 @@ import { Slide15 } from './Slide15';
 import { Wordle5 } from './Wordle5';
 import { Picross } from './Picross';
 import { TetrisMini } from './TetrisMini';
+import { NumberOrder } from './NumberOrder';
+import { MathBlitz } from './MathBlitz';
+import { SimonSays } from './SimonSays';
+import { WhackMole } from './WhackMole';
+import { BalloonPop } from './BalloonPop';
+import { FlipDuo } from './FlipDuo';
+import { GravityFlip } from './GravityFlip';
+import { CatchDrop } from './CatchDrop';
+import { SpeedSort } from './SpeedSort';
+import { RunnerJump } from './RunnerJump';
 import { logEvent } from '../store/events';
 import { ResumePrompt } from '../components/ResumePrompt';
 import { useAchievements } from '../store/useAchievements';
@@ -120,6 +130,16 @@ export function GamePlayScreen({ game, onBack }: Props) {
     case 'wordle-5': return <Wordle5 {...props} />;
     case 'picross': return <Picross {...props} />;
     case 'tetris-mini': return <TetrisMini {...props} />;
+    case 'number-order': return <NumberOrder {...props} />;
+    case 'math-blitz': return <MathBlitz {...props} />;
+    case 'simon-says': return <SimonSays {...props} />;
+    case 'whack-mole': return <WhackMole {...props} />;
+    case 'balloon-pop': return <BalloonPop {...props} />;
+    case 'flip-duo': return <FlipDuo {...props} />;
+    case 'gravity-flip': return <GravityFlip {...props} />;
+    case 'catch-drop': return <CatchDrop {...props} />;
+    case 'speed-sort': return <SpeedSort {...props} />;
+    case 'runner-jump': return <RunnerJump {...props} />;
     default: return <TapRush {...props} />;
   }
 }

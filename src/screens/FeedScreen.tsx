@@ -73,6 +73,7 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
   const [refreshNonce, setRefreshNonce] = useState(0);
   const listRef = useRef<FlatList<FeedItem>>(null);
   const loggedImpressions = useRef<Set<number>>(new Set());
+  const refreshNonceRef = useRef(0);
 
   const dailyChallenge = useMemo(() => getDailyChallenge(), []);
 
@@ -114,8 +115,10 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
   const onRefresh = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     setRefreshing(true);
+    setForYouItems([]);          // clear immediately → skeleton shows
     loggedImpressions.current.clear();
-    const nonce = Date.now();
+    const nonce = refreshNonceRef.current + 1;
+    refreshNonceRef.current = nonce;
     setRefreshNonce(nonce);
     await buildFeed(nonce);
     listRef.current?.scrollToOffset({ offset: 0, animated: false });
@@ -142,7 +145,7 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
   }).current;
 
   const handleShare = useCallback(async (game: Game) => {
-    markEngaged(game.id);
+    markEngaged(user?.id ?? null, game.id);
     try {
       // Include a deep link that resolves to the game (for v3 deep-link routing).
       // For now share text with a `loop://` URL fragment that the receiving
@@ -241,7 +244,7 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
-      {loading && tab === 'forYou' && items.length === 0 ? <FeedSkeleton /> : null}
+      {(loading || refreshing) && tab === 'forYou' && items.length === 0 ? <FeedSkeleton /> : null}
 
       <FlatList
         ref={listRef}

@@ -320,36 +320,57 @@ export function CommentsSheet({ visible, onClose, game, onOpenCreator }: Props) 
                       {(user?.handle?.[0] ?? '?').toUpperCase()}
                     </Text>
                   </View>
-                  <View
-                    style={{
-                      flex: 1,
-                      backgroundColor: 'rgba(255,255,255,0.06)',
-                      borderRadius: radius.pill,
-                      paddingHorizontal: 14,
-                      paddingVertical: 8,
-                    }}
-                  >
-                    <TextInput
-                      value={draft}
-                      onChangeText={setDraft}
-                      maxLength={500}
-                      placeholder={user ? `Ответить @${user.handle}…` : 'Войди, чтобы комментировать'}
-                      placeholderTextColor="rgba(255,255,255,0.4)"
-                      style={{ fontSize: 13, color: '#fff', fontFamily: fontFamily.medium, padding: 0 }}
-                      returnKeyType="send"
-                      onSubmitEditing={submit}
-                      editable={!!user && !submitting}
-                    />
-                  </View>
-                  <Pressable
-                    onPress={submit}
-                    disabled={!draft.trim() || submitting}
-                    style={{ opacity: draft.trim() && !submitting ? 1 : 0.4 }}
-                  >
-                    <Text style={{ fontSize: 14, fontFamily: fontFamily.bold, color: '#5DD9B0' }}>
-                      {submitting ? '…' : 'Опубл.'}
-                    </Text>
-                  </Pressable>
+                  {user ? (
+                    <>
+                      <View
+                        style={{
+                          flex: 1,
+                          backgroundColor: 'rgba(255,255,255,0.06)',
+                          borderRadius: radius.pill,
+                          paddingHorizontal: 14,
+                          paddingVertical: 8,
+                        }}
+                      >
+                        <TextInput
+                          value={draft}
+                          onChangeText={setDraft}
+                          maxLength={500}
+                          placeholder={`Написать @${user.handle}…`}
+                          placeholderTextColor="rgba(255,255,255,0.4)"
+                          style={{ fontSize: 13, color: '#fff', fontFamily: fontFamily.medium, padding: 0 }}
+                          returnKeyType="send"
+                          onSubmitEditing={submit}
+                          editable={!submitting}
+                          autoCorrect={false}
+                        />
+                      </View>
+                      <Pressable
+                        onPress={submit}
+                        disabled={!draft.trim() || submitting}
+                        style={{ opacity: draft.trim() && !submitting ? 1 : 0.4 }}
+                      >
+                        <Text style={{ fontSize: 14, fontFamily: fontFamily.bold, color: '#5DD9B0' }}>
+                          {submitting ? '…' : 'Опубл.'}
+                        </Text>
+                      </Pressable>
+                    </>
+                  ) : (
+                    <Pressable
+                      onPress={onClose}
+                      style={{
+                        flex: 1,
+                        backgroundColor: 'rgba(201,159,230,0.12)',
+                        borderRadius: radius.pill,
+                        paddingHorizontal: 16,
+                        paddingVertical: 10,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text style={{ fontSize: 13, fontFamily: fontFamily.bold, color: '#C99FE6' }}>
+                        Войди, чтобы оставить комментарий →
+                      </Text>
+                    </Pressable>
+                  )}
                 </View>
               </KeyboardAvoidingView>
             </View>

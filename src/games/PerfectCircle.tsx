@@ -38,7 +38,8 @@ export function PerfectCircle({ game, onBack, onComplete, initialLevel }: Props)
   const [lastPassed, setLastPassed] = useState(false);
   const drawing = useRef(false);
   const ptsRef = useRef<Pt[]>([]);
-  const boardOriginRef = useRef<{ x: number; y: number } | null>(null);
+  const boardRef = useRef<View>(null);
+  const boardOriginRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const computeScore = (pts: Pt[]) => {
     if (pts.length < 12) return 0;
@@ -59,12 +60,16 @@ export function PerfectCircle({ game, onBack, onComplete, initialLevel }: Props)
       onMoveShouldSetPanResponder: () => phase === 'playing',
       onPanResponderGrant: (_, g) => {
         drawing.current = true;
-        ptsRef.current = [{ x: g.x0, y: g.y0 }];
+        const ox = boardOriginRef.current.x;
+        const oy = boardOriginRef.current.y;
+        ptsRef.current = [{ x: g.x0 - ox, y: g.y0 - oy }];
         setPoints(ptsRef.current);
       },
       onPanResponderMove: (_, g) => {
         if (!drawing.current) return;
-        ptsRef.current = [...ptsRef.current, { x: g.moveX, y: g.moveY }];
+        const ox = boardOriginRef.current.x;
+        const oy = boardOriginRef.current.y;
+        ptsRef.current = [...ptsRef.current, { x: g.moveX - ox, y: g.moveY - oy }];
         setPoints(ptsRef.current);
       },
       onPanResponderRelease: () => {
@@ -83,8 +88,13 @@ export function PerfectCircle({ game, onBack, onComplete, initialLevel }: Props)
     })
   ).current;
 
-  const onLayout = (e: any) => {
-    boardOriginRef.current = { x: e.nativeEvent.layout.x, y: e.nativeEvent.layout.y };
+  const onLayout = () => {
+    // measure() gives screen-absolute pageX/pageY, which is what PanResponder
+    // coordinates are relative to. onLayout gives parent-relative offsets and
+    // would be wrong whenever the parent itself is offset from the screen.
+    boardRef.current?.measure((_x, _y, _w, _h, pageX, pageY) => {
+      boardOriginRef.current = { x: pageX, y: pageY };
+    });
   };
 
   const startNextLevel = () => {
@@ -120,6 +130,7 @@ export function PerfectCircle({ game, onBack, onComplete, initialLevel }: Props)
         Нарисуй круг одним движением.{'\n'}Точность ≥ {LEVEL_THRESHOLD(level)}%
       </Text>
       <View
+        ref={boardRef}
         onLayout={onLayout}
         {...responder.panHandlers}
         style={{
@@ -136,7 +147,7 @@ export function PerfectCircle({ game, onBack, onComplete, initialLevel }: Props)
           <Circle cx={cx} cy={cy} r={6} fill={game.accent} opacity={0.6} />
           {points.length > 1 ? (
             <Polyline
-              points={points.map((p) => `${p.x - (boardOriginRef.current?.x ?? 0)},${p.y - (boardOriginRef.current?.y ?? 0)}`).join(' ')}
+              points={points.map((p) => `${p.x},${p.y}`).join(' ')}
               fill="none"
               stroke={game.accent}
               strokeWidth={4}

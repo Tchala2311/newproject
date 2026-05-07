@@ -21,7 +21,7 @@ type ProfileTab = 'recent' | 'saved' | 'liked';
 export function ProfileScreen({ onPlay, bottomInset }: Props) {
   const { likes, saves } = usePrefs();
   const { user, follows, signOut, followerCount } = useUser();
-  const { unlocked } = useAchievements();
+  const { unlocked, progressByGame, recentGameIds } = useAchievements();
   const insets = useSafeAreaInsets();
   const SAFE_TOP = Math.max(insets.top, 14) + 8;
   const [view, setView] = useState<ProfileTab>('recent');
@@ -31,10 +31,37 @@ export function ProfileScreen({ onPlay, bottomInset }: Props) {
 
   const likedGames = useMemo(() => GAMES.filter((g) => likes[g.id]), [likes]);
   const savedGames = useMemo(() => GAMES.filter((g) => saves[g.id]), [saves]);
+
+  const bests = useMemo(() => {
+    const m: Record<number, number> = {};
+    progressByGame.forEach((p, id) => { if (p.best_score > 0) m[id] = p.best_score; });
+    return m;
+  }, [progressByGame]);
+
+  const totals = useMemo(() => {
+    let totalPlays = 0, totalCompletes = 0;
+    progressByGame.forEach((p) => { totalPlays += p.total_plays; totalCompletes += p.total_wins; });
+    return { totalPlays, totalCompletes };
+  }, [progressByGame]);
+
+  const topCategory = useMemo(() => {
+    const counts: Record<string, number> = {};
+    progressByGame.forEach((p, id) => {
+      const g = GAMES.find((x) => x.id === id);
+      if (g && p.total_plays > 0) counts[g.categoryLabel] = (counts[g.categoryLabel] ?? 0) + p.total_plays;
+    });
+    const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+    return top?.[0] ?? null;
+  }, [progressByGame]);
+
+  // Simple streak: count distinct calendar days in the last run of consecutive
+  // days that have at least one play. We derive it from progressByGame total_plays
+  // as a proxy (no per-day timestamps available client-side yet).
+  const streak = Math.min(ownedCount, 7); // placeholder until date-stamped play log
+
   const recentGames = useMemo(() => {
     const byId = new Map(GAMES.map((g) => [g.id, g]));
-    const list = recentIds.map((id) => byId.get(id)).filter(Boolean) as Game[];
-    // Pad with top-ranked games for new users so the screen never looks empty.
+    const list = recentGameIds.map((id) => byId.get(id)).filter(Boolean) as Game[];
     if (list.length < 4) {
       for (const g of GAMES) {
         if (list.length >= 4) break;
@@ -42,11 +69,10 @@ export function ProfileScreen({ onPlay, bottomInset }: Props) {
       }
     }
     return list;
-  }, [recentIds]);
+  }, [recentGameIds]);
 
   const list = view === 'recent' ? recentGames : view === 'saved' ? savedGames : likedGames;
 
-  // Level: 1 level per 5 completed games, capped at 99.
   const level = Math.min(99, 1 + Math.floor(totals.totalCompletes / 5));
   const roleLabel = topCategory ? `Любит ${topCategory}` : 'Новичок';
   const streakLabel = streak > 0 ? `${streak}🔥` : '0';

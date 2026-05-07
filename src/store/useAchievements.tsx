@@ -4,6 +4,7 @@
 // and surfaced via lastUnlocked for the UI to toast.
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { useUser } from './useUser';
 import { usePrefs } from './usePrefs';
@@ -32,12 +33,11 @@ type ReportEvent =
 type State = {
   unlocked: Set<string>;
   progressByGame: Map<number, GameProgressRow>;
+  recentGameIds: number[];
   lastUnlocked: Achievement | null;
   clearLastUnlocked: () => void;
   report: (e: ReportEvent) => void;
-  // Returns the saved progress row for resume prompts (or null if none / fresh).
   getResumeFor: (gameId: number) => Pick<GameProgressRow, 'level' | 'best_level' | 'best_score'> | null;
-  // After a "Start over" from the resume prompt, clear the saved level so we don't re-prompt next time.
   clearResume: (gameId: number) => Promise<void>;
 };
 
@@ -48,9 +48,25 @@ export function AchievementsProvider({ children }: { children: React.ReactNode }
   const { likes } = usePrefs();
   const [unlocked, setUnlocked] = useState<Set<string>>(new Set());
   const [progressByGame, setProgressByGame] = useState<Map<number, GameProgressRow>>(new Map());
+  const [recentGameIds, setRecentGameIds] = useState<number[]>([]);
   const [unlockQueue, setUnlockQueue] = useState<Achievement[]>([]);
   const tetrisLinesRef = useRef(0);
   const adViewsRef = useRef(0);
+
+  // Persist + hydrate recent game IDs independently of Supabase.
+  useEffect(() => {
+    AsyncStorage.getItem('loop:recent:v1').then((raw) => {
+      if (raw) setRecentGameIds(JSON.parse(raw));
+    }).catch(() => {});
+  }, []);
+
+  const pushRecent = useCallback((gameId: number) => {
+    setRecentGameIds((prev) => {
+      const next = [gameId, ...prev.filter((id) => id !== gameId)].slice(0, 20);
+      AsyncStorage.setItem('loop:recent:v1', JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  }, []);
 
   // Hydrate
   useEffect(() => {
@@ -130,11 +146,12 @@ export function AchievementsProvider({ children }: { children: React.ReactNode }
     persistUnlocks(newIds);
   }, [unlocked, likes, progressByGame, user, persistUnlocks]);
 
-  const report = useCallback((e: ReportEvent) => {
+  const report = useCallback((e: ReportEvent) => {  // eslint-disable-line react-hooks/exhaustive-deps
     switch (e.type) {
       case 'play-start': {
         const cur = progressByGame.get(e.game.id);
         persistProgress(e.game.id, { total_plays: (cur?.total_plays ?? 0) + 1 });
+        pushRecent(e.game.id);
         break;
       }
       case 'level-complete': {
@@ -178,7 +195,7 @@ export function AchievementsProvider({ children }: { children: React.ReactNode }
         runChecker({ totalFollows: 5 }); // approximation; better to fetch live count
         break;
     }
-  }, [progressByGame, persistProgress, runChecker]);
+  }, [progressByGame, persistProgress, runChecker, pushRecent]);
 
   const getResumeFor = useCallback((gameId: number) => {
     const p = progressByGame.get(gameId);
@@ -198,12 +215,13 @@ export function AchievementsProvider({ children }: { children: React.ReactNode }
   const value = useMemo<State>(() => ({
     unlocked,
     progressByGame,
+    recentGameIds,
     lastUnlocked,
     clearLastUnlocked,
     report,
     getResumeFor,
     clearResume,
-  }), [unlocked, progressByGame, lastUnlocked, clearLastUnlocked, report, getResumeFor, clearResume]);
+  }), [unlocked, progressByGame, recentGameIds, lastUnlocked, clearLastUnlocked, report, getResumeFor, clearResume]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
