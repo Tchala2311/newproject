@@ -9,9 +9,14 @@ web-build/
 ios/
 android/
 
-# Env
+# Env — NEVER commit secrets. .env.example is the only env file in git.
 .env
 .env.local
+.env.*.local
+.env.production
+.env.development
+*.pem
+*.key
 
 # Editor
 .idea/
