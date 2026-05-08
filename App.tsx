@@ -27,6 +27,7 @@ import { PrefsProvider } from './src/store/usePrefs';
 import { UserProvider, useUser } from './src/store/useUser';
 import { AchievementsProvider, useAchievements } from './src/store/useAchievements';
 import { NotInterestedProvider } from './src/store/useNotInterested';
+import { StatsProvider } from './src/store/useStats';
 import { Game, Creator } from './src/data/games';
 import { colors } from './src/theme';
 import { AchievementToast } from './src/components/AchievementToast';
@@ -151,10 +152,12 @@ export default function App() {
           <PrefsProvider>
             <NotInterestedProvider>
               <AchievementsProvider>
+                <StatsProvider>
                 <LofiProvider>
                   <StatusBar style="light" />
                   <Gate />
                 </LofiProvider>
+                </StatsProvider>
               </AchievementsProvider>
             </NotInterestedProvider>
           </PrefsProvider>
