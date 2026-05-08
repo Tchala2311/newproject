@@ -488,6 +488,148 @@ export function GamePreview({ game }: Props) {
         </View>
       );
 
+    case 20: {
+      // NumberOrder — 4×4 grid, first 6 "tapped" (checked)
+      const nums = Array.from({ length: 16 }, (_, i) => i + 1);
+      return (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', width: 88, gap: 2 }}>
+          {nums.map((n) => (
+            <View key={n} style={{ width: 19, height: 19, borderRadius: 3, alignItems: 'center', justifyContent: 'center', backgroundColor: n <= 6 ? `${a}30` : `${a}14`, borderWidth: 1, borderColor: n <= 6 ? `${a}60` : `${a}30` }}>
+              <Text style={{ fontSize: 8, fontWeight: '900', color: n <= 6 ? `${a}99` : a }}>{n <= 6 ? '✓' : n}</Text>
+            </View>
+          ))}
+        </View>
+      );
+    }
+
+    case 21:
+      // MathBlitz — equation + 4 answer bubbles
+      return (
+        <View style={{ alignItems: 'center', width: 90 }}>
+          <View style={{ backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 6 }}>
+            <Text style={{ fontSize: 14, fontWeight: '900', color: '#fff' }}>7 + 8 = ?</Text>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 5 }}>
+            {[13, 15, 16, 12].map((n, i) => (
+              <View key={n} style={{ width: 18, height: 18, borderRadius: 4, backgroundColor: i === 1 ? a : `${a}22`, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 8, fontWeight: '900', color: i === 1 ? '#000' : a }}>{n}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      );
+
+    case 22:
+      // SimonSays — 2×2 colored buttons
+      return (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', width: 68, gap: 5 }}>
+          {['#EF4444', '#22C55E', '#3B82F6', '#EAB308'].map((c, i) => (
+            <View key={i} style={{ width: 30, height: 30, borderRadius: 8, backgroundColor: i === 0 ? c : `${c}44`, borderWidth: 1.5, borderColor: c }} />
+          ))}
+        </View>
+      );
+
+    case 23: {
+      // WhackMole — 3×3 holes, one active mole
+      return (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', width: 78, gap: 4 }}>
+          {Array.from({ length: 9 }).map((_, i) => (
+            <View key={i} style={{ width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: i === 4 ? '#92400E' : 'rgba(255,255,255,0.07)', borderWidth: 1.5, borderColor: i === 4 ? '#FCD34D' : 'rgba(255,255,255,0.12)' }}>
+              <Text style={{ fontSize: i === 4 ? 13 : 11 }}>{i === 4 ? '🐾' : '⭕'}</Text>
+            </View>
+          ))}
+        </View>
+      );
+    }
+
+    case 24:
+      // BalloonPop — scattered balloons
+      return (
+        <View style={{ width: 90, height: 62, position: 'relative' }}>
+          {[{ x: 6, y: 26, s: 22 }, { x: 32, y: 4, s: 28 }, { x: 58, y: 18, s: 24 }, { x: 16, y: 4, s: 18 }, { x: 66, y: 2, s: 18 }].map((b, i) => (
+            <Text key={i} style={{ position: 'absolute', left: b.x, top: b.y, fontSize: b.s }}>🎈</Text>
+          ))}
+        </View>
+      );
+
+    case 25: {
+      // FlipDuo — 3×4 card grid, some revealed
+      const faceDown = [1, 2, 3, 5, 8, 10, 11];
+      const symbols = ['🐶', '🐱', '🦊', '🐸', '⭐', '🍎'];
+      return (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', width: 88, gap: 3 }}>
+          {Array.from({ length: 12 }).map((_, i) => (
+            <View key={i} style={{ width: 24, height: 24, borderRadius: 4, alignItems: 'center', justifyContent: 'center', backgroundColor: faceDown.includes(i) ? 'rgba(255,255,255,0.08)' : `${a}22`, borderWidth: 1, borderColor: faceDown.includes(i) ? 'rgba(255,255,255,0.15)' : `${a}66` }}>
+              <Text style={{ fontSize: faceDown.includes(i) ? 9 : 12 }}>{faceDown.includes(i) ? '❓' : symbols[i % symbols.length]}</Text>
+            </View>
+          ))}
+        </View>
+      );
+    }
+
+    case 26:
+      // GravityFlip — mini side-scroller board with player + gap in obstacle
+      return (
+        <Svg width={90} height={62} viewBox="0 0 90 62">
+          <Rect x={0} y={0} width={90} height={62} rx={6} fill="rgba(0,0,0,0.35)" />
+          {/* Two purple obstacle pillars with gap */}
+          <Rect x={55} y={0} width={10} height={22} rx={3} fill="#7E22CE" />
+          <Rect x={55} y={38} width={10} height={24} rx={3} fill="#7E22CE" />
+          {/* Player */}
+          <Rect x={20} y={24} width={12} height={12} rx={3} fill={a} />
+          {/* Gravity arrows */}
+          <Polyline points="82,18 86,24 78,24" fill={a} stroke={a} strokeWidth={1} />
+          <Polyline points="82,44 86,38 78,38" fill={a} stroke={a} strokeWidth={1} />
+        </Svg>
+      );
+
+    case 27:
+      // CatchDrop — fruits falling + basket at bottom
+      return (
+        <View style={{ width: 90, height: 62, position: 'relative' }}>
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 8 }} />
+          <Text style={{ position: 'absolute', left: 12, top: 4, fontSize: 16 }}>🍎</Text>
+          <Text style={{ position: 'absolute', left: 38, top: 14, fontSize: 14 }}>🍊</Text>
+          <Text style={{ position: 'absolute', left: 62, top: 6, fontSize: 16 }}>🍋</Text>
+          <Text style={{ position: 'absolute', left: 28, top: 32, fontSize: 14 }}>🍇</Text>
+          {/* Basket */}
+          <View style={{ position: 'absolute', bottom: 2, left: 24, width: 44, height: 14, borderRadius: 6, backgroundColor: a, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 9 }}>🧺</Text>
+          </View>
+        </View>
+      );
+
+    case 28:
+      // SpeedSort — a card with an emoji + swipe arrows on each side
+      return (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={{ fontSize: 20, color: 'rgba(255,255,255,0.4)' }}>←</Text>
+          <View style={{ width: 52, height: 52, borderRadius: 14, backgroundColor: `${a}22`, borderWidth: 2, borderColor: `${a}66`, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 30 }}>🐶</Text>
+          </View>
+          <Text style={{ fontSize: 20, color: 'rgba(255,255,255,0.4)' }}>→</Text>
+        </View>
+      );
+
+    case 29:
+      // RunnerJump — runner above obstacle, ground line
+      return (
+        <Svg width={90} height={62} viewBox="0 0 90 62">
+          <Rect x={0} y={0} width={90} height={62} rx={6} fill="rgba(0,0,0,0.35)" />
+          {/* Ground */}
+          <Line x1={0} y1={50} x2={90} y2={50} stroke="rgba(255,255,255,0.2)" strokeWidth={1.5} />
+          {/* Obstacle */}
+          <Rect x={60} y={38} width={10} height={12} rx={2} fill="#22C55E" />
+          {/* Runner (stick figure) */}
+          <Circle cx={28} cy={30} r={5} fill={a} />
+          <Line x1={28} y1={35} x2={28} y2={46} stroke={a} strokeWidth={2} />
+          <Line x1={28} y1={42} x2={22} y2={50} stroke={a} strokeWidth={2} />
+          <Line x1={28} y1={42} x2={34} y2={48} stroke={a} strokeWidth={2} />
+          <Line x1={28} y1={38} x2={22} y2={43} stroke={a} strokeWidth={2} />
+          <Line x1={28} y1={38} x2={34} y2={43} stroke={a} strokeWidth={2} />
+        </Svg>
+      );
+
     default:
       return null;
   }
