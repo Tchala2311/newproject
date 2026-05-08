@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
 import { GameShell } from './GameShell';
@@ -31,6 +31,7 @@ const LEVEL_CFG = (level: number) => ({
 type Letter = { id: number; ch: string; spawnAt: number; x: number };
 
 export function FallingLetters({ game, onBack, onComplete, initialLevel }: Props) {
+  const { height } = useWindowDimensions();
   const [level, setLevel] = useState(initialLevel ?? 1);
   const cfg = LEVEL_CFG(level);
   const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
@@ -147,7 +148,7 @@ export function FallingLetters({ game, onBack, onComplete, initialLevel }: Props
     );
   }
 
-  const playH = 320;
+  const playH = Math.floor(height * 0.40);
   const now = Date.now();
 
   return (

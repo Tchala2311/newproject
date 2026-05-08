@@ -8,13 +8,10 @@ import { fontFamily } from '../theme';
 
 type Props = { game: Game; onBack: () => void; onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void; initialLevel?: number };
 
-const BOARD_W = 300;
-const BOARD_H = 180;
-const GROUND_Y = BOARD_H - 36;
-const PLAYER_SIZE = 28;
+const PLAYER_SIZE = 30;
 const GRAVITY = 0.7;
-const JUMP_VY = -12;
-const OBSTACLE_W = 18;
+const JUMP_VY = -13;
+const OBSTACLE_W = 20;
 const OBSTACLE_SPEED = (level: number) => 3.5 + level * 0.4;
 const TARGET = (level: number) => 6 + level * 3;
 const OBSTACLE_EMOJIS = ['🌵','🪨','🌊','🔥'];
@@ -23,6 +20,11 @@ type Obstacle = { id: number; x: number; h: number; emoji: string };
 let OID = 0;
 
 export function RunnerJump({ game, onBack, onComplete, initialLevel }: Props) {
+  const { width, height } = useWindowDimensions();
+  const BOARD_W = width - 32;
+  const BOARD_H = Math.min(height * 0.50, 440);
+  const GROUND_Y = BOARD_H - 40;
+
   const [level, setLevel] = useState(initialLevel ?? 1);
   const [phase, setPhase] = useState<'idle' | 'playing' | 'complete'>('idle');
   const [passed, setPassed] = useState(false);
@@ -55,7 +57,7 @@ export function RunnerJump({ game, onBack, onComplete, initialLevel }: Props) {
     frameCount.current = 0;
     phaseRef.current = 'idle';
     setPhase('idle');
-  }, []);
+  }, [GROUND_Y]);
 
   useEffect(() => {
     if (phase !== 'playing') return;
@@ -63,7 +65,6 @@ export function RunnerJump({ game, onBack, onComplete, initialLevel }: Props) {
     const spawnInterval = Math.max(60, 100 - level * 5);
     const loop = () => {
       frameCount.current += 1;
-      // Physics
       if (!isOnGround.current) {
         velocityY.current += GRAVITY;
         playerY.current = Math.min(GROUND_Y - PLAYER_SIZE, playerY.current + velocityY.current);
@@ -73,18 +74,15 @@ export function RunnerJump({ game, onBack, onComplete, initialLevel }: Props) {
           isOnGround.current = true;
         }
       }
-      // Spawn
       if (frameCount.current % spawnInterval === 0) {
-        const h = 20 + Math.floor(Math.random() * 16);
+        const h = 24 + Math.floor(Math.random() * 20);
         obstacles.current.push({ id: ++OID, x: BOARD_W, h, emoji: OBSTACLE_EMOJIS[Math.floor(Math.random() * OBSTACLE_EMOJIS.length)] });
       }
-      // Move + score
       obstacles.current = obstacles.current.map((o) => ({ ...o, x: o.x - speed })).filter((o) => {
-        if (o.x + OBSTACLE_W < 40) { scoreRef.current += 1; return false; }
+        if (o.x + OBSTACLE_W < 44) { scoreRef.current += 1; return false; }
         return true;
       });
-      // Collision
-      const px = 40, py = playerY.current;
+      const px = 44, py = playerY.current;
       for (const o of obstacles.current) {
         if (px + PLAYER_SIZE - 4 > o.x && px + 4 < o.x + OBSTACLE_W &&
             py + PLAYER_SIZE - 4 > GROUND_Y - o.h) {
@@ -113,7 +111,7 @@ export function RunnerJump({ game, onBack, onComplete, initialLevel }: Props) {
     };
     rafRef.current = requestAnimationFrame(loop);
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
-  }, [phase, level]);
+  }, [phase, level, BOARD_W, GROUND_Y]);
 
   if (phase === 'complete') {
     return <LevelComplete level={level} passed={passed} score={lastScore} scoreLabel="Очки" accent={game.accent}
@@ -125,7 +123,7 @@ export function RunnerJump({ game, onBack, onComplete, initialLevel }: Props) {
 
   return (
     <GameShell game={game} onBack={onBack} score={`${scoreRef.current} 🏃`} label={`нужно ${TARGET(level)}`}>
-      <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', fontFamily: fontFamily.semibold, marginBottom: 8 }}>
+      <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', fontFamily: fontFamily.semibold, marginBottom: 4 }}>
         Тапни чтобы прыгнуть
       </Text>
       <Pressable onPress={jump}
@@ -137,13 +135,10 @@ export function RunnerJump({ game, onBack, onComplete, initialLevel }: Props) {
         )}
         {phase === 'playing' && (
           <>
-            {/* Ground */}
             <View style={{ position: 'absolute', left: 0, top: GROUND_Y, right: 0, height: 3, backgroundColor: 'rgba(255,255,255,0.2)' }} />
-            {/* Player */}
-            <Text style={{ position: 'absolute', left: 34, top: playerY.current, fontSize: PLAYER_SIZE }}>🏃</Text>
-            {/* Obstacles */}
+            <Text style={{ position: 'absolute', left: 38, top: playerY.current, fontSize: PLAYER_SIZE }}>🏃</Text>
             {obstacles.current.map((o) => (
-              <Text key={o.id} style={{ position: 'absolute', left: o.x, top: GROUND_Y - o.h - 4, fontSize: o.h + 8 }}>{o.emoji}</Text>
+              <Text key={o.id} style={{ position: 'absolute', left: o.x, top: GROUND_Y - o.h - 4, fontSize: o.h + 10 }}>{o.emoji}</Text>
             ))}
           </>
         )}

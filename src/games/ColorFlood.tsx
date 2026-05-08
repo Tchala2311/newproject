@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
 import { colors, fontFamily } from '../theme';
@@ -38,6 +38,7 @@ function floodFill(grid: number[][], tx: number, ty: number, newC: number): numb
 type Props = { game: Game; onBack: () => void; onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void; initialLevel?: number };
 
 export function ColorFlood({ game, onBack, onComplete, initialLevel }: Props) {
+  const { width, height } = useWindowDimensions();
   const [level, setLevel] = useState(initialLevel ?? 1);
   const cfg = LEVEL_CFG(level);
   const [grid, setGrid] = useState<number[][]>(() => makeGrid(cfg.size, cfg.palette));
@@ -47,7 +48,8 @@ export function ColorFlood({ game, onBack, onComplete, initialLevel }: Props) {
   const [lastScore, setLastScore] = useState(0);
 
   const movesLeft = cfg.max - moves;
-  const cellSize = Math.floor(240 / cfg.size);
+  const boardSize = Math.min(width - 32, height * 0.52);
+  const cellSize = Math.floor(boardSize / cfg.size);
 
   const reset = () => {
     setGrid(makeGrid(cfg.size, cfg.palette));
@@ -110,7 +112,7 @@ export function ColorFlood({ game, onBack, onComplete, initialLevel }: Props) {
         style={{
           flexDirection: 'row',
           flexWrap: 'wrap',
-          width: cellSize * cfg.size,
+          width: cellSize * cfg.size + 2,
           borderRadius: 10,
           overflow: 'hidden',
           gap: 2,

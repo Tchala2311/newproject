@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, Text, View } from 'react-native';
+import { Animated, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
 import { GameShell } from './GameShell';
@@ -26,6 +26,7 @@ function buildDeck(pairsCount: number): Card[] {
 }
 
 export function FlipDuo({ game, onBack, onComplete, initialLevel }: Props) {
+  const { width, height } = useWindowDimensions();
   const [level, setLevel] = useState(initialLevel ?? 1);
   const [cards, setCards] = useState<Card[]>(() => buildDeck(PAIRS_PER_LEVEL(initialLevel ?? 1)));
   const [selected, setSelected] = useState<number[]>([]);
@@ -37,7 +38,8 @@ export function FlipDuo({ game, onBack, onComplete, initialLevel }: Props) {
   const lockRef = useRef(false);
   const pairsCount = PAIRS_PER_LEVEL(level);
   const cols = pairsCount <= 6 ? 3 : 4;
-  const cardSize = pairsCount <= 6 ? 80 : 68;
+  const gridW = Math.min(width - 32, height * 0.62);
+  const cardSize = Math.floor((gridW - (cols + 1) * 8) / cols);
 
   const flipCard = (c: Card, toValue: number) =>
     new Promise<void>((res) => Animated.timing(c.anim, { toValue, duration: 180, useNativeDriver: true }).start(() => res()));
@@ -109,7 +111,7 @@ export function FlipDuo({ game, onBack, onComplete, initialLevel }: Props) {
 
   return (
     <GameShell game={game} onBack={onBack} score={`${matchedRef.current}/${pairsCount}`} label={`❌ ${mistakes}`}>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', width: (cardSize + 8) * cols, justifyContent: 'center' }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', width: gridW, justifyContent: 'center' }}>
         {cards.map((c) => {
           const rotateY = c.anim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] });
           return (

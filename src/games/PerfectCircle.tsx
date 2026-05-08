@@ -26,8 +26,8 @@ const LEVEL_THRESHOLD = (level: number) => {
 };
 
 export function PerfectCircle({ game, onBack, onComplete, initialLevel }: Props) {
-  const { width } = useWindowDimensions();
-  const boardSize = Math.min(width - 32, 320);
+  const { width, height } = useWindowDimensions();
+  const boardSize = Math.min(width - 32, height * 0.6);
   const cx = boardSize / 2;
   const cy = boardSize / 2;
 

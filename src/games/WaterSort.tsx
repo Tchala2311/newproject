@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
 import { GameShell } from './GameShell';
@@ -43,6 +43,7 @@ function isSolved(tubes: Tube[]): boolean {
 }
 
 export function WaterSort({ game, onBack, onComplete, initialLevel }: Props) {
+  const { width, height } = useWindowDimensions();
   const [level, setLevel] = useState(initialLevel ?? 1);
   const cfg = LEVEL_CFG(level);
   const [tubes, setTubes] = useState<Tube[]>(() => makeBoard(cfg.colorCount, cfg.buffers));
@@ -125,8 +126,11 @@ export function WaterSort({ game, onBack, onComplete, initialLevel }: Props) {
     );
   }
 
-  const tubeWidth = cfg.colorCount + cfg.buffers > 6 ? 38 : 50;
-  const tubeHeight = TUBE_HEIGHT * 36 + 4;
+  const totalTubes = cfg.colorCount + cfg.buffers;
+  const maxTubeW = Math.floor((width - 32) / Math.min(totalTubes, 5)) - 10;
+  const tubeWidth = Math.min(maxTubeW, totalTubes > 6 ? 54 : 68);
+  const segH = Math.floor(Math.min(height * 0.55, 400) / TUBE_HEIGHT);
+  const tubeHeight = TUBE_HEIGHT * segH + 4;
 
   return (
     <GameShell game={game} onBack={onBack} score={moves} label={`Ур. ${level}`}>
@@ -156,7 +160,7 @@ export function WaterSort({ game, onBack, onComplete, initialLevel }: Props) {
                 <View
                   key={j}
                   style={{
-                    height: 36,
+                    height: segH,
                     backgroundColor: c,
                     borderTopWidth: j === t.length - 1 ? 1 : 0,
                     borderTopColor: 'rgba(255,255,255,0.25)',

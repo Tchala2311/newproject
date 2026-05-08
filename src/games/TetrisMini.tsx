@@ -89,10 +89,10 @@ function clearLines(board: Board): { board: Board; lines: number } {
 }
 
 export function TetrisMini({ game, onBack, onComplete, initialLevel }: Props) {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const [level, setLevel] = useState(initialLevel ?? 1);
   const cfg = LEVEL_CFG(level);
-  const cell = Math.min(Math.floor((width - 80) / COLS), 28);
+  const cell = Math.min(Math.floor((width - 80) / COLS), Math.floor((height * 0.62) / ROWS));
 
   const [board, setBoard] = useState<Board>(emptyBoard);
   const [piece, setPiece] = useState(() => spawnPiece());

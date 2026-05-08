@@ -35,10 +35,10 @@ function makeBoard(pairs: number): Tile[] {
 }
 
 export function EmojiMatch({ game, onBack, onComplete, initialLevel }: Props) {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const [level, setLevel] = useState(initialLevel ?? 1);
   const cfg = LEVEL_CFG(level);
-  const cell = Math.min(70, (width - 60) / cfg.cols);
+  const cell = Math.min((width - 60) / cfg.cols, height * 0.14);
 
   const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
   const [tiles, setTiles] = useState<Tile[]>(() => makeBoard(cfg.pairs));

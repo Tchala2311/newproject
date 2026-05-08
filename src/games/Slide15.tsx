@@ -72,7 +72,7 @@ function isSolved(b: Board): boolean {
 }
 
 export function Slide15({ game, onBack, onComplete, initialLevel }: Props) {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const [level, setLevel] = useState(initialLevel ?? 1);
   const cfg = LEVEL_CFG(level);
   const [board, setBoard] = useState<Board>(() => shuffle(cfg.size, cfg.shuffles));
@@ -81,7 +81,7 @@ export function Slide15({ game, onBack, onComplete, initialLevel }: Props) {
   const [lastPassed, setLastPassed] = useState(false);
   const [lastScore, setLastScore] = useState(0);
 
-  const cell = Math.floor(Math.min(width - 32, 320) / cfg.size);
+  const cell = Math.floor(Math.min(width - 32, height * 0.58) / cfg.size);
 
   const tap = (x: number, y: number) => {
     if (phase !== 'playing') return;

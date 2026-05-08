@@ -23,8 +23,8 @@ const LEVEL_CFG = (level: number) => ({
 });
 
 export function NervePulse({ game, onBack, onComplete, initialLevel }: Props) {
-  const { width } = useWindowDimensions();
-  const board = Math.min(width - 40, 320);
+  const { width, height } = useWindowDimensions();
+  const board = Math.min(width - 40, height * 0.6);
   const cx = board / 2;
   const cy = board / 2;
 

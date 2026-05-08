@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
 import { GameShell } from './GameShell';
@@ -35,6 +35,8 @@ function rand(min: number, max: number) { return Math.floor(Math.random() * (max
 function shuffle<T>(a: T[]): T[] { const r = [...a]; for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; }
 
 export function MathBlitz({ game, onBack, onComplete, initialLevel }: Props) {
+  const { width } = useWindowDimensions();
+  const btnW = Math.floor((width - 52) / 2);
   const [level, setLevel] = useState(initialLevel ?? 1);
   const [qIdx, setQIdx] = useState(0);
   const [q, setQ] = useState<Question>(() => makeQuestion(initialLevel ?? 1));
@@ -105,7 +107,7 @@ export function MathBlitz({ game, onBack, onComplete, initialLevel }: Props) {
           {q.choices.map((c) => (
             <Pressable key={c} onPress={() => answer(c)}
               style={{
-                width: 130, paddingVertical: 18, borderRadius: 14, alignItems: 'center',
+                width: btnW, paddingVertical: 20, borderRadius: 14, alignItems: 'center',
                 backgroundColor: `${game.accent}18`, borderWidth: 1, borderColor: `${game.accent}50`,
               }}>
               <Text style={{ fontSize: 26, fontFamily: fontFamily.bold, color: game.accent }}>{c}</Text>

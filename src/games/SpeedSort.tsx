@@ -114,10 +114,10 @@ export function SpeedSort({ game, onBack, onComplete, initialLevel }: Props) {
       </View>
       <Animated.View {...panResponder.panHandlers} style={{
         transform: [{ translateX: pan.x }, { rotate: pan.x.interpolate({ inputRange: [-150, 150], outputRange: ['-15deg', '15deg'] }) }],
-        width: 160, height: 160, borderRadius: 24, backgroundColor: `${game.accent}22`,
+        width: Math.min(width * 0.55, 220), height: Math.min(width * 0.55, 220), borderRadius: 24, backgroundColor: `${game.accent}22`,
         borderWidth: 2, borderColor: `${game.accent}60`, alignItems: 'center', justifyContent: 'center',
       }}>
-        <Text style={{ fontSize: 72 }}>{currentCard?.emoji}</Text>
+        <Text style={{ fontSize: Math.min(width * 0.22, 88) }}>{currentCard?.emoji}</Text>
       </Animated.View>
       <Text style={{ marginTop: 12, fontSize: 11, color: 'rgba(255,255,255,0.4)', fontFamily: fontFamily.semibold }}>
         Свайп влево или вправо

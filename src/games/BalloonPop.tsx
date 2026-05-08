@@ -18,7 +18,7 @@ let UID = 0;
 
 export function BalloonPop({ game, onBack, onComplete, initialLevel }: Props) {
   const { width, height: screenH } = useWindowDimensions();
-  const boardH = Math.min(screenH * 0.45, 340);
+  const boardH = screenH * 0.62;
   const [level, setLevel] = useState(initialLevel ?? 1);
   const [balloons, setBalloons] = useState<Balloon[]>([]);
   const [score, setScore] = useState(0);
@@ -92,7 +92,7 @@ export function BalloonPop({ game, onBack, onComplete, initialLevel }: Props) {
 
   return (
     <GameShell game={game} onBack={onBack} score={`${score} 🎈`} label={`⏱ ${timeLeft}с · нужно ${TARGET(level)}`}>
-      <View style={{ width, height: boardH, overflow: 'hidden' }}>
+      <View style={{ width: width - 32, height: boardH, overflow: 'hidden', borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.2)' }}>
         {balloons.map((b) => (
           <Animated.View key={b.id} style={{ position: 'absolute', left: b.x, transform: [{ translateY: b.anim }] }}>
             <Pressable onPress={() => pop(b.id)} hitSlop={10}>

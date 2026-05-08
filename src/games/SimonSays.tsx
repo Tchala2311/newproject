@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
 import { GameShell } from './GameShell';
@@ -14,6 +14,9 @@ const LABELS = ['🔴', '🟢', '🔵', '🟡'];
 type Phase = 'showing' | 'input' | 'complete';
 
 export function SimonSays({ game, onBack, onComplete, initialLevel }: Props) {
+  const { width, height } = useWindowDimensions();
+  const gridSize = Math.min(width - 32, height * 0.54);
+  const btnSize = Math.floor((gridSize - 12) / 2);
   const [level, setLevel] = useState(initialLevel ?? 1);
   // sequence length = level + 2 (starts at 3)
   const [sequence, setSequence] = useState<number[]>([]);
@@ -88,16 +91,16 @@ export function SimonSays({ game, onBack, onComplete, initialLevel }: Props) {
   return (
     <GameShell game={game} onBack={onBack} score={`Ур. ${level}`} label={`длина: ${sequence.length}`}>
       <Text style={{ fontSize: 13, fontFamily: fontFamily.semibold, color: 'rgba(255,255,255,0.6)', marginBottom: 24 }}>{status}</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', width: 240, gap: 12, justifyContent: 'center' }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', width: gridSize, gap: 12, justifyContent: 'center' }}>
         {COLORS.map((color, i) => (
           <Pressable key={i} onPress={() => tap(i)}
             style={{
-              width: 108, height: 108, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
+              width: btnSize, height: btnSize, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
               backgroundColor: lit === i ? color : `${color}30`,
               borderWidth: 2, borderColor: lit === i ? color : `${color}60`,
               transform: [{ scale: lit === i ? 1.08 : 1 }],
             }}>
-            <Text style={{ fontSize: 44 }}>{LABELS[i]}</Text>
+            <Text style={{ fontSize: btnSize * 0.4 }}>{LABELS[i]}</Text>
           </Pressable>
         ))}
       </View>

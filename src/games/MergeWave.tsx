@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { PanResponder, Pressable, Text, View } from 'react-native';
+import { PanResponder, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
 import { colors, fontFamily } from '../theme';
@@ -106,6 +106,8 @@ const TILE_TEXT: Record<number, string> = {
 type Props = { game: Game; onBack: () => void; onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void; initialLevel?: number };
 
 export function MergeWave({ game, onBack, onComplete, initialLevel }: Props) {
+  const { width, height } = useWindowDimensions();
+  const cs = Math.floor((Math.min(width - 32, height * 0.55) - 30) / SIZE);
   const [level, setLevel] = useState(initialLevel ?? 1);
   const target = LEVEL_TARGET(level);
   const [grid, setGrid] = useState<Grid>(newGrid);
@@ -175,8 +177,6 @@ export function MergeWave({ game, onBack, onComplete, initialLevel }: Props) {
     })
   ).current;
 
-  const cs = 56;
-
   if (phase === 'complete') {
     return (
       <LevelComplete
@@ -226,7 +226,7 @@ export function MergeWave({ game, onBack, onComplete, initialLevel }: Props) {
                 {v ? (
                   <Text
                     style={{
-                      fontSize: v >= 100 ? 18 : 22,
+                      fontSize: v >= 1000 ? cs * 0.30 : v >= 100 ? cs * 0.36 : cs * 0.42,
                       fontFamily: fontFamily.bold,
                       color: TILE_TEXT[v] || '#fff',
                     }}

@@ -1,17 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
 import { colors, fontFamily } from '../theme';
 import { GameShell } from './GameShell';
 import { LevelComplete, shouldShowAdAfter } from './LevelComplete';
 
-const ST_W = 240;
-const ST_BH = 18;
-const STAGE_H = 240;
+const ST_BH = 22;
 
 const LEVEL_CFG = (level: number) => ({
-  target: 4 + level * 2,                          // L1: 6, L2: 8, …, infinite
+  target: 4 + level * 2,
   baseSpeed: Math.min(7, 1.2 + level * 0.5),
 });
 
@@ -19,6 +17,10 @@ type Block = { x: number; w: number };
 type Props = { game: Game; onBack: () => void; onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void; initialLevel?: number };
 
 export function StackIt({ game, onBack, onComplete, initialLevel }: Props) {
+  const { width, height } = useWindowDimensions();
+  const ST_W = Math.min(width - 32, 380);
+  const STAGE_H = Math.min(height * 0.54, 500);
+
   const [level, setLevel] = useState(initialLevel ?? 1);
   const cfg = LEVEL_CFG(level);
   const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
@@ -29,9 +31,13 @@ export function StackIt({ game, onBack, onComplete, initialLevel }: Props) {
   const cxRef = useRef(0);
   const cwRef = useRef(ST_W);
   const phaseRef = useRef(phase);
+  const stWRef = useRef(ST_W);
   const [score, setScore] = useState(0);
   const [lastPassed, setLastPassed] = useState(false);
   const [lastScore, setLastScore] = useState(0);
+
+  // Keep stWRef updated if dimensions change (e.g., orientation)
+  stWRef.current = ST_W;
 
   useEffect(() => { cxRef.current = cx; }, [cx]);
   useEffect(() => { cwRef.current = cw; }, [cw]);
@@ -43,10 +49,11 @@ export function StackIt({ game, onBack, onComplete, initialLevel }: Props) {
     const speed = cfg.baseSpeed + score * 0.04;
     const loop = () => {
       if (phaseRef.current !== 'playing') return;
+      const stW = stWRef.current;
       const next = cxRef.current + speed * dirRef.current;
-      if (next + cwRef.current > ST_W) dirRef.current = -1;
+      if (next + cwRef.current > stW) dirRef.current = -1;
       else if (next < 0) dirRef.current = 1;
-      const clamped = Math.max(0, Math.min(ST_W - cwRef.current, next));
+      const clamped = Math.max(0, Math.min(stW - cwRef.current, next));
       cxRef.current = clamped;
       setCx(clamped);
       raf = requestAnimationFrame(loop);
@@ -89,11 +96,12 @@ export function StackIt({ game, onBack, onComplete, initialLevel }: Props) {
   };
 
   const reset = () => {
-    setBlocks([{ x: 0, w: ST_W }]);
+    const stW = stWRef.current;
+    setBlocks([{ x: 0, w: stW }]);
     setCx(0);
-    setCw(ST_W);
+    setCw(stW);
     cxRef.current = 0;
-    cwRef.current = ST_W;
+    cwRef.current = stW;
     dirRef.current = 1;
     setScore(0);
     setPhase('playing');

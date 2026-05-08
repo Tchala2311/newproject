@@ -50,7 +50,7 @@ function clues(line: boolean[]): number[] {
 }
 
 export function Picross({ game, onBack, onComplete, initialLevel }: Props) {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const [level, setLevel] = useState(initialLevel ?? 1);
   const cfg = LEVEL_CFG(level);
   const puzzle = useMemo(() => genPuzzle(cfg.size, cfg.fillProb), [level]);
@@ -146,7 +146,7 @@ export function Picross({ game, onBack, onComplete, initialLevel }: Props) {
     );
   }
 
-  const cell = Math.floor((Math.min(width, 360) - 64) / cfg.size);
+  const cell = Math.floor((Math.min(width - 32, height * 0.55)) / (cfg.size + 1));
   const cluePad = cell;
 
   const cellColor = (c: Cell) =>

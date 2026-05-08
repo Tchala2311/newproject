@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
 import { GameShell } from './GameShell';
@@ -77,6 +77,10 @@ function judgeRow(guess: string, target: string): Cell[] {
 }
 
 export function Wordle5({ game, onBack, onComplete, initialLevel }: Props) {
+  const { width, height } = useWindowDimensions();
+  const maxCellByWidth = Math.floor((width - 48) / 5);
+  const maxCellByHeight = Math.floor((height * 0.45) / 7);
+  const cellW = Math.min(maxCellByWidth, maxCellByHeight, 60);
   const [level, setLevel] = useState(initialLevel ?? 1);
   const cfg = LEVEL_CFG(level);
   const [target, setTarget] = useState(() => pickWord());
@@ -198,8 +202,8 @@ export function Wordle5({ game, onBack, onComplete, initialLevel }: Props) {
               <View
                 key={ci}
                 style={{
-                  width: 44,
-                  height: 44,
+                  width: cellW,
+                  height: cellW,
                   borderRadius: 4,
                   backgroundColor: colorFor(c.state),
                   borderWidth: c.state === 'empty' ? 1 : 0,
@@ -208,7 +212,7 @@ export function Wordle5({ game, onBack, onComplete, initialLevel }: Props) {
                   justifyContent: 'center',
                 }}
               >
-                <Text style={{ fontSize: 20, fontFamily: fontFamily.bold, color: '#fff' }}>{c.ch}</Text>
+                <Text style={{ fontSize: cellW * 0.44, fontFamily: fontFamily.bold, color: '#fff' }}>{c.ch}</Text>
               </View>
             ))}
           </View>

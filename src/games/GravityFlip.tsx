@@ -8,8 +8,6 @@ import { fontFamily } from '../theme';
 
 type Props = { game: Game; onBack: () => void; onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void; initialLevel?: number };
 
-const BOARD_W = 300;
-const BOARD_H = 260;
 const PLAYER_W = 22;
 const PLAYER_H = 22;
 const GRAVITY = 0.45;
@@ -18,13 +16,16 @@ const SPEED = 3.5;
 const GAP = (level: number) => Math.max(60, 110 - level * 8);
 const TARGET_SCORE = (level: number) => 4 + level * 2;
 const OBSTACLE_W = 22;
-const OBSTACLE_INTERVAL = 120; // frames between obstacles
+const OBSTACLE_INTERVAL = 120;
 
 type Obstacle = { x: number; topH: number };
 
 export function GravityFlip({ game, onBack, onComplete, initialLevel }: Props) {
+  const { width, height } = useWindowDimensions();
+  const BOARD_W = width - 32;
+  const BOARD_H = Math.min(height * 0.55, 480);
+
   const [level, setLevel] = useState(initialLevel ?? 1);
-  const [started, setStarted] = useState(false);
   const [phase, setPhase] = useState<'idle' | 'playing' | 'complete'>('idle');
   const [passed, setPassed] = useState(false);
   const [lastScore, setLastScore] = useState(0);
@@ -32,7 +33,7 @@ export function GravityFlip({ game, onBack, onComplete, initialLevel }: Props) {
 
   const playerY = useRef(BOARD_H / 2);
   const velocityY = useRef(0);
-  const gravDir = useRef(1); // 1 = down, -1 = up
+  const gravDir = useRef(1);
   const obstacles = useRef<Obstacle[]>([]);
   const frameCount = useRef(0);
   const scoreRef = useRef(0);
@@ -50,7 +51,7 @@ export function GravityFlip({ game, onBack, onComplete, initialLevel }: Props) {
     scoreRef.current = 0;
     gamePhaseRef.current = 'playing';
     setPhase('playing');
-  }, []);
+  }, [BOARD_H]);
 
   const flipGravity = useCallback(() => {
     if (gamePhaseRef.current !== 'playing') return;
@@ -63,27 +64,20 @@ export function GravityFlip({ game, onBack, onComplete, initialLevel }: Props) {
     if (phase !== 'playing') return;
     const loop = () => {
       frameCount.current += 1;
-      // Physics
       velocityY.current += GRAVITY * gravDir.current;
       velocityY.current = Math.max(-8, Math.min(8, velocityY.current));
       playerY.current += velocityY.current;
-      // Bounce off walls
       if (playerY.current <= 0) { playerY.current = 0; velocityY.current = Math.abs(velocityY.current) * 0.4; gravDir.current = 1; }
       if (playerY.current >= BOARD_H - PLAYER_H) { playerY.current = BOARD_H - PLAYER_H; velocityY.current = -Math.abs(velocityY.current) * 0.4; gravDir.current = -1; }
-      // Spawn obstacles
       if (frameCount.current % OBSTACLE_INTERVAL === 0) {
         const topH = 20 + Math.random() * (BOARD_H - gap - 40);
         obstacles.current.push({ x: BOARD_W, topH });
       }
-      // Move obstacles
       obstacles.current = obstacles.current.map((o) => ({ ...o, x: o.x - SPEED }));
-      // Remove passed obstacles + count score
-      const before = obstacles.current.length;
       obstacles.current = obstacles.current.filter((o) => {
         if (o.x + OBSTACLE_W < 30) { scoreRef.current += 1; return false; }
         return true;
       });
-      // Collision detection
       const px = 30, py = playerY.current;
       for (const o of obstacles.current) {
         const inX = px + PLAYER_W > o.x && px < o.x + OBSTACLE_W;
@@ -114,7 +108,7 @@ export function GravityFlip({ game, onBack, onComplete, initialLevel }: Props) {
     };
     rafRef.current = requestAnimationFrame(loop);
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
-  }, [phase, level, gap]);
+  }, [phase, level, gap, BOARD_W, BOARD_H]);
 
   if (phase === 'complete') {
     return <LevelComplete level={level} passed={passed} score={lastScore} scoreLabel="Очки" accent={game.accent}
@@ -126,7 +120,7 @@ export function GravityFlip({ game, onBack, onComplete, initialLevel }: Props) {
 
   return (
     <GameShell game={game} onBack={onBack} score={`${scoreRef.current} ✓`} label={`нужно ${TARGET_SCORE(level)} · Ур. ${level}`}>
-      <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', fontFamily: fontFamily.semibold, marginBottom: 8 }}>
+      <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', fontFamily: fontFamily.semibold, marginBottom: 4 }}>
         Тапни по экрану чтобы перевернуть гравитацию
       </Text>
       <Pressable onPress={phase === 'idle' ? startGame : flipGravity}
@@ -138,9 +132,7 @@ export function GravityFlip({ game, onBack, onComplete, initialLevel }: Props) {
         )}
         {phase === 'playing' && (
           <>
-            {/* Player */}
             <View style={{ position: 'absolute', left: 30, top: playerY.current, width: PLAYER_W, height: PLAYER_H, borderRadius: 6, backgroundColor: game.accent }} />
-            {/* Obstacles */}
             {obstacles.current.map((o, i) => (
               <React.Fragment key={i}>
                 <View style={{ position: 'absolute', left: o.x, top: 0, width: OBSTACLE_W, height: o.topH, backgroundColor: '#7E22CE', borderRadius: 4 }} />

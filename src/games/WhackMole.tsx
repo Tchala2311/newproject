@@ -16,8 +16,8 @@ const MOLE_DURATION = (level: number) => Math.max(500, 900 - level * 60);
 const TARGET_SCORE = (level: number) => 5 + level * 2;
 
 export function WhackMole({ game, onBack, onComplete, initialLevel }: Props) {
-  const { width } = useWindowDimensions();
-  const cellSize = Math.floor((Math.min(width - 40, 300)) / COLS);
+  const { width, height } = useWindowDimensions();
+  const cellSize = Math.floor(Math.min(width - 40, height * 0.52) / COLS);
   const [level, setLevel] = useState(initialLevel ?? 1);
   const [moles, setMoles] = useState<boolean[]>(Array(CELLS).fill(false));
   const [score, setScore] = useState(0);

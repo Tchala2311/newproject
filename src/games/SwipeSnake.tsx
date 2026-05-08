@@ -34,8 +34,10 @@ function spawnFood(snake: Pt[]): Pt {
 }
 
 export function SwipeSnake({ game, onBack, onComplete, initialLevel }: Props) {
-  const { width } = useWindowDimensions();
-  const cell = Math.min(Math.floor((width - 32) / COLS), 22);
+  const { width, height } = useWindowDimensions();
+  const cellByW = Math.floor((width - 32) / COLS);
+  const cellByH = Math.floor((height * 0.62) / ROWS);
+  const cell = Math.min(cellByW, cellByH);
   const boardW = cell * COLS;
   const boardH = cell * ROWS;
 

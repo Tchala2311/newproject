@@ -21,8 +21,8 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 export function NumberOrder({ game, onBack, onComplete, initialLevel }: Props) {
-  const { width } = useWindowDimensions();
-  const cellSize = Math.floor((Math.min(width - 32, 320)) / GRID);
+  const { width, height } = useWindowDimensions();
+  const cellSize = Math.floor(Math.min(width - 32, height * 0.58) / GRID);
   const [level, setLevel] = useState(initialLevel ?? 1);
   const [numbers, setNumbers] = useState<number[]>(() => shuffle(Array.from({ length: GRID * GRID }, (_, i) => i + 1)));
   const [nextExpected, setNextExpected] = useState(1);
