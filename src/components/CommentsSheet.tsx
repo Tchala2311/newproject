@@ -16,7 +16,7 @@ import * as Haptics from 'expo-haptics';
 import { Game, Creator } from '../data/games';
 import { colors, fontFamily, radius } from '../theme';
 import { useUser } from '../store/useUser';
-import { supabase } from '../lib/supabase';
+import { supabase, requireSession } from '../lib/supabase';
 
 type Props = {
   visible: boolean;
@@ -157,6 +157,10 @@ export function CommentsSheet({ visible, onClose, game, onOpenCreator }: Props) 
     const body = draft.trim();
     if (!body || !user || !game || submitting) return;
     if (body.length > 500) return; // enforced by TextInput maxLength but guard server-side too
+    // Verify session is still valid (refresh if expiring within 5 min) before
+    // performing a write — protects against stale tokens after long backgrounding.
+    const session = await requireSession();
+    if (!session) return; // silently bail; Supabase will reject anyway
     setSubmitting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     const { data, error } = await supabase

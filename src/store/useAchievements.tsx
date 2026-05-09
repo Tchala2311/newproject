@@ -4,7 +4,7 @@
 // and surfaced via lastUnlocked for the UI to toast.
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { secureStorage } from '../lib/secureStorage';
 import { supabase } from '../lib/supabase';
 import { useUser } from './useUser';
 import { usePrefs } from './usePrefs';
@@ -55,7 +55,7 @@ export function AchievementsProvider({ children }: { children: React.ReactNode }
 
   // Persist + hydrate recent game IDs independently of Supabase.
   useEffect(() => {
-    AsyncStorage.getItem('loop:recent:v1').then((raw) => {
+    secureStorage.getItem('loop:recent:v1').then((raw) => {
       if (!raw) return;
       try {
         const parsed = JSON.parse(raw);
@@ -67,7 +67,7 @@ export function AchievementsProvider({ children }: { children: React.ReactNode }
   const pushRecent = useCallback((gameId: number) => {
     setRecentGameIds((prev) => {
       const next = [gameId, ...prev.filter((id) => id !== gameId)].slice(0, 20);
-      AsyncStorage.setItem('loop:recent:v1', JSON.stringify(next)).catch(() => {});
+      secureStorage.setItem('loop:recent:v1', JSON.stringify(next)).catch(() => {});
       return next;
     });
   }, []);

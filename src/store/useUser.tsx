@@ -2,10 +2,12 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session } from '@supabase/supabase-js';
 import { supabase, Profile } from '../lib/supabase';
+import { secureStorage } from '../lib/secureStorage';
 
 const FOLLOWS_KEY = 'loop:follows:v1';
 
-// All AsyncStorage keys owned by this provider — cleared on sign-out.
+// All preference cache keys — cleared from both SecureStore and legacy
+// AsyncStorage on sign-out so a new user on the same device starts clean.
 const ALL_CACHE_KEYS = [
   FOLLOWS_KEY,
   'loop:likes:cache:v2',
@@ -126,14 +128,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; };
   }, [session?.user?.id]);
 
-  // Follows: hydrate from local cache instantly, then reconcile with DB.
+  // Follows: hydrate from encrypted cache instantly, then reconcile with DB.
   useEffect(() => {
-    AsyncStorage.getItem(FOLLOWS_KEY).then((f) => {
+    secureStorage.getItem(FOLLOWS_KEY).then((f) => {
       setFollows(safeJsonParse<Record<string, boolean>>(f, {}));
-    });
+    }).catch(() => {});
   }, []);
   useEffect(() => {
-    AsyncStorage.setItem(FOLLOWS_KEY, JSON.stringify(follows)).catch(() => {});
+    secureStorage.setItem(FOLLOWS_KEY, JSON.stringify(follows)).catch(() => {});
   }, [follows]);
 
   useEffect(() => {
@@ -184,8 +186,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     // Wipe all local caches before signing out so a subsequent user on the
-    // same device never sees stale data from the previous session.
-    await AsyncStorage.multiRemove(ALL_CACHE_KEYS).catch(() => {});
+    // same device never sees stale data from the previous session. Remove from
+    // both SecureStore (current) and AsyncStorage (legacy, for migration).
+    await Promise.all([
+      ...ALL_CACHE_KEYS.map((k) => secureStorage.removeItem(k).catch(() => {})),
+      AsyncStorage.multiRemove(ALL_CACHE_KEYS).catch(() => {}),
+    ]);
     setFollows({});
     await supabase.auth.signOut();
   }, []);

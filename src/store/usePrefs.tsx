@@ -1,12 +1,22 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { secureStorage } from '../lib/secureStorage';
 import { supabase } from '../lib/supabase';
 import { useUser } from './useUser';
 
 const LIKES_CACHE = 'loop:likes:cache:v2';
 const SAVES_CACHE = 'loop:saves:cache:v2';
 
+// How long to wait after the last tap before writing to the DB.
+const DEBOUNCE_MS = 400;
+
 type IDMap = Record<number, boolean>;
+
+// Tracks the debounce state per game ID so rapid taps only produce one write.
+type PendingEntry = {
+  timer: ReturnType<typeof setTimeout>;
+  // The committed (DB) state before this debounce cycle started.
+  committed: boolean;
+};
 
 type PrefsState = {
   likes: IDMap;
@@ -35,13 +45,17 @@ export function PrefsProvider({ children }: { children: React.ReactNode }) {
   const [saves, setSaves] = useState<IDMap>({});
   const [hydrated, setHydrated] = useState(false);
 
-  // 1) Cache hydrate (instant)
+  // Per-game debounce state for likes and saves.
+  const likePending = useRef<Record<number, PendingEntry>>({});
+  const savePending = useRef<Record<number, PendingEntry>>({});
+
+  // 1) Cache hydrate from encrypted storage (instant — no network)
   useEffect(() => {
     (async () => {
       try {
         const [l, s] = await Promise.all([
-          AsyncStorage.getItem(LIKES_CACHE),
-          AsyncStorage.getItem(SAVES_CACHE),
+          secureStorage.getItem(LIKES_CACHE),
+          secureStorage.getItem(SAVES_CACHE),
         ]);
         setLikes(safeJsonParse<IDMap>(l, {}));
         setSaves(safeJsonParse<IDMap>(s, {}));
@@ -49,7 +63,7 @@ export function PrefsProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
-  // 2) Server hydrate — always overwrite cache with DB truth
+  // 2) Server hydrate — DB is source of truth; overwrites cache on login
   useEffect(() => {
     let cancelled = false;
     if (!user) {
@@ -68,38 +82,55 @@ export function PrefsProvider({ children }: { children: React.ReactNode }) {
       (saveRows ?? []).forEach((r: { game_id: number }) => { sm[r.game_id] = true; });
       setLikes(lm);
       setSaves(sm);
-      AsyncStorage.setItem(LIKES_CACHE, JSON.stringify(lm)).catch(() => {});
-      AsyncStorage.setItem(SAVES_CACHE, JSON.stringify(sm)).catch(() => {});
+      secureStorage.setItem(LIKES_CACHE, JSON.stringify(lm)).catch(() => {});
+      secureStorage.setItem(SAVES_CACHE, JSON.stringify(sm)).catch(() => {});
       setHydrated(true);
     })();
     return () => { cancelled = true; };
   }, [user?.id]);
 
-  // 3) Persist cache when local state changes (post-hydrate)
+  // 3) Persist to encrypted storage whenever local state changes (post-hydrate)
   useEffect(() => {
     if (!hydrated) return;
-    AsyncStorage.setItem(LIKES_CACHE, JSON.stringify(likes)).catch(() => {});
+    secureStorage.setItem(LIKES_CACHE, JSON.stringify(likes)).catch(() => {});
   }, [likes, hydrated]);
 
   useEffect(() => {
     if (!hydrated) return;
-    AsyncStorage.setItem(SAVES_CACHE, JSON.stringify(saves)).catch(() => {});
+    secureStorage.setItem(SAVES_CACHE, JSON.stringify(saves)).catch(() => {});
   }, [saves, hydrated]);
 
   const toggleLike = useCallback((id: number) => {
     if (!user) return;
     setLikes((prev) => {
       const next = { ...prev, [id]: !prev[id] };
-      const op = next[id]
-        ? supabase.from('likes').upsert({ user_id: user.id, game_id: id })
-        : supabase.from('likes').delete().match({ user_id: user.id, game_id: id });
-      op.then(({ error }) => {
-        if (error) {
-          if (__DEV__) console.warn('like toggle failed');
-          // Revert optimistic update on failure.
-          setLikes((cur) => ({ ...cur, [id]: !!prev[id] }));
-        }
-      });
+      const wanted = !!next[id];
+
+      const existing = likePending.current[id];
+      if (existing) clearTimeout(existing.timer);
+
+      // Remember the DB state from before this debounce cycle so we can
+      // revert to it if the write fails.
+      const committed = existing ? existing.committed : !!prev[id];
+
+      likePending.current[id] = {
+        committed,
+        timer: setTimeout(() => {
+          delete likePending.current[id];
+          // If the user toggled back to the original state, no write needed.
+          if (wanted === committed) return;
+          const op = wanted
+            ? supabase.from('likes').upsert({ user_id: user.id, game_id: id })
+            : supabase.from('likes').delete().match({ user_id: user.id, game_id: id });
+          op.then(({ error }) => {
+            if (error) {
+              if (__DEV__) console.warn('like toggle failed');
+              setLikes((cur) => ({ ...cur, [id]: committed }));
+            }
+          });
+        }, DEBOUNCE_MS),
+      };
+
       return next;
     });
   }, [user?.id]);
@@ -108,16 +139,30 @@ export function PrefsProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     setSaves((prev) => {
       const next = { ...prev, [id]: !prev[id] };
-      const op = next[id]
-        ? supabase.from('saves').upsert({ user_id: user.id, game_id: id })
-        : supabase.from('saves').delete().match({ user_id: user.id, game_id: id });
-      op.then(({ error }) => {
-        if (error) {
-          if (__DEV__) console.warn('save toggle failed');
-          // Revert optimistic update on failure.
-          setSaves((cur) => ({ ...cur, [id]: !!prev[id] }));
-        }
-      });
+      const wanted = !!next[id];
+
+      const existing = savePending.current[id];
+      if (existing) clearTimeout(existing.timer);
+
+      const committed = existing ? existing.committed : !!prev[id];
+
+      savePending.current[id] = {
+        committed,
+        timer: setTimeout(() => {
+          delete savePending.current[id];
+          if (wanted === committed) return;
+          const op = wanted
+            ? supabase.from('saves').upsert({ user_id: user.id, game_id: id })
+            : supabase.from('saves').delete().match({ user_id: user.id, game_id: id });
+          op.then(({ error }) => {
+            if (error) {
+              if (__DEV__) console.warn('save toggle failed');
+              setSaves((cur) => ({ ...cur, [id]: committed }));
+            }
+          });
+        }, DEBOUNCE_MS),
+      };
+
       return next;
     });
   }, [user?.id]);

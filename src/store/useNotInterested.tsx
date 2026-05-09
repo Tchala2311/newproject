@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { secureStorage } from '../lib/secureStorage';
 import { supabase } from '../lib/supabase';
 import { useUser } from './useUser';
 
@@ -17,15 +17,15 @@ export function NotInterestedProvider({ children }: { children: React.ReactNode 
   const { session } = useUser();
   const [map, setMap] = useState<Record<number, boolean>>({});
 
-  // Hydrate from local cache + DB
+  // Hydrate from encrypted cache + DB
   useEffect(() => {
-    AsyncStorage.getItem(KEY).then((v) => {
+    secureStorage.getItem(KEY).then((v) => {
       if (!v) return;
       try {
         const parsed = JSON.parse(v);
         if (typeof parsed === 'object' && parsed !== null) setMap(parsed);
       } catch {}
-    });
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -45,7 +45,7 @@ export function NotInterestedProvider({ children }: { children: React.ReactNode 
   }, [session?.user?.id]);
 
   useEffect(() => {
-    AsyncStorage.setItem(KEY, JSON.stringify(map)).catch(() => {});
+    secureStorage.setItem(KEY, JSON.stringify(map)).catch(() => {});
   }, [map]);
 
   const markNotInterested = useCallback((gameId: number) => {
