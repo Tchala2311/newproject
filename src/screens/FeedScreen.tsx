@@ -98,15 +98,19 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
     [follows]
   );
 
-  // Run the recommender on mount + when user changes (NOT on follows change —
-  // those are handled by the existing in-network candidate source on next
-  // refresh, and we don't want to reset scroll every time someone follows
-  // a creator from a comments sheet).
+  // Show the plain catalog instantly (zero network) so the user sees content
+  // immediately, then replace with the ranked feed once the recommender finishes.
+  // This mirrors TikTok/Reels behaviour: no "loading…" screen on cold start.
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    // Instant: pre-populate with shuffled catalog so skeleton never shows.
+    if (forYouItems.length === 0) {
+      setForYouItems(buildSimpleFeed([...GAMES].sort(() => Math.random() - 0.5)));
+    }
+    // Background: replace with ranked feed; don't change scroll position.
     buildFeed(0).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   // Pull-to-refresh handler — Reels/TikTok-style. Re-runs the ranker with a
@@ -244,7 +248,7 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
-      {(loading || refreshing) && tab === 'forYou' && items.length === 0 ? <FeedSkeleton /> : null}
+      {refreshing && tab === 'forYou' && items.length === 0 ? <FeedSkeleton /> : null}
 
       <FlatList
         ref={listRef}

@@ -21,41 +21,51 @@ const TOTAL = 12;
 
 type Card = { emoji: string; category: string };
 
-function buildDeck(): Card[] {
+function pickCatPair(): [Category, Category] {
+  const shuffled = [...CATEGORIES].sort(() => Math.random() - 0.5);
+  return [shuffled[0], shuffled[1]];
+}
+
+function buildDeck(left: Category, right: Category): Card[] {
+  const both = [left, right];
   const deck: Card[] = [];
   while (deck.length < TOTAL) {
-    const cat = CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)];
+    const cat = both[Math.floor(Math.random() * 2)];
     const item = cat.items[Math.floor(Math.random() * cat.items.length)];
-    deck.push({ emoji: item, category: cat.label });
+    if (!deck.find((c) => c.emoji === item)) deck.push({ emoji: item, category: cat.label });
   }
   return deck;
+}
+
+function newRound(): { leftCat: Category; rightCat: Category; deck: Card[] } {
+  const [leftCat, rightCat] = pickCatPair();
+  return { leftCat, rightCat, deck: buildDeck(leftCat, rightCat) };
 }
 
 export function SpeedSort({ game, onBack, onComplete, initialLevel }: Props) {
   const { width } = useWindowDimensions();
   const [level, setLevel] = useState(initialLevel ?? 1);
-  const [deck, setDeck] = useState<Card[]>(() => buildDeck());
+  const [round, setRound] = useState(() => newRound());
   const [idx, setIdx] = useState(0);
   const [correct, setCorrect] = useState(0);
   const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
   const [passed, setPassed] = useState(false);
   const [lastScore, setLastScore] = useState(0);
-  const [hint, setHint] = useState<string | null>(null);
   const pan = useRef(new Animated.ValueXY()).current;
   const correctRef = useRef(0);
 
-  const currentCard = deck[idx];
-  // For this card, which direction is correct?
-  const leftCat = CATEGORIES[0];
-  const rightCat = CATEGORIES[1];
+  // Keep a ref to the current round so panResponder always reads fresh values.
+  const roundRef = useRef(round);
+  const idxRef = useRef(0);
+  useEffect(() => { roundRef.current = round; }, [round]);
+  useEffect(() => { idxRef.current = idx; }, [idx]);
 
   const nextCard = useCallback((isCorrect: boolean) => {
     if (isCorrect) { correctRef.current += 1; setCorrect(correctRef.current); }
     pan.setValue({ x: 0, y: 0 });
-    setHint(null);
-    const next = idx + 1;
-    if (next >= deck.length) {
-      const p = correctRef.current >= Math.ceil(deck.length * 0.7);
+    const next = idxRef.current + 1;
+    if (next >= roundRef.current.deck.length) {
+      const p = correctRef.current >= Math.ceil(roundRef.current.deck.length * 0.7);
       const score = correctRef.current * 80 * level;
       setLastScore(score);
       setPassed(p);
@@ -64,38 +74,56 @@ export function SpeedSort({ game, onBack, onComplete, initialLevel }: Props) {
       return;
     }
     setIdx(next);
-  }, [idx, deck.length, level, pan, onComplete]);
+  }, [level, pan, onComplete]);
 
   const panResponder = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
     onPanResponderMove: Animated.event([null, { dx: pan.x }], { useNativeDriver: false }),
     onPanResponderRelease: (_, g) => {
-      if (Math.abs(g.dx) < 60) { Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false }).start(); return; }
+      if (Math.abs(g.dx) < 60) {
+        Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false }).start();
+        return;
+      }
       const swipedLeft = g.dx < 0;
       Animated.timing(pan, { toValue: { x: swipedLeft ? -400 : 400, y: 0 }, duration: 180, useNativeDriver: false }).start(() => {
-        // For simplicity: left = Animals, right = Food
-        // Correct if the card's category matches the swipe direction
-        const card = deck[idx];
-        const isCorrect = (swipedLeft && card.category === leftCat.label) || (!swipedLeft && card.category === rightCat.label);
-        Haptics[isCorrect ? 'notificationAsync' : 'notificationAsync'](isCorrect ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error).catch(() => {});
+        const { deck, leftCat, rightCat } = roundRef.current;
+        const card = deck[idxRef.current];
+        const isCorrect = swipedLeft
+          ? card.category === leftCat.label
+          : card.category === rightCat.label;
+        if (isCorrect) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        } else {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+        }
         nextCard(isCorrect);
       });
     },
   })).current;
 
-  const restart = useCallback(() => {
+  const startNewRound = useCallback((nextLevel: number) => {
     correctRef.current = 0;
     setCorrect(0);
     setIdx(0);
-    setDeck(buildDeck());
+    const r = newRound();
+    setRound(r);
+    roundRef.current = r;
+    idxRef.current = 0;
     setPhase('playing');
   }, []);
+
+  const restart = useCallback(() => {
+    startNewRound(level);
+  }, [level, startNewRound]);
+
+  const { leftCat, rightCat, deck } = round;
+  const currentCard = deck[idx];
 
   if (phase === 'complete') {
     return <LevelComplete level={level} passed={passed} score={lastScore} scoreLabel="Очки" accent={game.accent}
       showAd={passed && shouldShowAdAfter(level)}
-      onContinue={() => { setLevel((l) => l + 1); correctRef.current = 0; setCorrect(0); setIdx(0); setDeck(buildDeck()); setPhase('playing'); }}
+      onContinue={() => { const nl = level + 1; setLevel(nl); startNewRound(nl); }}
       onRetry={restart}
       onBack={onBack} />;
   }

@@ -112,7 +112,7 @@ export function Picross({ game, onBack, onComplete, initialLevel }: Props) {
       setLastPassed(true);
       setLastScore(Math.max(50, score));
       setPhase('complete');
-      onComplete(true, Math.max(50, score));
+      onComplete(true, Math.max(50, score), { level });
     }
   };
 

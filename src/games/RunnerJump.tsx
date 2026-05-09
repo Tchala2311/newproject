@@ -10,11 +10,14 @@ type Props = { game: Game; onBack: () => void; onComplete: (won: boolean, score:
 
 const PLAYER_SIZE = 30;
 const GRAVITY = 0.7;
-const JUMP_VY = -13;
-const OBSTACLE_W = 20;
-const OBSTACLE_SPEED = (level: number) => 3.5 + level * 0.4;
+const JUMP_VY = -14;
+const OBSTACLE_W = 22;
+const OBSTACLE_SPEED = (level: number) => 3.8 + level * 0.5;
 const TARGET = (level: number) => 6 + level * 3;
-const OBSTACLE_EMOJIS = ['🌵','🪨','🌊','🔥'];
+// Heights: min grows with level so early levels are forgiving, later are trickier
+const OBS_MIN_H = (level: number) => Math.min(28 + level * 3, 50);
+const OBS_MAX_H = (level: number) => Math.min(OBS_MIN_H(level) + 36, 90);
+const OBSTACLE_EMOJIS = ['🌵','🪨','🌳','🔥','🧱'];
 
 type Obstacle = { id: number; x: number; h: number; emoji: string };
 let OID = 0;
@@ -75,7 +78,9 @@ export function RunnerJump({ game, onBack, onComplete, initialLevel }: Props) {
         }
       }
       if (frameCount.current % spawnInterval === 0) {
-        const h = 24 + Math.floor(Math.random() * 20);
+        const minH = OBS_MIN_H(level);
+        const maxH = OBS_MAX_H(level);
+        const h = minH + Math.floor(Math.random() * (maxH - minH));
         obstacles.current.push({ id: ++OID, x: BOARD_W, h, emoji: OBSTACLE_EMOJIS[Math.floor(Math.random() * OBSTACLE_EMOJIS.length)] });
       }
       obstacles.current = obstacles.current.map((o) => ({ ...o, x: o.x - speed })).filter((o) => {
@@ -136,7 +141,8 @@ export function RunnerJump({ game, onBack, onComplete, initialLevel }: Props) {
         {phase === 'playing' && (
           <>
             <View style={{ position: 'absolute', left: 0, top: GROUND_Y, right: 0, height: 3, backgroundColor: 'rgba(255,255,255,0.2)' }} />
-            <Text style={{ position: 'absolute', left: 38, top: playerY.current, fontSize: PLAYER_SIZE }}>🏃</Text>
+            {/* scaleX:-1 flips the runner to face right toward incoming obstacles */}
+            <Text style={{ position: 'absolute', left: 38, top: playerY.current, fontSize: PLAYER_SIZE, transform: [{ scaleX: -1 }] }}>🏃</Text>
             {obstacles.current.map((o) => (
               <Text key={o.id} style={{ position: 'absolute', left: o.x, top: GROUND_Y - o.h - 4, fontSize: o.h + 10 }}>{o.emoji}</Text>
             ))}

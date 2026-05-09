@@ -8,6 +8,7 @@ import { Game } from '../data/games';
 import { colors, fontFamily, radius } from '../theme';
 import { Glass } from './Glass';
 import { BgPattern } from './BgPattern';
+import { GamePreview } from './GamePreview';
 import { ActionButton } from './ActionButton';
 import { MusicBadge } from './MusicBadge';
 
@@ -189,7 +190,23 @@ export function GameCard({
         </Glass>
       </View>
 
-      {/* Center play button (no padding-stack — actually centered) */}
+      {/* Game preview — scaled up thumbnail so users see the game at a glance */}
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          top: 0, left: 0, right: 0, bottom: 0,
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: 0.55,
+        }}
+      >
+        <View style={{ transform: [{ scale: 3.2 }] }}>
+          <GamePreview game={game} />
+        </View>
+      </View>
+
+      {/* Center play button */}
       <View
         pointerEvents="box-none"
         style={{
