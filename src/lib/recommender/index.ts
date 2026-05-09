@@ -46,6 +46,9 @@ export async function getRankedFeed(req: FeedRequest): Promise<FeedResult> {
     const ranked = candidates.map((c) =>
       rankCandidate(c.game, new Map([['fallback', c.rawScore]]) as any, profile)
     );
+    if (refreshNonce > 0) {
+      ranked.forEach((r) => { r.total += (Math.random() - 0.5) * 2.5; });
+    }
     return { items: assembleFeed(ranked, targetLength), profile, ranked };
   }
 

@@ -198,10 +198,15 @@ export function GameCard({
           top: 0, left: 0, right: 0, bottom: 0,
           alignItems: 'center',
           justifyContent: 'center',
-          opacity: 0.55,
         }}
       >
-        <View style={{ transform: [{ scale: 3.2 }] }}>
+        {/* Dark radial backing so the preview pops on any gradient */}
+        <View style={{
+          position: 'absolute',
+          width: 320, height: 320, borderRadius: 160,
+          backgroundColor: 'rgba(0,0,0,0.38)',
+        }} />
+        <View style={{ transform: [{ scale: 3.2 }], opacity: 0.82 }}>
           <GamePreview game={game} />
         </View>
       </View>

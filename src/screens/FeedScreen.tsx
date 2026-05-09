@@ -201,16 +201,17 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
   const switchTab = (next: FeedTab) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     if (next === tab) {
-      // Re-tap on active tab → re-rank the feed quietly (no skeleton, no toast)
       if (next === 'forYou') {
+        // Instant shuffle so the user sees a new order immediately, no network wait
+        setForYouItems((prev) => [...prev].sort(() => Math.random() - 0.5));
+        listRef.current?.scrollToOffset({ offset: 0, animated: true });
+        setFeedIdx(0);
+        loggedImpressions.current.clear();
+        // Then replace with properly ranked items in background
         const nonce = refreshNonceRef.current + 1;
         refreshNonceRef.current = nonce;
         setRefreshNonce(nonce);
-        loggedImpressions.current.clear();
-        buildFeed(nonce).then(() => {
-          listRef.current?.scrollToOffset({ offset: 0, animated: true });
-          setFeedIdx(0);
-        });
+        buildFeed(nonce);
       } else {
         listRef.current?.scrollToOffset({ offset: 0, animated: true });
         setFeedIdx(0);
