@@ -199,8 +199,24 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
   }, [markNotInterested, onToast]);
 
   const switchTab = (next: FeedTab) => {
-    if (next === tab) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    if (next === tab) {
+      // Re-tap on active tab → re-rank the feed quietly (no skeleton, no toast)
+      if (next === 'forYou') {
+        const nonce = refreshNonceRef.current + 1;
+        refreshNonceRef.current = nonce;
+        setRefreshNonce(nonce);
+        loggedImpressions.current.clear();
+        buildFeed(nonce).then(() => {
+          listRef.current?.scrollToOffset({ offset: 0, animated: true });
+          setFeedIdx(0);
+        });
+      } else {
+        listRef.current?.scrollToOffset({ offset: 0, animated: true });
+        setFeedIdx(0);
+      }
+      return;
+    }
     setTab(next);
     setFeedIdx(0);
     listRef.current?.scrollToOffset({ offset: 0, animated: false });
