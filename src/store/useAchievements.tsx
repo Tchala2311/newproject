@@ -160,26 +160,41 @@ export function AchievementsProvider({ children }: { children: React.ReactNode }
       }
       case 'level-complete': {
         const cur = progressByGame.get(e.game.id);
+
+        // Build the next progress state synchronously so runChecker sees it
+        // immediately — React's setProgressByGame won't take effect until the
+        // next render, which would cause runChecker to read stale progress and
+        // miss achievements that depend on best_level / total_wins / retries.
+        const base: GameProgressRow = cur ?? {
+          game_id: e.game.id, level: 1, best_level: 0,
+          best_score: 0, total_plays: 0, total_wins: 0,
+          total_losses: 0, retries: 0,
+        };
+        let patch: Partial<GameProgressRow>;
         if (e.passed) {
-          const newLevel = e.level + 1;
-          const bestLevel = Math.max(cur?.best_level ?? 0, e.level);
-          const bestScore = Math.max(cur?.best_score ?? 0, e.score);
-          persistProgress(e.game.id, {
-            level: newLevel,
-            best_level: bestLevel,
-            best_score: bestScore,
-            total_wins: (cur?.total_wins ?? 0) + 1,
-          });
+          patch = {
+            level: e.level + 1,
+            best_level: Math.max(base.best_level, e.level),
+            best_score: Math.max(base.best_score, e.score),
+            total_wins: base.total_wins + 1,
+          };
         } else {
-          persistProgress(e.game.id, {
-            retries: (cur?.retries ?? 0) + 1,
-            total_losses: (cur?.total_losses ?? 0) + 1,
-          });
+          patch = {
+            retries: base.retries + 1,
+            total_losses: base.total_losses + 1,
+          };
         }
+        persistProgress(e.game.id, patch);
+
         if (e.game.slug === 'tetris-mini' && e.meta?.lines) {
           tetrisLinesRef.current += e.meta.lines;
         }
+
+        // Pass fresh progress so checker doesn't rely on pre-render state.
+        const freshProgress = new Map(progressByGame);
+        freshProgress.set(e.game.id, { ...base, ...patch });
         runChecker({
+          progress: freshProgress,
           justCompleted: { game: e.game, level: e.level, passed: e.passed, durationMs: e.durationMs },
           lastEventHour: new Date().getHours(),
           lastCirclePercent: e.game.slug === 'perfect-circle' ? e.meta?.percent : undefined,
