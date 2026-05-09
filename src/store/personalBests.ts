@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const KEY = 'loop:bests:v1';
+const KEY = 'flik:bests:v1';
 let cache: Record<number, number> | null = null;
 
 async function load(): Promise<Record<number, number>> {

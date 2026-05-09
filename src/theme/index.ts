@@ -1,4 +1,4 @@
-// Loop / Луп — design tokens
+// FLIK — design tokens
 // Colors approximate the OKLCH palette from the Gamify v2 mockup, hand-tuned to hex
 // for React Native compatibility.
 

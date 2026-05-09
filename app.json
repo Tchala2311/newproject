@@ -1,22 +1,22 @@
 {
   "expo": {
-    "name": "Луп",
-    "slug": "loop-mini-games",
+    "name": "FLIK",
+    "slug": "flik",
     "version": "0.1.0",
     "orientation": "portrait",
-    "scheme": "loop",
+    "scheme": "flik",
     "userInterfaceStyle": "dark",
     "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "ru.loopgames.app",
+      "bundleIdentifier": "app.flik.games",
       "infoPlist": {
         "UIStatusBarStyle": "UIStatusBarStyleLightContent",
         "UIBackgroundModes": ["audio"]
       }
     },
     "android": {
-      "package": "ru.loopgames.app",
+      "package": "app.flik.games",
       "adaptiveIcon": {
         "backgroundColor": "#060610"
       }

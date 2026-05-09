@@ -16,7 +16,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
     if (__DEV__) {
       // Only log full details in development — stack traces can contain
       // user IDs or API response snippets that must not appear in prod logs.
-      console.warn('[Loop] crashed:', error.message, info.componentStack);
+      console.warn('[FLIK] crashed:', error.message, info.componentStack);
     }
     // TODO: pipe sanitized event to Sentry / AppMetrica once backend is wired.
   }

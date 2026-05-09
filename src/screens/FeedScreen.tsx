@@ -152,13 +152,13 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
     markEngaged(user?.id ?? null, game.id);
     try {
       // Include a deep link that resolves to the game (for v3 deep-link routing).
-      // For now share text with a `loop://` URL fragment that the receiving
+      // For now share text with a `flik://` URL fragment that the receiving
       // app — once installed — can intercept. Without an installed app it's
       // just a recognisable token in the message that links back via app.json
       // scheme on first launch.
-      const link = `loop://game/${game.slug}`;
+      const link = `flik://game/${game.slug}`;
       await Share.share({
-        message: `Зацени «${game.name}» в Луп — ${game.tagline}\n${link}`,
+        message: `Зацени «${game.name}» в FLIK — ${game.tagline}\n${link}`,
       });
       logEvent({ type: 'share', gameId: game.id });
       markEngaged(user?.id ?? null, game.id);

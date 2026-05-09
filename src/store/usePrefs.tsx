@@ -3,8 +3,8 @@ import { secureStorage } from '../lib/secureStorage';
 import { supabase } from '../lib/supabase';
 import { useUser } from './useUser';
 
-const LIKES_CACHE = 'loop:likes:cache:v2';
-const SAVES_CACHE = 'loop:saves:cache:v2';
+const LIKES_CACHE = 'flik:likes:cache:v2';
+const SAVES_CACHE = 'flik:saves:cache:v2';
 
 // How long to wait after the last tap before writing to the DB.
 const DEBOUNCE_MS = 400;

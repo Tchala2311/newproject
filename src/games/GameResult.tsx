@@ -46,8 +46,8 @@ export function GameResult({ won, score, accent = '#fff', onRestart, onBack, gam
     try {
       await Share.share({
         message: won
-          ? `Я набрал ${score ?? 0} очков в «${game.name}» в Луп 🎮 Зацени, попробуй побить!`
-          : `Залип в «${game.name}» в Луп 💀 Попробуй сам — может, ты пройдёшь`,
+          ? `Я набрал ${score ?? 0} очков в «${game.name}» в FLIK 🎮 Зацени, попробуй побить!`
+          : `Залип в «${game.name}» в FLIK 💀 Попробуй сам — может, ты пройдёшь`,
       });
       logEvent({ type: 'share', gameId: game.id });
     } catch {}

@@ -55,7 +55,7 @@ export function AchievementsProvider({ children }: { children: React.ReactNode }
 
   // Persist + hydrate recent game IDs independently of Supabase.
   useEffect(() => {
-    secureStorage.getItem('loop:recent:v1').then((raw) => {
+    secureStorage.getItem('flik:recent:v1').then((raw) => {
       if (!raw) return;
       try {
         const parsed = JSON.parse(raw);
@@ -67,7 +67,7 @@ export function AchievementsProvider({ children }: { children: React.ReactNode }
   const pushRecent = useCallback((gameId: number) => {
     setRecentGameIds((prev) => {
       const next = [gameId, ...prev.filter((id) => id !== gameId)].slice(0, 20);
-      secureStorage.setItem('loop:recent:v1', JSON.stringify(next)).catch(() => {});
+      secureStorage.setItem('flik:recent:v1', JSON.stringify(next)).catch(() => {});
       return next;
     });
   }, []);

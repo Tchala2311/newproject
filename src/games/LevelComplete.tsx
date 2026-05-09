@@ -150,7 +150,7 @@ export function LevelComplete({
           }}
         >
           <Text style={{ fontSize: 10, fontFamily: fontFamily.semibold, color: 'rgba(255,255,255,0.45)' }}>
-            ✨ Луп Премиум — без рекламы
+            ✨ FLIK Премиум — без рекламы
           </Text>
         </View>
       </View>

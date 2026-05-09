@@ -112,7 +112,7 @@ export function AuthScreen() {
           <View style={{ alignItems: 'center', gap: 14, marginBottom: 32 }}>
             <Text style={{ fontSize: 72 }}>🎮</Text>
             <Text style={{ fontSize: 30, fontFamily: fontFamily.bold, color: '#fff', letterSpacing: -0.6 }}>
-              Луп
+              FLIK
             </Text>
             <Text style={{ fontSize: 13, fontFamily: fontFamily.medium, color: colors.textMuted, textAlign: 'center' }}>
               {step === 'email' ? 'Войди по email — пришлём 6-значный код' : `Код отправлен на ${email}`}
@@ -165,7 +165,7 @@ export function AuthScreen() {
                 </Text>
               </Pressable>
               <Text style={{ fontSize: 11, fontFamily: fontFamily.medium, color: colors.textFaint, textAlign: 'center', marginTop: 8 }}>
-                Регистрируясь, ты соглашаешься с правилами Луп.
+                Регистрируясь, ты соглашаешься с правилами FLIK.
               </Text>
             </View>
           ) : (

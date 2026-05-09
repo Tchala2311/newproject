@@ -22,7 +22,7 @@ const SUGGESTED_FOLLOWS = [
   { handle: 'lera.words', name: 'Лера' },
   { handle: 'tower.dima', name: 'Дима', verified: true },
   { handle: 'yana.wave', name: 'Яна' },
-  { handle: 'loop.team', name: 'Луп · команда', verified: true },
+  { handle: 'flik.team', name: 'FLIK · команда', verified: true },
 ];
 
 const AVATAR_PALETTE = ['#C99FE6', '#5DD9B0', '#F0CE61', '#79BCDD', '#6BD9C0', '#E76F8E', '#F5A04A', '#9B7EFF'];
@@ -190,7 +190,7 @@ function Welcome() {
     <View style={{ alignItems: 'center', gap: 18 }}>
       <Text style={{ fontSize: 84 }}>🎮</Text>
       <Text style={{ fontSize: 34, fontFamily: fontFamily.bold, color: '#fff', textAlign: 'center', letterSpacing: -0.8 }}>
-        Добро пожаловать в Луп
+        Добро пожаловать в FLIK
       </Text>
       <Text style={{ fontSize: 15, fontFamily: fontFamily.medium, color: colors.textMuted, textAlign: 'center', lineHeight: 22 }}>
         Залипай на быстрых играх, лайкай, делись с друзьями.{'\n'}Свайпай вверх — следующая игра.
@@ -387,7 +387,7 @@ function FollowSuggestions({
           На кого подписаться?
         </Text>
         <Text style={{ fontSize: 13, fontFamily: fontFamily.medium, color: colors.textMuted, marginTop: 6 }}>
-          Авторы топ-игр Лупа. Подпишись — их игры появятся в твоей ленте «Подписки».
+          Авторы топ-игр FLIK. Подпишись — их игры появятся в твоей ленте «Подписки».
         </Text>
       </View>
       <View style={{ gap: 10 }}>

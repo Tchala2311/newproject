@@ -24,7 +24,7 @@ export type Event = {
   meta?: Record<string, string | number>;
 };
 
-const KEY = 'loop:events:v1';
+const KEY = 'flik:events:v1';
 const MAX = 500;
 
 let buffer: Event[] = [];

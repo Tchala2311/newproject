@@ -4,21 +4,21 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase, Profile } from '../lib/supabase';
 import { secureStorage } from '../lib/secureStorage';
 
-const FOLLOWS_KEY = 'loop:follows:v1';
+const FOLLOWS_KEY = 'flik:follows:v1';
 
 // All preference cache keys — cleared from both SecureStore and legacy
 // AsyncStorage on sign-out so a new user on the same device starts clean.
 const ALL_CACHE_KEYS = [
   FOLLOWS_KEY,
-  'loop:likes:cache:v2',
-  'loop:saves:cache:v2',
-  'loop:notInterested:v1',
-  'loop:recent:v1',
+  'flik:likes:cache:v2',
+  'flik:saves:cache:v2',
+  'flik:notInterested:v1',
+  'flik:recent:v1',
 ];
 
 const AVATAR_COLORS = ['#C99FE6', '#5DD9B0', '#F0CE61', '#79BCDD', '#6BD9C0', '#E76F8E', '#F5A04A'];
 
-const RESERVED_HANDLES = new Set(['admin', 'root', 'system', 'loop', 'team', 'support', 'help', 'mod', 'moderator']);
+const RESERVED_HANDLES = new Set(['admin', 'root', 'system', 'flik', 'team', 'support', 'help', 'mod', 'moderator']);
 
 const MAX_DISPLAY_NAME = 50;
 const MAX_BIO = 256;

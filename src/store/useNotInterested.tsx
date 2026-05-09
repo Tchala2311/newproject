@@ -3,7 +3,7 @@ import { secureStorage } from '../lib/secureStorage';
 import { supabase } from '../lib/supabase';
 import { useUser } from './useUser';
 
-const KEY = 'loop:notInterested:v1';
+const KEY = 'flik:notInterested:v1';
 
 type State = {
   notInterested: Record<number, boolean>;

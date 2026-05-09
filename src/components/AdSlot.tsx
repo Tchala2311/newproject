@@ -54,7 +54,7 @@ function PremiumUpsell({ height, bottomInset, onCTA }: { height: number; bottomI
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, paddingBottom: 90 + bottomInset, gap: 16 }}>
         <Text style={{ fontSize: 56 }}>✨</Text>
         <Text style={{ fontSize: 26, fontFamily: fontFamily.bold, color: colors.text, textAlign: 'center', lineHeight: 30, letterSpacing: -0.5 }}>
-          Луп без рекламы
+          FLIK без рекламы
         </Text>
         <Text style={{ fontSize: 14, fontFamily: fontFamily.medium, color: colors.textMuted, textAlign: 'center', lineHeight: 20, maxWidth: 280 }}>
           Подписка убирает рекламу и открывает выбор твоей собственной музыки во время игры.
