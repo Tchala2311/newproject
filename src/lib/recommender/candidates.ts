@@ -73,7 +73,9 @@ export function trendingCandidates(signals: Signals, k = 8): Candidate[] {
 
 // 4) CO-ENGAGED: users who liked games you liked also liked these.
 export async function coEngagedCandidates(userId: string, k = 12): Promise<Candidate[]> {
-  const { data, error } = await supabase.rpc('co_engagement_for_user', { uid: userId, top_n: k });
+  if (typeof userId !== 'string' || !userId.trim()) return [];
+  const safeK = Math.min(Math.max(1, Math.floor(k)), 100);
+  const { data, error } = await supabase.rpc('co_engagement_for_user', { uid: userId, top_n: safeK });
   if (error || !data) return [];
   const max = Math.max(1, ...(data as any[]).map((r) => Number(r.score)));
   return (data as any[])

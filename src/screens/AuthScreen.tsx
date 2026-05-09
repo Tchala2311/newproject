@@ -16,6 +16,18 @@ import { supabase } from '../lib/supabase';
 
 type Step = 'email' | 'code';
 
+// Maps raw Supabase error strings to user-friendly messages so we never
+// expose internal error details or DB hints to the client.
+function authErrorMessage(raw: string): string {
+  const r = raw.toLowerCase();
+  if (r.includes('rate limit') || r.includes('too many')) return 'Слишком много попыток. Подожди немного.';
+  if (r.includes('invalid') && r.includes('token')) return 'Неверный или просроченный код. Запроси новый.';
+  if (r.includes('expired')) return 'Код устарел. Запроси новый.';
+  if (r.includes('email')) return 'Проверь email и попробуй снова.';
+  if (r.includes('network') || r.includes('fetch')) return 'Нет соединения. Проверь интернет.';
+  return 'Что-то пошло не так. Попробуй ещё раз.';
+}
+
 export function AuthScreen() {
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState<Step>('email');
@@ -37,7 +49,8 @@ export function AuthScreen() {
     });
     setBusy(false);
     if (e) {
-      setError(e.message);
+      if (__DEV__) console.warn('OTP send failed', e.status);
+      setError(authErrorMessage(e.message));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       return;
     }
@@ -60,7 +73,8 @@ export function AuthScreen() {
     });
     setBusy(false);
     if (e) {
-      setError(e.message);
+      if (__DEV__) console.warn('OTP verify failed', e.status);
+      setError(authErrorMessage(e.message));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       return;
     }

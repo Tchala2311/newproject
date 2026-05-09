@@ -13,8 +13,12 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    // TODO: pipe to Sentry / AppMetrica once backend is wired.
-    console.warn('[Loop] crashed:', error.message, info.componentStack);
+    if (__DEV__) {
+      // Only log full details in development — stack traces can contain
+      // user IDs or API response snippets that must not appear in prod logs.
+      console.warn('[Loop] crashed:', error.message, info.componentStack);
+    }
+    // TODO: pipe sanitized event to Sentry / AppMetrica once backend is wired.
   }
 
   reset = () => this.setState({ error: null });
@@ -46,7 +50,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
             maxWidth: 280,
           }}
         >
-          {error.message || 'Неизвестная ошибка'}
+          {__DEV__ ? (error.message || 'Неизвестная ошибка') : 'Неизвестная ошибка'}
         </Text>
         <Pressable
           onPress={this.reset}

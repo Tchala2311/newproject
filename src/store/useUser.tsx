@@ -5,7 +5,21 @@ import { supabase, Profile } from '../lib/supabase';
 
 const FOLLOWS_KEY = 'loop:follows:v1';
 
+// All AsyncStorage keys owned by this provider — cleared on sign-out.
+const ALL_CACHE_KEYS = [
+  FOLLOWS_KEY,
+  'loop:likes:cache:v2',
+  'loop:saves:cache:v2',
+  'loop:notInterested:v1',
+  'loop:recent:v1',
+];
+
 const AVATAR_COLORS = ['#C99FE6', '#5DD9B0', '#F0CE61', '#79BCDD', '#6BD9C0', '#E76F8E', '#F5A04A'];
+
+const RESERVED_HANDLES = new Set(['admin', 'root', 'system', 'loop', 'team', 'support', 'help', 'mod', 'moderator']);
+
+const MAX_DISPLAY_NAME = 50;
+const MAX_BIO = 256;
 
 export type User = {
   id: string;
@@ -23,12 +37,11 @@ type State = {
 
   // profile
   user: User | null;
-  hydrated: boolean; // profile fetched (null = needs onboarding)
+  hydrated: boolean;
   setUser: (u: { handle: string; displayName: string; avatarColor: string; bio?: string }) => Promise<{ ok: true } | { ok: false; error: string }>;
   updateUser: (patch: Partial<Pick<User, 'displayName' | 'avatarColor' | 'bio'>>) => Promise<void>;
 
-  // follows: creator-handle based, persisted to public.creator_follows.
-  // Local cache (AsyncStorage) gives instant UI; DB sync happens on every toggle.
+  // follows
   follows: Record<string, boolean>;
   toggleFollow: (handle: string) => void;
   followerCount: number;
@@ -48,6 +61,17 @@ function profileToUser(p: Profile): User {
   };
 }
 
+function safeJsonParse<T>(raw: string | null, fallback: T): T {
+  if (!raw) return fallback;
+  try {
+    const parsed = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null) return fallback;
+    return parsed as T;
+  } catch {
+    return fallback;
+  }
+}
+
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -55,6 +79,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [follows, setFollows] = useState<Record<string, boolean>>({});
   const [followerCount, setFollowerCount] = useState(0);
+  // Tracks in-flight follow toggles to prevent race conditions.
+  const [followPending, setFollowPending] = useState<Set<string>>(new Set());
 
   // Bootstrap session
   useEffect(() => {
@@ -87,12 +113,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         .maybeSingle();
       if (cancelled) return;
       if (error) {
-        console.warn('profile fetch failed', error.message);
+        if (__DEV__) console.warn('profile fetch failed', error.message);
         setUserState(null);
       } else if (data) {
         setUserState(profileToUser(data as Profile));
       } else {
-        setUserState(null); // signed in but no profile yet -> onboarding
+        setUserState(null);
       }
       setHydrated(true);
     };
@@ -101,24 +127,20 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, [session?.user?.id]);
 
   // Follows: hydrate from local cache instantly, then reconcile with DB.
-  // Toggles write to both immediately (local optimistic update + DB upsert/delete).
   useEffect(() => {
     AsyncStorage.getItem(FOLLOWS_KEY).then((f) => {
-      if (f) try { setFollows(JSON.parse(f)); } catch {}
+      setFollows(safeJsonParse<Record<string, boolean>>(f, {}));
     });
   }, []);
   useEffect(() => {
     AsyncStorage.setItem(FOLLOWS_KEY, JSON.stringify(follows)).catch(() => {});
   }, [follows]);
 
-  // When user logs in, fetch real follows from DB and merge with any local
-  // follows (e.g. ones picked during onboarding before DB write succeeded).
   useEffect(() => {
     if (!session?.user) return;
     let cancelled = false;
     (async () => {
       const uid = session.user.id;
-      // Read user's followed creators
       const { data, error } = await supabase
         .from('creator_follows')
         .select('creator_handle')
@@ -128,8 +150,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         for (const r of data as Array<{ creator_handle: string }>) {
           dbFollows[r.creator_handle] = true;
         }
-        // Backfill: if local has follows that DB doesn't, push them up so the
-        // user doesn't lose anything they did pre-login.
         setFollows((prev) => {
           const merged = { ...dbFollows };
           const toBackfill: string[] = [];
@@ -143,12 +163,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             supabase
               .from('creator_follows')
               .upsert(toBackfill.map((h) => ({ user_id: uid, creator_handle: h })))
-              .then(({ error: e }) => { if (e) console.warn('follow backfill failed', e.message); });
+              .then(({ error: e }) => { if (e && __DEV__) console.warn('follow backfill failed'); });
           }
           return merged;
         });
       }
-      // Followers count = how many people follow you (by your own handle)
       const { data: profile } = await supabase
         .from('profiles')
         .select('handle')
@@ -164,17 +183,25 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, [session?.user?.id]);
 
   const signOut = useCallback(async () => {
+    // Wipe all local caches before signing out so a subsequent user on the
+    // same device never sees stale data from the previous session.
+    await AsyncStorage.multiRemove(ALL_CACHE_KEYS).catch(() => {});
+    setFollows({});
     await supabase.auth.signOut();
   }, []);
 
   const setUser = useCallback(async (u: { handle: string; displayName: string; avatarColor: string; bio?: string }) => {
     if (!session?.user) return { ok: false as const, error: 'Не авторизован' };
+
+    const trimmedName = (u.displayName || u.handle).slice(0, MAX_DISPLAY_NAME);
+    const trimmedBio = u.bio ? u.bio.slice(0, MAX_BIO) : undefined;
+
     const row = {
       id: session.user.id,
       handle: u.handle,
-      display_name: u.displayName || u.handle,
+      display_name: trimmedName,
       avatar_color: u.avatarColor,
-      bio: u.bio ?? null,
+      bio: trimmedBio ?? null,
     };
     const { data, error } = await supabase
       .from('profiles')
@@ -185,7 +212,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       const msg =
         error.code === '23505'
           ? 'Этот @тег уже занят, попробуй другой'
-          : error.message;
+          : 'Не удалось сохранить профиль. Попробуй ещё раз.';
       return { ok: false as const, error: msg };
     }
     setUserState(profileToUser(data as Profile));
@@ -195,43 +222,51 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const updateUser = useCallback(async (patch: Partial<Pick<User, 'displayName' | 'avatarColor' | 'bio'>>) => {
     if (!session?.user || !user) return;
     const dbPatch: Record<string, unknown> = {};
-    if (patch.displayName !== undefined) dbPatch.display_name = patch.displayName;
+    if (patch.displayName !== undefined) dbPatch.display_name = patch.displayName.slice(0, MAX_DISPLAY_NAME);
     if (patch.avatarColor !== undefined) dbPatch.avatar_color = patch.avatarColor;
-    if (patch.bio !== undefined) dbPatch.bio = patch.bio;
+    if (patch.bio !== undefined) dbPatch.bio = patch.bio.slice(0, MAX_BIO);
     const { data, error } = await supabase
       .from('profiles')
       .update(dbPatch)
       .eq('id', session.user.id)
       .select('id, handle, display_name, avatar_color, bio, created_at')
       .single();
-    if (error) { console.warn('profile update failed', error.message); return; }
+    if (error) {
+      if (__DEV__) console.warn('profile update failed');
+      return;
+    }
     setUserState(profileToUser(data as Profile));
   }, [session?.user?.id, user]);
 
   const toggleFollow = useCallback((handle: string) => {
+    // Prevent double-tap race: ignore if a request is already in-flight.
+    if (followPending.has(handle)) return;
+
     setFollows((prev) => {
       const isOn = !!prev[handle];
       const next = { ...prev, [handle]: !isOn };
-      // Sync to DB if signed in (fire-and-forget; local state is the truth
-      // for snappy UI).
+
       if (session?.user) {
         const uid = session.user.id;
-        if (isOn) {
-          supabase
-            .from('creator_follows')
-            .delete()
-            .match({ user_id: uid, creator_handle: handle })
-            .then(({ error }) => { if (error) console.warn('unfollow failed', error.message); });
-        } else {
-          supabase
-            .from('creator_follows')
-            .upsert({ user_id: uid, creator_handle: handle })
-            .then(({ error }) => { if (error) console.warn('follow failed', error.message); });
-        }
+        setFollowPending((p) => new Set(p).add(handle));
+
+        const op = isOn
+          ? supabase.from('creator_follows').delete().match({ user_id: uid, creator_handle: handle })
+          : supabase.from('creator_follows').upsert({ user_id: uid, creator_handle: handle });
+
+        op.then(({ error }) => {
+          if (error) {
+            if (__DEV__) console.warn('follow toggle failed');
+            // Revert optimistic update on failure.
+            setFollows((cur) => ({ ...cur, [handle]: isOn }));
+          }
+          setFollowPending((p) => { const s = new Set(p); s.delete(handle); return s; });
+        });
       }
+
       return next;
     });
-  }, [session?.user?.id]);
+  }, [session?.user?.id, followPending]);
 
   const pickAvatarColor = useCallback(() => {
     return AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
@@ -269,5 +304,6 @@ export function validateHandle(h: string): string | null {
   if (h.length < 3) return 'Минимум 3 символа';
   if (h.length > 20) return 'Максимум 20 символов';
   if (!HANDLE_REGEX.test(h)) return 'Только латиница, цифры, _ и .';
+  if (RESERVED_HANDLES.has(h.toLowerCase())) return 'Этот тег зарезервирован';
   return null;
 }

@@ -56,7 +56,11 @@ export function AchievementsProvider({ children }: { children: React.ReactNode }
   // Persist + hydrate recent game IDs independently of Supabase.
   useEffect(() => {
     AsyncStorage.getItem('loop:recent:v1').then((raw) => {
-      if (raw) setRecentGameIds(JSON.parse(raw));
+      if (!raw) return;
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) setRecentGameIds(parsed);
+      } catch {}
     }).catch(() => {});
   }, []);
 
@@ -112,14 +116,14 @@ export function AchievementsProvider({ children }: { children: React.ReactNode }
     await supabase
       .from('game_progress')
       .upsert({ user_id: user.id, ...next, updated_at: new Date().toISOString() })
-      .then(({ error }) => { if (error) console.warn('progress upsert failed', error.message); });
+      .then(({ error }) => { if (error && __DEV__) console.warn('progress upsert failed'); });
   }, [user?.id, progressByGame]);
 
   const persistUnlocks = useCallback(async (ids: string[]) => {
     if (!user || !ids.length) return;
     const rows = ids.map((id) => ({ user_id: user.id, achievement_id: id }));
     const { error } = await supabase.from('user_achievements').upsert(rows, { onConflict: 'user_id,achievement_id' });
-    if (error) console.warn('achievement insert failed', error.message);
+    if (error && __DEV__) console.warn('achievement insert failed');
   }, [user?.id]);
 
   const runChecker = useCallback((extra: Partial<CheckContext>) => {

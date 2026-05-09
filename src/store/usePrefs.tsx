@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { useUser } from './useUser';
@@ -18,8 +18,17 @@ type PrefsState = {
 
 const PrefsCtx = createContext<PrefsState | null>(null);
 
-// AsyncStorage doubles as an offline cache so the UI is instant on cold start;
-// Supabase is the source of truth and overrides cache on first hydrate.
+function safeJsonParse<T>(raw: string | null, fallback: T): T {
+  if (!raw) return fallback;
+  try {
+    const parsed = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null) return fallback;
+    return parsed as T;
+  } catch {
+    return fallback;
+  }
+}
+
 export function PrefsProvider({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
   const [likes, setLikes] = useState<IDMap>({});
@@ -34,8 +43,8 @@ export function PrefsProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(LIKES_CACHE),
           AsyncStorage.getItem(SAVES_CACHE),
         ]);
-        if (l) setLikes(JSON.parse(l));
-        if (s) setSaves(JSON.parse(s));
+        setLikes(safeJsonParse<IDMap>(l, {}));
+        setSaves(safeJsonParse<IDMap>(s, {}));
       } catch {}
     })();
   }, []);
@@ -66,7 +75,7 @@ export function PrefsProvider({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; };
   }, [user?.id]);
 
-  // 3) Persist cache when local state changes (AsyncStorage only, post-hydrate)
+  // 3) Persist cache when local state changes (post-hydrate)
   useEffect(() => {
     if (!hydrated) return;
     AsyncStorage.setItem(LIKES_CACHE, JSON.stringify(likes)).catch(() => {});
@@ -78,37 +87,37 @@ export function PrefsProvider({ children }: { children: React.ReactNode }) {
   }, [saves, hydrated]);
 
   const toggleLike = useCallback((id: number) => {
+    if (!user) return;
     setLikes((prev) => {
       const next = { ...prev, [id]: !prev[id] };
-      if (user) {
-        if (next[id]) {
-          supabase.from('likes').upsert({ user_id: user.id, game_id: id }).then(({ error }) => {
-            if (error) console.warn('like upsert failed', error.message);
-          });
-        } else {
-          supabase.from('likes').delete().match({ user_id: user.id, game_id: id }).then(({ error }) => {
-            if (error) console.warn('like delete failed', error.message);
-          });
+      const op = next[id]
+        ? supabase.from('likes').upsert({ user_id: user.id, game_id: id })
+        : supabase.from('likes').delete().match({ user_id: user.id, game_id: id });
+      op.then(({ error }) => {
+        if (error) {
+          if (__DEV__) console.warn('like toggle failed');
+          // Revert optimistic update on failure.
+          setLikes((cur) => ({ ...cur, [id]: !!prev[id] }));
         }
-      }
+      });
       return next;
     });
   }, [user?.id]);
 
   const toggleSave = useCallback((id: number) => {
+    if (!user) return;
     setSaves((prev) => {
       const next = { ...prev, [id]: !prev[id] };
-      if (user) {
-        if (next[id]) {
-          supabase.from('saves').upsert({ user_id: user.id, game_id: id }).then(({ error }) => {
-            if (error) console.warn('save upsert failed', error.message);
-          });
-        } else {
-          supabase.from('saves').delete().match({ user_id: user.id, game_id: id }).then(({ error }) => {
-            if (error) console.warn('save delete failed', error.message);
-          });
+      const op = next[id]
+        ? supabase.from('saves').upsert({ user_id: user.id, game_id: id })
+        : supabase.from('saves').delete().match({ user_id: user.id, game_id: id });
+      op.then(({ error }) => {
+        if (error) {
+          if (__DEV__) console.warn('save toggle failed');
+          // Revert optimistic update on failure.
+          setSaves((cur) => ({ ...cur, [id]: !!prev[id] }));
         }
-      }
+      });
       return next;
     });
   }, [user?.id]);

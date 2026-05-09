@@ -52,6 +52,8 @@ export function CreatorProfileScreen({ creator, onBack, onPlay, bottomInset }: P
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // Validate handle before calling RPC to avoid sending arbitrary input.
+      if (typeof creator.handle !== 'string' || !/^[a-z0-9_.]{1,30}$/.test(creator.handle)) return;
       const { data } = await supabase
         .rpc('find_profile_by_handle', { p_handle: creator.handle })
         .single();

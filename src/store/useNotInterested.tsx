@@ -20,7 +20,11 @@ export function NotInterestedProvider({ children }: { children: React.ReactNode 
   // Hydrate from local cache + DB
   useEffect(() => {
     AsyncStorage.getItem(KEY).then((v) => {
-      if (v) try { setMap(JSON.parse(v)); } catch {}
+      if (!v) return;
+      try {
+        const parsed = JSON.parse(v);
+        if (typeof parsed === 'object' && parsed !== null) setMap(parsed);
+      } catch {}
     });
   }, []);
 
@@ -50,7 +54,7 @@ export function NotInterestedProvider({ children }: { children: React.ReactNode 
       supabase
         .from('not_interested')
         .upsert({ user_id: session.user.id, game_id: gameId })
-        .then(({ error }) => { if (error) console.warn('not_interested write failed', error.message); });
+        .then(({ error }) => { if (error && __DEV__) console.warn('not_interested write failed'); });
     }
   }, [session?.user?.id]);
 
@@ -61,7 +65,7 @@ export function NotInterestedProvider({ children }: { children: React.ReactNode 
         .from('not_interested')
         .delete()
         .match({ user_id: session.user.id, game_id: gameId })
-        .then(({ error }) => { if (error) console.warn('not_interested delete failed', error.message); });
+        .then(({ error }) => { if (error && __DEV__) console.warn('not_interested delete failed'); });
     }
   }, [session?.user?.id]);
 

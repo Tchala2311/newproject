@@ -93,7 +93,7 @@ export function CommentsSheet({ visible, onClose, game, onOpenCreator }: Props) 
         .limit(200);
       if (cancelled) return;
       if (error) {
-        console.warn('comments fetch failed', error.message, error.details, error.hint);
+        if (__DEV__) console.warn('comments fetch failed');
         setComments([]);
         setLoading(false);
         return;
@@ -156,6 +156,7 @@ export function CommentsSheet({ visible, onClose, game, onOpenCreator }: Props) 
   const submit = async () => {
     const body = draft.trim();
     if (!body || !user || !game || submitting) return;
+    if (body.length > 500) return; // enforced by TextInput maxLength but guard server-side too
     setSubmitting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     const { data, error } = await supabase
@@ -168,7 +169,7 @@ export function CommentsSheet({ visible, onClose, game, onOpenCreator }: Props) 
       .single();
     setSubmitting(false);
     if (error) {
-      console.warn('comment insert failed', error.message);
+      if (__DEV__) console.warn('comment insert failed');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       return;
     }
@@ -188,12 +189,18 @@ export function CommentsSheet({ visible, onClose, game, onOpenCreator }: Props) 
     if (!user) return;
     Haptics.selectionAsync().catch(() => {});
     const isLiked = !!likedSet[commentId];
+    // Optimistic update
     setLikedSet((prev) => ({ ...prev, [commentId]: !isLiked }));
     setLikeCounts((prev) => ({ ...prev, [commentId]: Math.max(0, (prev[commentId] ?? 0) + (isLiked ? -1 : 1)) }));
-    if (isLiked) {
-      await supabase.from('comment_likes').delete().match({ comment_id: commentId, user_id: user.id });
-    } else {
-      await supabase.from('comment_likes').upsert({ comment_id: commentId, user_id: user.id });
+    const op = isLiked
+      ? supabase.from('comment_likes').delete().match({ comment_id: commentId, user_id: user.id })
+      : supabase.from('comment_likes').upsert({ comment_id: commentId, user_id: user.id });
+    const { error } = await op;
+    if (error) {
+      // Revert on failure
+      if (__DEV__) console.warn('comment like toggle failed');
+      setLikedSet((prev) => ({ ...prev, [commentId]: isLiked }));
+      setLikeCounts((prev) => ({ ...prev, [commentId]: Math.max(0, (prev[commentId] ?? 0) + (isLiked ? 1 : -1)) }));
     }
   };
 
