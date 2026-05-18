@@ -30,6 +30,7 @@ import { CatchDrop } from './CatchDrop';
 import { SpeedSort } from './SpeedSort';
 import { RunnerJump } from './RunnerJump';
 import { OddColor } from './OddColor';
+import { CoinGrab } from './CoinGrab';
 import { logEvent } from '../store/events';
 import { ResumePrompt } from '../components/ResumePrompt';
 import { useAchievements } from '../store/useAchievements';
@@ -142,6 +143,7 @@ export function GamePlayScreen({ game, onBack }: Props) {
     case 'speed-sort': return <SpeedSort {...props} />;
     case 'runner-jump': return <RunnerJump {...props} />;
     case 'odd-color': return <OddColor {...props} />;
+    case 'coin-grab': return <CoinGrab {...props} />;
     default: return <TapRush {...props} />;
   }
 }

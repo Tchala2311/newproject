@@ -25,10 +25,17 @@ function hslToHex(h: number, s: number, l: number): string {
 function gridForLevel(level: number): { cols: number; rows: number } {
   if (level <= 1) return { cols: 3, rows: 3 };
   if (level <= 2) return { cols: 4, rows: 4 };
-  if (level <= 4) return { cols: 4, rows: 5 };
-  if (level <= 6) return { cols: 5, rows: 5 };
-  if (level <= 9) return { cols: 5, rows: 6 };
-  return { cols: 6, rows: 6 };
+  if (level <= 3) return { cols: 4, rows: 5 };
+  if (level <= 4) return { cols: 4, rows: 6 };
+  if (level <= 5) return { cols: 5, rows: 7 };
+  if (level <= 6) return { cols: 5, rows: 8 };
+  if (level <= 7) return { cols: 5, rows: 9 };
+  if (level <= 8) return { cols: 6, rows: 10 };
+  if (level <= 9) return { cols: 6, rows: 11 };
+  if (level <= 10) return { cols: 6, rows: 12 };
+  if (level <= 11) return { cols: 6, rows: 13 };
+  if (level <= 12) return { cols: 6, rows: 14 };
+  return { cols: 6, rows: 15 };
 }
 
 function diffForLevel(level: number): number {
