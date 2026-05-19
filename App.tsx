@@ -31,6 +31,7 @@ import { StatsProvider } from './src/store/useStats';
 import { Game, Creator } from './src/data/games';
 import { colors } from './src/theme';
 import { AchievementToast } from './src/components/AchievementToast';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 
 SystemUI.setBackgroundColorAsync(colors.bg).catch(() => {});
 
@@ -148,20 +149,24 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaProvider>
-        <UserProvider>
-          <PrefsProvider>
-            <NotInterestedProvider>
-              <AchievementsProvider>
-                <StatsProvider>
-                <LofiProvider>
-                  <StatusBar style="light" />
-                  <Gate />
-                </LofiProvider>
-                </StatsProvider>
-              </AchievementsProvider>
-            </NotInterestedProvider>
-          </PrefsProvider>
-        </UserProvider>
+        <ErrorBoundary>
+          <UserProvider>
+            <PrefsProvider>
+              <NotInterestedProvider>
+                <AchievementsProvider>
+                  <StatsProvider>
+                    <LofiProvider>
+                      <StatusBar style="light" />
+                      <ErrorBoundary>
+                        <Gate />
+                      </ErrorBoundary>
+                    </LofiProvider>
+                  </StatsProvider>
+                </AchievementsProvider>
+              </NotInterestedProvider>
+            </PrefsProvider>
+          </UserProvider>
+        </ErrorBoundary>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

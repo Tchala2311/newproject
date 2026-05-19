@@ -53,6 +53,9 @@ export function AchievementsProvider({ children }: { children: React.ReactNode }
   const tetrisLinesRef = useRef(0);
   const adViewsRef = useRef(0);
   const followCountRef = useRef(0);
+  // Ref always mirrors progressByGame — lets persistProgress read latest
+  // state synchronously without re-creating on every render.
+  const progressRef = useRef<Map<number, GameProgressRow>>(new Map());
 
   // Persist + hydrate recent game IDs independently of Supabase.
   useEffect(() => {
@@ -91,6 +94,7 @@ export function AchievementsProvider({ children }: { children: React.ReactNode }
       if (progRes.data) {
         const m = new Map<number, GameProgressRow>();
         (progRes.data as GameProgressRow[]).forEach((r) => m.set(r.game_id, r));
+        progressRef.current = m;
         setProgressByGame(m);
       }
     })();
@@ -99,11 +103,12 @@ export function AchievementsProvider({ children }: { children: React.ReactNode }
 
   const persistProgress = useCallback(async (gameId: number, patch: Partial<GameProgressRow>) => {
     if (!user) return;
-    const existing = progressByGame.get(gameId);
+    // Read from ref so back-to-back calls in the same tick see each other's writes.
+    const existing = progressRef.current.get(gameId);
     const next: GameProgressRow = {
       game_id: gameId,
       level: existing?.level ?? 1,
-      best_level: existing?.best_level ?? 1,
+      best_level: existing?.best_level ?? 0,
       best_score: existing?.best_score ?? 0,
       total_plays: existing?.total_plays ?? 0,
       total_wins: existing?.total_wins ?? 0,
@@ -111,14 +116,15 @@ export function AchievementsProvider({ children }: { children: React.ReactNode }
       retries: existing?.retries ?? 0,
       ...patch,
     };
-    const m = new Map(progressByGame);
+    const m = new Map(progressRef.current);
     m.set(gameId, next);
+    progressRef.current = m;
     setProgressByGame(m);
     await supabase
       .from('game_progress')
       .upsert({ user_id: user.id, ...next, updated_at: new Date().toISOString() })
       .then(({ error }) => { if (error && __DEV__) console.warn('progress upsert failed'); });
-  }, [user?.id, progressByGame]);
+  }, [user?.id]);
 
   const persistUnlocks = useCallback(async (ids: string[]) => {
     if (!user || !ids.length) return;

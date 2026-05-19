@@ -59,3 +59,9 @@ export async function readEvents(): Promise<Event[]> {
     return [];
   }
 }
+
+export async function clearEvents(): Promise<void> {
+  buffer = [];
+  if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
+  try { await AsyncStorage.removeItem(KEY); } catch {}
+}

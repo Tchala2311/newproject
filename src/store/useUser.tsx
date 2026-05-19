@@ -4,6 +4,7 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase, Profile } from '../lib/supabase';
 import { secureStorage } from '../lib/secureStorage';
 import { clearBests } from './personalBests';
+import { clearEvents } from './events';
 
 const FOLLOWS_KEY = 'flik:follows:v1';
 
@@ -94,8 +95,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setSession(data.session);
       setAuthLoading(false);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
+      // INITIAL_SESSION may fire before getSession resolves on some platforms.
+      if (event === 'INITIAL_SESSION') setAuthLoading(false);
     });
     return () => { mounted = false; sub.subscription.unsubscribe(); };
   }, []);
@@ -197,6 +200,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       ...ALL_CACHE_KEYS.map((k) => secureStorage.removeItem(k).catch(() => {})),
       AsyncStorage.multiRemove(ALL_CACHE_KEYS).catch(() => {}),
       clearBests(),
+      clearEvents(),
     ]);
     setFollows({});
     setFollowsHydrated(false);

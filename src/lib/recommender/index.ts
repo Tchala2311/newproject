@@ -97,7 +97,7 @@ export function logImpression(userId: string | null, gameId: number, position: n
     .from('feed_impressions')
     .insert({ user_id: userId, game_id: gameId, position })
     .then(({ error }) => {
-      if (error) console.warn('impression log failed', error.message);
+      if (error && __DEV__) console.warn('impression log failed', error.message);
     });
 }
 
@@ -112,6 +112,6 @@ export async function markEngaged(userId: string | null, gameId: number) {
     .eq('game_id', gameId)
     .gte('shown_at', new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString())
     .then(({ error }) => {
-      if (error) console.warn('mark engaged failed', error.message);
+      if (error && __DEV__) console.warn('mark engaged failed', error.message);
     });
 }

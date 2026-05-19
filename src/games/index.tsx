@@ -113,10 +113,10 @@ export function GamePlayScreen({ game, onBack }: Props) {
                 { user_id: user.id, day: daily.day, game_id: game.id, score },
                 { onConflict: 'user_id,day,game_id' }
               );
-            if (error) console.warn('daily score upsert failed', error.message);
+            if (error && __DEV__) console.warn('daily score upsert failed', error.message);
           }
         } catch (e) {
-          console.warn('daily score check failed', e);
+          if (__DEV__) console.warn('daily score check failed', e);
         }
       })();
     }
