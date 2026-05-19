@@ -33,6 +33,7 @@ import { OddColor } from './OddColor';
 import { CoinGrab } from './CoinGrab';
 import { TowerStack } from './TowerStack';
 import { BlockFill } from './BlockFill';
+import { ColorOrder } from './ColorOrder';
 import { logEvent } from '../store/events';
 import { ResumePrompt } from '../components/ResumePrompt';
 import { useAchievements } from '../store/useAchievements';
@@ -148,6 +149,7 @@ export function GamePlayScreen({ game, onBack }: Props) {
     case 'coin-grab': return <CoinGrab {...props} />;
     case 'tower-stack': return <TowerStack {...props} />;
     case 'block-fill': return <BlockFill {...props} />;
+    case 'color-order': return <ColorOrder {...props} />;
     default: return <TapRush {...props} />;
   }
 }
