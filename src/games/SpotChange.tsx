@@ -250,7 +250,7 @@ export function SpotChange({ game, onBack, onComplete, initialLevel }: Props) {
       advanceRound();
     }, timeout);
     return () => clearTimeout(t);
-  }, [phase, feedbackCorrect]);
+  }, [phase, feedbackCorrect, advanceRound]);
 
   // ---- Level complete screen ----
   if (phase === 'levelComplete') {

@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session } from '@supabase/supabase-js';
 import { supabase, Profile } from '../lib/supabase';
 import { secureStorage } from '../lib/secureStorage';
+import { clearBests } from './personalBests';
 
 const FOLLOWS_KEY = 'flik:follows:v1';
 
@@ -80,6 +81,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUserState] = useState<User | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [follows, setFollows] = useState<Record<string, boolean>>({});
+  const [followsHydrated, setFollowsHydrated] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
   // Tracks in-flight follow toggles to prevent race conditions.
   const [followPending, setFollowPending] = useState<Set<string>>(new Set());
@@ -132,11 +134,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     secureStorage.getItem(FOLLOWS_KEY).then((f) => {
       setFollows(safeJsonParse<Record<string, boolean>>(f, {}));
-    }).catch(() => {});
+      setFollowsHydrated(true);
+    }).catch(() => { setFollowsHydrated(true); });
   }, []);
+  // Guard: do not persist the initial empty state before hydration completes.
   useEffect(() => {
+    if (!followsHydrated) return;
     secureStorage.setItem(FOLLOWS_KEY, JSON.stringify(follows)).catch(() => {});
-  }, [follows]);
+  }, [follows, followsHydrated]);
 
   useEffect(() => {
     if (!session?.user) return;
@@ -191,8 +196,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     await Promise.all([
       ...ALL_CACHE_KEYS.map((k) => secureStorage.removeItem(k).catch(() => {})),
       AsyncStorage.multiRemove(ALL_CACHE_KEYS).catch(() => {}),
+      clearBests(),
     ]);
     setFollows({});
+    setFollowsHydrated(false);
     await supabase.auth.signOut();
   }, []);
 

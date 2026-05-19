@@ -79,8 +79,8 @@ export function Balance({ game, onBack, onComplete, initialLevel }: Props) {
 
   const computeAngle = useCallback(
     (lw: number, rw: number, cw: number): number => {
-      const adjustedLeft = lw - cw;
-      const adjustedRight = rw + cw;
+      const adjustedLeft = lw + cw;
+      const adjustedRight = rw - cw;
       const total = adjustedLeft + adjustedRight;
       if (total === 0) return 0;
       const raw = Math.atan((adjustedRight - adjustedLeft) / Math.max(total, 1)) * (180 / Math.PI);
@@ -240,6 +240,7 @@ export function Balance({ game, onBack, onComplete, initialLevel }: Props) {
       if (countdownRef.current) clearInterval(countdownRef.current);
       if (fallTimerRef.current) clearInterval(fallTimerRef.current);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [level, phase === 'playing']);
 
   const shiftBalance = useCallback(
@@ -282,7 +283,7 @@ export function Balance({ game, onBack, onComplete, initialLevel }: Props) {
         scoreLabel="Секунды"
         accent={game.accent}
         showAd={shouldShowAdAfter(level)}
-        onContinue={() => setLevel((l: number) => l + 1)}
+        onContinue={() => { setPhase('playing'); setLevel((l: number) => l + 1); }}
         onRetry={() => {
           initLevel(level);
           setPhase('playing');

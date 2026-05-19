@@ -16,16 +16,19 @@ const Ctx = createContext<State | null>(null);
 export function NotInterestedProvider({ children }: { children: React.ReactNode }) {
   const { session } = useUser();
   const [map, setMap] = useState<Record<number, boolean>>({});
+  const [hydrated, setHydrated] = useState(false);
 
   // Hydrate from encrypted cache + DB
   useEffect(() => {
     secureStorage.getItem(KEY).then((v) => {
-      if (!v) return;
-      try {
-        const parsed = JSON.parse(v);
-        if (typeof parsed === 'object' && parsed !== null) setMap(parsed);
-      } catch {}
-    }).catch(() => {});
+      if (v) {
+        try {
+          const parsed = JSON.parse(v);
+          if (typeof parsed === 'object' && parsed !== null) setMap(parsed);
+        } catch {}
+      }
+      setHydrated(true);
+    }).catch(() => { setHydrated(true); });
   }, []);
 
   useEffect(() => {
@@ -44,9 +47,11 @@ export function NotInterestedProvider({ children }: { children: React.ReactNode 
     return () => { cancelled = true; };
   }, [session?.user?.id]);
 
+  // Guard: do not persist the initial empty state before hydration completes.
   useEffect(() => {
+    if (!hydrated) return;
     secureStorage.setItem(KEY, JSON.stringify(map)).catch(() => {});
-  }, [map]);
+  }, [map, hydrated]);
 
   const markNotInterested = useCallback((gameId: number) => {
     setMap((p) => ({ ...p, [gameId]: true }));

@@ -61,6 +61,14 @@ export function OddColor({ game, onBack, onComplete, initialLevel = 1 }: Props) 
 
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
+  // Report game-over exactly once when phase transitions to gameOver
+  useEffect(() => {
+    if (phase === 'gameOver') {
+      onComplete(false, totalScore, { level });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
   const startRound = useCallback((lv: number) => {
     const { cols, rows } = gridForLevel(lv);
     setOddIdx(Math.floor(Math.random() * cols * rows));
@@ -97,22 +105,19 @@ export function OddColor({ game, onBack, onComplete, initialLevel = 1 }: Props) 
     }
   };
 
-  if (phase === 'gameOver' || (phase === 'wrong' && wrongIdx !== null)) {
-    if (phase === 'gameOver') {
-      onComplete(false, totalScore, { level });
-      return (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
-          <GameResult
-            won={false}
-            score={totalScore}
-            accent={game.accent}
-            onRestart={() => { setLevel(1); setTotalScore(0); startRound(1); }}
-            onBack={onBack}
-            game={game}
-          />
-        </View>
-      );
-    }
+  if (phase === 'gameOver') {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
+        <GameResult
+          won={false}
+          score={totalScore}
+          accent={game.accent}
+          onRestart={() => { setLevel(1); setTotalScore(0); startRound(1); }}
+          onBack={onBack}
+          game={game}
+        />
+      </View>
+    );
   }
 
   if (phase === 'levelComplete') {

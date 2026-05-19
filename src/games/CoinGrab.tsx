@@ -144,6 +144,16 @@ export function CoinGrab({ game, onBack, onComplete, initialLevel = 1 }: Props) 
     if (phase !== 'playing') clearTimers();
   }, [phase]);
 
+  // Report completion exactly once when phase transitions
+  useEffect(() => {
+    if (phase === 'gameOver') {
+      onComplete(score > 0, score, { level });
+    } else if (phase === 'levelComplete') {
+      onComplete(true, score, { level });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
   const handleTap = () => {
     if (phase !== 'playing' || onCooldown) return;
 
@@ -176,7 +186,6 @@ export function CoinGrab({ game, onBack, onComplete, initialLevel = 1 }: Props) 
   };
 
   if (phase === 'gameOver') {
-    onComplete(score > 0, score, { level });
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
         <GameResult
@@ -192,7 +201,6 @@ export function CoinGrab({ game, onBack, onComplete, initialLevel = 1 }: Props) 
   }
 
   if (phase === 'levelComplete') {
-    onComplete(true, score, { level });
     return (
       <LevelComplete
         level={level}

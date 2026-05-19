@@ -75,15 +75,11 @@ function buildUserPath(pts: Pt[]): string {
 function normalizeUserPoints(pts: Pt[], boardWidth: number, count: number): number[] {
   if (pts.length < 2) return Array(count).fill(0);
 
-  const minX = Math.min(...pts.map((p) => p.x));
-  const maxX = Math.max(...pts.map((p) => p.x));
-  const rangeX = maxX - minX || 1;
-
   // Map each sample x in [0, boardWidth] to a user y via linear interpolation
   const sorted = [...pts].sort((a, b) => a.x - b.x);
 
   return Array.from({ length: count }, (_, i) => {
-    const targetX = minX + (i / (count - 1)) * rangeX;
+    const targetX = (i / (count - 1)) * boardWidth;
     // Find surrounding pts
     let lo = 0;
     let hi = sorted.length - 1;

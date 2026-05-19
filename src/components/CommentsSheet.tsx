@@ -124,12 +124,14 @@ export function CommentsSheet({ visible, onClose, game, onOpenCreator }: Props) 
                   .in('comment_id', ids)
               : Promise.resolve({ data: [] as CommentLikeRow[] }),
           ]);
+          if (cancelled) return;
           // Fallback if RPC not present: count manually
           if (!counts) {
             const { data: rawCounts } = await supabase
               .from('comment_likes')
               .select('comment_id')
               .in('comment_id', ids);
+            if (cancelled) return;
             const cm: Record<string, number> = {};
             (rawCounts ?? []).forEach((r: any) => {
               cm[r.comment_id] = (cm[r.comment_id] ?? 0) + 1;

@@ -29,7 +29,8 @@ function pickCatPair(): [Category, Category] {
 function buildDeck(left: Category, right: Category): Card[] {
   const both = [left, right];
   const deck: Card[] = [];
-  while (deck.length < TOTAL) {
+  let iters = 0;
+  while (deck.length < TOTAL && iters++ < 500) {
     const cat = both[Math.floor(Math.random() * 2)];
     const item = cat.items[Math.floor(Math.random() * cat.items.length)];
     if (!deck.find((c) => c.emoji === item)) deck.push({ emoji: item, category: cat.label });

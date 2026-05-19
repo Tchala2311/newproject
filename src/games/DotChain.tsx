@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { PanResponder, Text, View, useWindowDimensions } from 'react-native';
-import Svg, { Circle, Line, Path } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
 import { GameShell } from './GameShell';
@@ -466,7 +466,7 @@ export function DotChain({ game, onBack, onComplete, initialLevel }: Props) {
             }
             return (
               <React.Fragment key={`fill-${key}`}>
-                <rect
+                <Rect
                   x={cs * cellSize + 1}
                   y={rs * cellSize + 1}
                   width={cellSize - 2}

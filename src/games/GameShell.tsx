@@ -15,7 +15,7 @@ type Props = {
 };
 
 export function GameShell({ game, onBack, score, label, timer, timerMax, children }: Props) {
-  const pct = timerMax ? (timer! / timerMax) * 100 : null;
+  const pct = (timerMax != null && timer != null) ? (timer / timerMax) * 100 : null;
   const warn = timer !== undefined && timer <= 5;
 
   return (

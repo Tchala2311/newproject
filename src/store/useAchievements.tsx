@@ -52,6 +52,7 @@ export function AchievementsProvider({ children }: { children: React.ReactNode }
   const [unlockQueue, setUnlockQueue] = useState<Achievement[]>([]);
   const tetrisLinesRef = useRef(0);
   const adViewsRef = useRef(0);
+  const followCountRef = useRef(0);
 
   // Persist + hydrate recent game IDs independently of Supabase.
   useEffect(() => {
@@ -211,7 +212,8 @@ export function AchievementsProvider({ children }: { children: React.ReactNode }
         runChecker({ totalComments: 1 });
         break;
       case 'follow':
-        runChecker({ totalFollows: 5 }); // approximation; better to fetch live count
+        followCountRef.current += 1;
+        runChecker({ totalFollows: followCountRef.current });
         break;
     }
   }, [progressByGame, persistProgress, runChecker, pushRecent]);

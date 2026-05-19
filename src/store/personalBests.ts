@@ -25,6 +25,11 @@ export async function getAllBests(): Promise<Record<number, number>> {
 
 // Returns { best, isNew } — useful for showing "🏆 Новый рекорд!" on the
 // result screen.
+export async function clearBests(): Promise<void> {
+  cache = null;
+  try { await AsyncStorage.removeItem(KEY); } catch {}
+}
+
 export async function recordScore(
   gameId: number,
   score: number,
