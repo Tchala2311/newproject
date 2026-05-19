@@ -1,0 +1,372 @@
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { Game } from '../data/games';
+import { GameShell } from './GameShell';
+import { LevelComplete, shouldShowAdAfter } from './LevelComplete';
+import { GameResult } from './GameResult';
+import { colors, fontFamily, radius } from '../theme';
+
+type Props = {
+  game: Game;
+  onBack: () => void;
+  onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void;
+  initialLevel?: number;
+};
+
+const BALL_RADIUS = 18;
+const EXPLOSION_DURATION = 600;
+const PALETTE = [
+  '#EF4444', '#F97316', '#EAB308', '#22C55E',
+  '#14B8A6', '#3B82F6', '#8B5CF6', '#EC4899',
+];
+const MAX_ATTEMPTS = 3;
+
+type Ball = {
+  id: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  color: string;
+  exploded: boolean;
+};
+
+type Explosion = {
+  id: number;
+  x: number;
+  y: number;
+  startTime: number;
+  maxRadius: number;
+  currentRadius: number;
+  done: boolean;
+};
+
+let uidCounter = 0;
+
+function makeBalls(count: number, width: number, height: number, speed: number): Ball[] {
+  return Array.from({ length: count }, (_, i) => ({
+    id: ++uidCounter,
+    x: BALL_RADIUS + Math.random() * (width - BALL_RADIUS * 2),
+    y: BALL_RADIUS + Math.random() * (height - BALL_RADIUS * 2),
+    vx: (Math.random() > 0.5 ? 1 : -1) * (speed + Math.random() * speed * 0.5),
+    vy: (Math.random() > 0.5 ? 1 : -1) * (speed + Math.random() * speed * 0.5),
+    color: PALETTE[i % PALETTE.length],
+    exploded: false,
+  }));
+}
+
+export function ChainBoom({ game, onBack, onComplete, initialLevel }: Props) {
+  const { width, height } = useWindowDimensions();
+  const boardH = height * 0.65;
+  const boardW = width - 32;
+
+  const [level, setLevel] = useState(initialLevel ?? 1);
+  const [phase, setPhase] = useState<'playing' | 'levelcomplete' | 'gameover'>('playing');
+  const [passed, setPassed] = useState(false);
+  const [lastScore, setLastScore] = useState(0);
+  const [attempts, setAttempts] = useState(MAX_ATTEMPTS);
+  const [explodedCount, setExplodedCount] = useState(0);
+  const [canTap, setCanTap] = useState(true);
+
+  const ballCount = Math.min(level + 4, 20);
+  const target = level + 2;
+  const speed = 1.5 + level * 0.3;
+
+  const ballsRef = useRef<Ball[]>([]);
+  const explosionsRef = useRef<Explosion[]>([]);
+  const rafRef = useRef<number>(0);
+  const lastTimeRef = useRef<number>(0);
+  const attemptsRef = useRef(MAX_ATTEMPTS);
+  const canTapRef = useRef(true);
+  const phaseRef = useRef<'playing' | 'levelcomplete' | 'gameover'>('playing');
+
+  const [, forceUpdate] = useState(0);
+  const tickCount = useRef(0);
+
+  const initLevel = useCallback((lv: number) => {
+    const s = 1.5 + lv * 0.3;
+    ballsRef.current = makeBalls(Math.min(lv + 4, 20), boardW, boardH, s);
+    explosionsRef.current = [];
+    attemptsRef.current = MAX_ATTEMPTS;
+    canTapRef.current = true;
+    phaseRef.current = 'playing';
+    setAttempts(MAX_ATTEMPTS);
+    setExplodedCount(0);
+    setCanTap(true);
+    setPhase('playing');
+  }, [boardW, boardH]);
+
+  useEffect(() => {
+    initLevel(level);
+  }, [level]);
+
+  useEffect(() => {
+    const loop = (timestamp: number) => {
+      if (phaseRef.current !== 'playing') return;
+      const dt = lastTimeRef.current ? Math.min((timestamp - lastTimeRef.current) / 16, 3) : 1;
+      lastTimeRef.current = timestamp;
+
+      const now = Date.now();
+      const balls = ballsRef.current;
+      const explosions = explosionsRef.current;
+
+      // Update explosions
+      for (const exp of explosions) {
+        if (exp.done) continue;
+        const elapsed = now - exp.startTime;
+        const progress = Math.min(elapsed / EXPLOSION_DURATION, 1);
+        exp.currentRadius = exp.maxRadius * progress;
+        if (progress >= 1) exp.done = true;
+      }
+      explosionsRef.current = explosions.filter((e) => !e.done || Date.now() - e.startTime < EXPLOSION_DURATION + 100);
+
+      // Check ball-explosion collisions for chain reactions
+      let chainTriggered = false;
+      for (const ball of balls) {
+        if (ball.exploded) continue;
+        for (const exp of explosions) {
+          if (exp.done) continue;
+          const dx = ball.x - exp.x;
+          const dy = ball.y - exp.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < exp.currentRadius + BALL_RADIUS) {
+            ball.exploded = true;
+            const newExp: Explosion = {
+              id: ++uidCounter,
+              x: ball.x,
+              y: ball.y,
+              startTime: now,
+              maxRadius: BALL_RADIUS * 3,
+              currentRadius: 0,
+              done: false,
+            };
+            explosions.push(newExp);
+            chainTriggered = true;
+          }
+        }
+      }
+
+      // Move balls
+      for (const ball of balls) {
+        if (ball.exploded) continue;
+        ball.x += ball.vx * dt;
+        ball.y += ball.vy * dt;
+        if (ball.x - BALL_RADIUS < 0) { ball.x = BALL_RADIUS; ball.vx = Math.abs(ball.vx); }
+        if (ball.x + BALL_RADIUS > boardW) { ball.x = boardW - BALL_RADIUS; ball.vx = -Math.abs(ball.vx); }
+        if (ball.y - BALL_RADIUS < 0) { ball.y = BALL_RADIUS; ball.vy = Math.abs(ball.vy); }
+        if (ball.y + BALL_RADIUS > boardH) { ball.y = boardH - BALL_RADIUS; ball.vy = -Math.abs(ball.vy); }
+      }
+
+      const explodedNow = balls.filter((b) => b.exploded).length;
+
+      // Check if all explosions have settled
+      const activeExplosions = explosions.filter((e) => !e.done);
+      const allSettled = activeExplosions.length === 0 && !canTapRef.current;
+
+      if (allSettled) {
+        const won = explodedNow >= (level + 2);
+        if (won) {
+          const sc = explodedNow * 10 * level;
+          setLastScore(sc);
+          setPassed(true);
+          phaseRef.current = 'levelcomplete';
+          setPhase('levelcomplete');
+          onComplete(true, sc, { level });
+          return;
+        } else {
+          const remaining = attemptsRef.current - 1;
+          attemptsRef.current = remaining;
+          if (remaining <= 0) {
+            const sc = explodedNow * 10 * level;
+            setLastScore(sc);
+            setPassed(false);
+            phaseRef.current = 'gameover';
+            setPhase('gameover');
+            onComplete(false, sc, { level });
+            return;
+          }
+          // Reset balls for next attempt
+          ballsRef.current = makeBalls(Math.min(level + 4, 20), boardW, boardH, 1.5 + level * 0.3);
+          explosionsRef.current = [];
+          canTapRef.current = true;
+          setAttempts(remaining);
+          setExplodedCount(0);
+          setCanTap(true);
+        }
+      }
+
+      tickCount.current++;
+      if (tickCount.current % 2 === 0) {
+        setExplodedCount(explodedNow);
+        forceUpdate((n) => n + 1);
+      }
+
+      rafRef.current = requestAnimationFrame(loop);
+    };
+
+    rafRef.current = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [level, boardW, boardH, onComplete]);
+
+  const handleTap = useCallback((evt: any) => {
+    if (!canTapRef.current || phaseRef.current !== 'playing') return;
+    const { locationX, locationY } = evt.nativeEvent;
+    canTapRef.current = false;
+    setCanTap(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+    const newExp: Explosion = {
+      id: ++uidCounter,
+      x: locationX,
+      y: locationY,
+      startTime: Date.now(),
+      maxRadius: BALL_RADIUS * 4,
+      currentRadius: 0,
+      done: false,
+    };
+    explosionsRef.current.push(newExp);
+  }, []);
+
+  if (phase === 'levelcomplete') {
+    return (
+      <LevelComplete
+        level={level}
+        passed={true}
+        score={lastScore}
+        scoreLabel="Очки"
+        accent={game.accent}
+        showAd={shouldShowAdAfter(level)}
+        onContinue={() => { setLevel((l) => l + 1); }}
+        onRetry={() => { initLevel(level); }}
+        onBack={onBack}
+      />
+    );
+  }
+
+  if (phase === 'gameover') {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <GameResult
+          won={false}
+          score={lastScore}
+          accent={game.accent}
+          onRestart={() => { initLevel(level); }}
+          onBack={onBack}
+          game={game}
+        />
+      </View>
+    );
+  }
+
+  const balls = ballsRef.current;
+  const explosions = explosionsRef.current;
+
+  return (
+    <GameShell game={game} onBack={onBack} score={`Ур. ${level}`} label={`Цель: ${target} · Попытки: ${attempts}`}>
+      {/* Info row */}
+      <View style={{ flexDirection: 'row', gap: 16, marginBottom: 4 }}>
+        <View style={{
+          backgroundColor: 'rgba(0,0,0,0.3)',
+          borderRadius: radius.md,
+          paddingHorizontal: 14,
+          paddingVertical: 6,
+        }}>
+          <Text style={{ fontSize: 11, fontFamily: fontFamily.semibold, color: colors.textDim }}>
+            ВЗОРВАНО
+          </Text>
+          <Text style={{ fontSize: 18, fontFamily: fontFamily.bold, color: game.accent, textAlign: 'center' }}>
+            {explodedCount} / {target}
+          </Text>
+        </View>
+        <View style={{
+          backgroundColor: 'rgba(0,0,0,0.3)',
+          borderRadius: radius.md,
+          paddingHorizontal: 14,
+          paddingVertical: 6,
+        }}>
+          <Text style={{ fontSize: 11, fontFamily: fontFamily.semibold, color: colors.textDim }}>
+            ПОПЫТКИ
+          </Text>
+          <Text style={{ fontSize: 18, fontFamily: fontFamily.bold, color: attempts === 1 ? colors.warn : '#fff', textAlign: 'center' }}>
+            {attempts} / {MAX_ATTEMPTS}
+          </Text>
+        </View>
+      </View>
+
+      {/* Board */}
+      <Pressable
+        onPress={handleTap}
+        style={{
+          width: boardW,
+          height: boardH,
+          backgroundColor: 'rgba(0,0,0,0.25)',
+          borderRadius: radius.lg,
+          overflow: 'hidden',
+          borderWidth: 1,
+          borderColor: colors.glassBorder,
+        }}
+      >
+        {/* Balls */}
+        {balls.map((ball) =>
+          ball.exploded ? null : (
+            <View
+              key={ball.id}
+              style={{
+                position: 'absolute',
+                left: ball.x - BALL_RADIUS,
+                top: ball.y - BALL_RADIUS,
+                width: BALL_RADIUS * 2,
+                height: BALL_RADIUS * 2,
+                borderRadius: BALL_RADIUS,
+                backgroundColor: ball.color,
+                shadowColor: ball.color,
+                shadowOpacity: 0.8,
+                shadowRadius: 6,
+                shadowOffset: { width: 0, height: 0 },
+              }}
+            />
+          )
+        )}
+
+        {/* Explosions */}
+        {explosions.map((exp) => {
+          const r = exp.currentRadius;
+          if (r <= 0 || exp.done) return null;
+          const opacity = exp.done ? 0 : Math.max(0, 1 - (exp.currentRadius / exp.maxRadius) * 0.6);
+          return (
+            <View
+              key={exp.id}
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                left: exp.x - r,
+                top: exp.y - r,
+                width: r * 2,
+                height: r * 2,
+                borderRadius: r,
+                backgroundColor: `rgba(255, 160, 30, ${opacity * 0.55})`,
+                borderWidth: 2,
+                borderColor: `rgba(255, 220, 60, ${opacity})`,
+              }}
+            />
+          );
+        })}
+
+        {/* Hint */}
+        {canTap && (
+          <View style={{
+            position: 'absolute',
+            bottom: 12,
+            left: 0,
+            right: 0,
+            alignItems: 'center',
+          }}>
+            <Text style={{ fontSize: 13, fontFamily: fontFamily.semibold, color: 'rgba(255,255,255,0.5)' }}>
+              Тапни чтобы взорвать!
+            </Text>
+          </View>
+        )}
+      </Pressable>
+    </GameShell>
+  );
+}
