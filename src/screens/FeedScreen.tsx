@@ -116,20 +116,23 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
   // Pull-to-refresh handler — Reels/TikTok-style. Re-runs the ranker with a
   // fresh nonce so ordering visibly changes, scrolls to top, and fires a
   // success haptic + toast so it's obvious the feed updated.
-  const onRefresh = useCallback(async () => {
+  const onRefresh = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    setRefreshing(true);
-    setForYouItems([]);          // clear immediately → skeleton shows
+    // Instant: shuffle current items so the feed visibly changes right away
+    setForYouItems((prev) => [...prev].sort(() => Math.random() - 0.5));
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+    setFeedIdx(0);
     loggedImpressions.current.clear();
+    setRefreshing(true);
     const nonce = refreshNonceRef.current + 1;
     refreshNonceRef.current = nonce;
     setRefreshNonce(nonce);
-    await buildFeed(nonce);
-    listRef.current?.scrollToOffset({ offset: 0, animated: false });
-    setFeedIdx(0);
-    setRefreshing(false);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    onToast('🎉 Лента обновлена');
+    // Dismiss spinner quickly — ranked feed replaces items silently in background
+    setTimeout(() => setRefreshing(false), 500);
+    buildFeed(nonce).then(() => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      onToast('🎉 Лента обновлена');
+    });
   }, [buildFeed, onToast, setFeedIdx]);
 
   const followingItems = useMemo<FeedItem[]>(() => buildSimpleFeed(followingGames), [followingGames]);
