@@ -34,6 +34,14 @@ import { CoinGrab } from './CoinGrab';
 import { TowerStack } from './TowerStack';
 import { BlockFill } from './BlockFill';
 import { ColorOrder } from './ColorOrder';
+import { NumberFlash } from './NumberFlash';
+import { Zigzag } from './Zigzag';
+import { ChainBoom } from './ChainBoom';
+import { Balance } from './Balance';
+import { AngleGuess } from './AngleGuess';
+import { WaveMatch } from './WaveMatch';
+import { DotChain } from './DotChain';
+import { SpotChange } from './SpotChange';
 import { logEvent } from '../store/events';
 import { ResumePrompt } from '../components/ResumePrompt';
 import { useAchievements } from '../store/useAchievements';
@@ -150,6 +158,14 @@ export function GamePlayScreen({ game, onBack }: Props) {
     case 'tower-stack': return <TowerStack {...props} />;
     case 'block-fill': return <BlockFill {...props} />;
     case 'color-order': return <ColorOrder {...props} />;
+    case 'number-flash': return <NumberFlash {...props} />;
+    case 'zigzag': return <Zigzag {...props} />;
+    case 'chain-boom': return <ChainBoom {...props} />;
+    case 'balance': return <Balance {...props} />;
+    case 'angle-guess': return <AngleGuess {...props} />;
+    case 'wave-match': return <WaveMatch {...props} />;
+    case 'dot-chain': return <DotChain {...props} />;
+    case 'spot-change': return <SpotChange {...props} />;
     default: return <TapRush {...props} />;
   }
 }
