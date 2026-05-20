@@ -25,7 +25,8 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      "react-native-webview"
     ],
     "experiments": {
       "typedRoutes": false
