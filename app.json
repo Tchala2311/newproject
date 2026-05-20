@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "scheme": "flik",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": false,
+
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "app.flik.games",
