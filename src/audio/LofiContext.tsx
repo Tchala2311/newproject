@@ -12,11 +12,11 @@ import { createAudioPlayer, setAudioModeAsync, AudioPlayer, AudioSource } from '
 type Track = { name: string; source: AudioSource | null };
 
 const TRACKS: Track[] = [
-  { name: 'I Can\'t Take My Eyes Out of You · BarradeenLofi', source: require('../../assets/lofi/barradeen-i-cant-take-my-eyes-out-of-you.mp3') },
-  { name: 'I Fell in Love with a Girl · Barradeen', source: require('../../assets/lofi/barradeen-i-fell-in-love-with-a-girl.mp3') },
-  { name: 'The Girl I Haven\'t Met · Barradeen', source: require('../../assets/lofi/barradeen-the-girl-i-havent-met.mp3') },
-  { name: 'Intermezzo · Friendzoned', source: require('../../assets/lofi/friendzoned-intermezzo.mp3') },
-  { name: 'Subtle Break · Ghostrifter', source: require('../../assets/lofi/ghostrifter-subtle-break.mp3') },
+  { name: 'I Can\'t Take My Eyes Out of You · BarradeenLofi', source: { uri: 'https://flik-games.com/audio/barradeen-i-cant-take-my-eyes-out-of-you.mp3' } },
+  { name: 'I Fell in Love with a Girl · Barradeen', source: { uri: 'https://flik-games.com/audio/barradeen-i-fell-in-love-with-a-girl.mp3' } },
+  { name: 'The Girl I Haven\'t Met · Barradeen', source: { uri: 'https://flik-games.com/audio/barradeen-the-girl-i-havent-met.mp3' } },
+  { name: 'Intermezzo · Friendzoned', source: { uri: 'https://flik-games.com/audio/friendzoned-intermezzo.mp3' } },
+  { name: 'Subtle Break · Ghostrifter', source: { uri: 'https://flik-games.com/audio/ghostrifter-subtle-break.mp3' } },
 ];
 
 type LofiState = {
