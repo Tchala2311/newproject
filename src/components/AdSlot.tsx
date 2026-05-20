@@ -14,17 +14,46 @@ type Props = {
   bottomInset: number;
   index?: number;
   onCTA?: () => void;
+  locked?: boolean;
+  countdown?: number;
 };
 
-// We rotate ad creatives so the showcase has variety. In production this gets
-// replaced with Yandex Mobile Ads SDK requests (interstitial / rewarded).
 const VARIANTS: Variant[] = ['hiphub', 'protokol', 'premium'];
 
-export function AdSlot({ height, bottomInset, index = 0, onCTA }: Props) {
+export function AdSlot({ height, bottomInset, index = 0, onCTA, locked = false, countdown = 7 }: Props) {
   const variant = VARIANTS[index % VARIANTS.length];
-  if (variant === 'hiphub') return <AdHipHub height={height} bottomInset={bottomInset} />;
-  if (variant === 'protokol') return <AdProtokol height={height} bottomInset={bottomInset} />;
-  return <PremiumUpsell height={height} bottomInset={bottomInset} onCTA={onCTA} />;
+
+  let inner: React.ReactNode;
+  if (variant === 'hiphub') inner = <AdHipHub height={height} bottomInset={bottomInset} />;
+  else if (variant === 'protokol') inner = <AdProtokol height={height} bottomInset={bottomInset} />;
+  else inner = <PremiumUpsell height={height} bottomInset={bottomInset} onCTA={onCTA} />;
+
+  return (
+    <View style={{ height, width: '100%' }}>
+      {inner}
+      {/* Skip timer overlay — floats over the ad, disappears when lock releases */}
+      <View style={{
+        position: 'absolute',
+        bottom: bottomInset + 56,
+        right: 16,
+        backgroundColor: locked ? 'rgba(0,0,0,0.72)' : 'rgba(0,0,0,0.45)',
+        borderRadius: 20,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderWidth: 1,
+        borderColor: locked ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.10)',
+      }}>
+        <Text style={{
+          color: locked ? '#fff' : 'rgba(255,255,255,0.55)',
+          fontSize: 12,
+          fontWeight: '700',
+          letterSpacing: 0.3,
+        }}>
+          {locked ? `⏭ Пропустить через ${countdown}с` : '⏭ Свайпай вверх'}
+        </Text>
+      </View>
+    </View>
+  );
 }
 
 function PremiumUpsell({ height, bottomInset, onCTA }: { height: number; bottomInset: number; onCTA?: () => void }) {

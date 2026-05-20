@@ -71,9 +71,12 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const [adLocked, setAdLocked] = useState(false);
+  const [adCountdown, setAdCountdown] = useState(7);
   const listRef = useRef<FlatList<FeedItem>>(null);
   const loggedImpressions = useRef<Set<number>>(new Set());
   const refreshNonceRef = useRef(0);
+  const adTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const dailyChallenge = useMemo(() => getDailyChallenge(), []);
 
@@ -137,6 +140,32 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
 
   const followingItems = useMemo<FeedItem[]>(() => buildSimpleFeed(followingGames), [followingGames]);
   const items = tab === 'forYou' ? forYouItems : followingItems;
+
+  // Lock scrolling for 7 seconds whenever an ad slot is the visible item.
+  const isAdVisible = items[feedIdx]?.type === 'ad';
+  useEffect(() => {
+    if (!isAdVisible) {
+      if (adTimerRef.current) { clearInterval(adTimerRef.current); adTimerRef.current = null; }
+      setAdLocked(false);
+      setAdCountdown(7);
+      return;
+    }
+    setAdLocked(true);
+    setAdCountdown(7);
+    let count = 7;
+    adTimerRef.current = setInterval(() => {
+      count -= 1;
+      setAdCountdown(count);
+      if (count <= 0) {
+        clearInterval(adTimerRef.current!);
+        adTimerRef.current = null;
+        setAdLocked(false);
+      }
+    }, 1000);
+    return () => {
+      if (adTimerRef.current) { clearInterval(adTimerRef.current); adTimerRef.current = null; }
+    };
+  }, [isAdVisible]);
 
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     if (!viewableItems.length) return;
@@ -229,7 +258,7 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
   const renderItem = useCallback(
     ({ item, index }: { item: FeedItem; index: number }) => {
       if (item.type === 'ad') {
-        return <AdSlot height={height} bottomInset={bottomInset} index={item.adIdx} />;
+        return <AdSlot height={height} bottomInset={bottomInset} index={item.adIdx} locked={adLocked} countdown={adCountdown} />;
       }
       const g = item.game;
       const isDailyChallenge = g.id === dailyChallenge.game.id && index === 0 && tab === 'forYou';
@@ -263,7 +292,7 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
         </View>
       );
     },
-    [feedIdx, height, bottomInset, likes, saves, playing, trackName, toggle, nextTrack, onPlay, handleLike, handleSave, handleShare, handleComment, handleNotInterested, onOpenCreator, user?.id, dailyChallenge.game.id, tab]
+    [feedIdx, height, bottomInset, likes, saves, playing, trackName, toggle, nextTrack, onPlay, handleLike, handleSave, handleShare, handleComment, handleNotInterested, onOpenCreator, user?.id, dailyChallenge.game.id, tab, adLocked, adCountdown]
   );
 
   return (
@@ -276,6 +305,7 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
         keyExtractor={(it, idx) => (it.type === 'ad' ? it.key : `g-${it.game.id}-${idx}-${refreshNonce}`)}
         renderItem={renderItem}
         pagingEnabled
+        scrollEnabled={!adLocked}
         snapToInterval={height}
         decelerationRate="fast"
         showsVerticalScrollIndicator={false}
