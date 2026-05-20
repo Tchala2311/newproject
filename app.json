@@ -12,7 +12,12 @@
       "bundleIdentifier": "app.flik.games",
       "infoPlist": {
         "UIStatusBarStyle": "UIStatusBarStyleLightContent",
-        "UIBackgroundModes": ["audio"]
+        "UIBackgroundModes": [
+          "audio",
+          "audio",
+          "audio"
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -31,11 +36,12 @@
       "typedRoutes": false
     },
     "updates": {
-      "fallbackToCacheTimeout": 0
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/b015b98f-573b-4f81-b3ec-3a5e1e4783ed"
     },
     "extra": {
       "eas": {
-        "projectId": ""
+        "projectId": "b015b98f-573b-4f81-b3ec-3a5e1e4783ed"
       }
     }
   }
