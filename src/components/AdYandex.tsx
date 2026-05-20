@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
-const BLOCK_ID = 'R-M-19303511-1';
+const BLOCK_ID = 'R-A-19307505-1';
 
 // Minimal self-contained HTML page that loads the Yandex ad block.
 // Dark background matches the app theme so there's no white flash.
@@ -17,18 +17,25 @@ function buildAdHtml(blockId: string): string {
     html, body {
       background: #08071A;
       width: 100%; height: 100%;
-      display: flex; align-items: center; justify-content: center;
       overflow: hidden;
     }
-    #ad-wrap { width: 100%; max-width: 480px; }
+    #ad-wrap {
+      width: 100%;
+      min-height: 240px;
+    }
+    #yandex_rtb_${blockId} {
+      width: 100%;
+      min-height: 240px;
+      display: block;
+    }
   </style>
+  <script>window.yaContextCb = window.yaContextCb || []</script>
+  <script src="https://yandex.ru/ads/system/context.js" async></script>
 </head>
 <body>
   <div id="ad-wrap">
     <div id="yandex_rtb_${blockId}"></div>
   </div>
-  <script>window.yaContextCb = window.yaContextCb || []</script>
-  <script src="https://yandex.ru/ads/system/context.js" async></script>
   <script>
     window.yaContextCb.push(function() {
       Ya.Context.AdvManager.render({
