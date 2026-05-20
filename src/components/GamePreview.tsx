@@ -630,6 +630,250 @@ export function GamePreview({ game }: Props) {
         </Svg>
       );
 
+    case 30: {
+      // OddColor — 4×4 grid, one cell has a slightly different shade
+      const baseColor = a;
+      const oddIdx = 9;
+      return (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', width: 88, gap: 2 }}>
+          {Array.from({ length: 16 }).map((_, i) => (
+            <View
+              key={i}
+              style={{
+                width: 19, height: 19, borderRadius: 3,
+                backgroundColor: i === oddIdx ? '#C0392B' : baseColor,
+                opacity: i === oddIdx ? 1 : 0.75,
+              }}
+            />
+          ))}
+        </View>
+      );
+    }
+
+    case 31: {
+      // CoinGrab — scattered coins with a grabbing hand
+      return (
+        <View style={{ width: 90, height: 62, position: 'relative' }}>
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 8 }} />
+          {[{ x: 8, y: 6 }, { x: 36, y: 4 }, { x: 62, y: 10 }, { x: 18, y: 30 }, { x: 52, y: 26 }, { x: 72, y: 34 }].map((p, i) => (
+            <View key={i} style={{ position: 'absolute', left: p.x, top: p.y, width: 16, height: 16, borderRadius: 8, backgroundColor: '#FACC15', borderWidth: 1.5, borderColor: '#F59E0B', alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontSize: 8, fontWeight: '900', color: '#92400E' }}>$</Text>
+            </View>
+          ))}
+          <Text style={{ position: 'absolute', left: 30, bottom: 4, fontSize: 22 }}>🤏</Text>
+        </View>
+      );
+    }
+
+    case 32: {
+      // TowerStack — horizontal blocks stacked into a tower, each slightly narrower
+      const widths = [64, 56, 48, 36, 24, 14];
+      return (
+        <View style={{ alignItems: 'center', width: 90, justifyContent: 'flex-end', height: 62 }}>
+          {widths.map((w, i) => (
+            <View
+              key={i}
+              style={{
+                width: w, height: 9,
+                borderRadius: 3,
+                backgroundColor: i === 0 ? a : `${a}${Math.round(255 * (0.5 + i * 0.1)).toString(16).padStart(2, '0')}`,
+                marginTop: 2,
+              }}
+            />
+          ))}
+        </View>
+      );
+    }
+
+    case 33: {
+      // BlockFill — 5×5 tetromino grid with colored pieces
+      const grid = [
+        ['#EF4444', '#EF4444', '#3B82F6', '#3B82F6', '#3B82F6'],
+        ['#EF4444', null,      '#3B82F6', '#22C55E', '#22C55E'],
+        ['#A855F7', '#A855F7', '#A855F7', '#22C55E', null],
+        ['#A855F7', '#FACC15', '#FACC15', null,      null],
+        [null,      '#FACC15', '#FACC15', null,      null],
+      ];
+      return (
+        <View style={{ gap: 1.5 }}>
+          {grid.map((row, y) => (
+            <View key={y} style={{ flexDirection: 'row', gap: 1.5 }}>
+              {row.map((c, x) => (
+                <View key={x} style={{ width: 15, height: 15, borderRadius: 2, backgroundColor: c ?? 'rgba(255,255,255,0.06)', borderWidth: c ? 0 : 0.5, borderColor: 'rgba(255,255,255,0.15)' }} />
+              ))}
+            </View>
+          ))}
+        </View>
+      );
+    }
+
+    case 34:
+      // ColorOrder — pie/donut with colour segments, ordered slices
+      return (
+        <Svg width={90} height={70} viewBox="0 0 90 70">
+          {/* Simple coloured arc segments approximated as wedge Rects rotated */}
+          <Circle cx={45} cy={35} r={26} fill="rgba(0,0,0,0.35)" />
+          {/* Draw wedge segments as coloured circle arcs using Polylines */}
+          <Circle cx={45} cy={35} r={26} fill="none" stroke="#EF4444" strokeWidth={12} strokeDasharray="16 48" strokeDashoffset="0" />
+          <Circle cx={45} cy={35} r={26} fill="none" stroke="#3B82F6" strokeWidth={12} strokeDasharray="16 48" strokeDashoffset="-16" />
+          <Circle cx={45} cy={35} r={26} fill="none" stroke="#22C55E" strokeWidth={12} strokeDasharray="16 48" strokeDashoffset="-32" />
+          <Circle cx={45} cy={35} r={14} fill="#08071A" />
+          <Circle cx={45} cy={35} r={4} fill={a} />
+        </Svg>
+      );
+
+    case 35: {
+      // NumberFlash — sequence of digits, last one hidden
+      const seq = ['3', '7', '1', '9', '?'];
+      return (
+        <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
+          {seq.map((d, i) => (
+            <View key={i} style={{ width: 16, height: 22, borderRadius: 4, backgroundColor: i === seq.length - 1 ? 'rgba(255,255,255,0.08)' : a, alignItems: 'center', justifyContent: 'center', borderWidth: i === seq.length - 1 ? 1 : 0, borderColor: 'rgba(255,255,255,0.2)' }}>
+              <Text style={{ fontSize: 10, fontWeight: '900', color: i === seq.length - 1 ? 'rgba(255,255,255,0.3)' : '#000' }}>{d}</Text>
+            </View>
+          ))}
+        </View>
+      );
+    }
+
+    case 36:
+      // Zigzag — narrowing corridor with ball in the middle
+      return (
+        <Svg width={90} height={62} viewBox="0 0 90 62">
+          <Rect x={0} y={0} width={90} height={62} rx={6} fill="rgba(0,0,0,0.35)" />
+          {/* Left wall zigzag */}
+          <Polyline points="0,0 20,15 0,30 20,45 0,62" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+          {/* Right wall zigzag (narrower gap) */}
+          <Polyline points="90,0 70,15 90,30 70,45 90,62" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+          {/* Ball */}
+          <Circle cx={45} cy={31} r={7} fill={a} />
+        </Svg>
+      );
+
+    case 37:
+      // ChainBoom — circles with chain reaction explosions
+      return (
+        <Svg width={90} height={62} viewBox="0 0 90 62">
+          <Rect x={0} y={0} width={90} height={62} rx={6} fill="rgba(0,0,0,0.35)" />
+          {/* Exploding circle */}
+          <Circle cx={22} cy={32} r={12} fill={a} opacity={0.3} />
+          <Circle cx={22} cy={32} r={7} fill={a} opacity={0.7} />
+          <Circle cx={22} cy={32} r={3} fill="#fff" />
+          {/* Chain lines */}
+          <Line x1={34} y1={28} x2={48} y2={20} stroke={a} strokeWidth={1.5} strokeDasharray="3 2" />
+          <Line x1={34} y1={36} x2={60} y2={44} stroke={a} strokeWidth={1.5} strokeDasharray="3 2" />
+          {/* Secondary circles */}
+          <Circle cx={54} cy={18} r={8} fill={a} opacity={0.5} />
+          <Circle cx={54} cy={18} r={3.5} fill={a} />
+          <Circle cx={66} cy={46} r={7} fill={a} opacity={0.5} />
+          <Circle cx={66} cy={46} r={3} fill={a} />
+          <Circle cx={78} cy={22} r={5} fill={a} opacity={0.35} />
+        </Svg>
+      );
+
+    case 38:
+      // Balance — seesaw with weights on both sides
+      return (
+        <Svg width={90} height={62} viewBox="0 0 90 62">
+          {/* Pivot triangle */}
+          <Polyline points="45,42 38,58 52,58" fill="rgba(255,255,255,0.5)" />
+          {/* Beam tilted slightly */}
+          <Line x1={8} y1={34} x2={82} y2={44} stroke="rgba(255,255,255,0.7)" strokeWidth={3} strokeLinecap="round" />
+          {/* Left weight (heavier) */}
+          <Rect x={6} y={18} width={20} height={16} rx={3} fill={a} />
+          {/* Left weight detail line */}
+          <Line x1={9} y1={26} x2={23} y2={26} stroke="rgba(0,0,0,0.35)" strokeWidth={1.5} />
+          {/* Right weight (lighter) */}
+          <Rect x={68} y={30} width={14} height={12} rx={3} fill={`${a}aa`} />
+        </Svg>
+      );
+
+    case 39:
+      // AngleGuess — a line at an angle with arc indicator
+      return (
+        <Svg width={90} height={62} viewBox="0 0 90 62">
+          <Rect x={0} y={0} width={90} height={62} rx={6} fill="rgba(0,0,0,0.35)" />
+          {/* Baseline */}
+          <Line x1={15} y1={48} x2={75} y2={48} stroke="rgba(255,255,255,0.2)" strokeWidth={1.5} />
+          {/* Angled line ~40 degrees */}
+          <Line x1={15} y1={48} x2={60} y2={14} stroke={a} strokeWidth={2.5} strokeLinecap="round" />
+          {/* Angle arc approximation */}
+          <Circle cx={15} cy={48} r={16} fill="none" stroke={a} strokeWidth={1.2} strokeDasharray="12 40" opacity={0.6} />
+          {/* Angle label */}
+          <Rect x={62} y={8} width={22} height={12} rx={3} fill="rgba(0,0,0,0.4)" />
+        </Svg>
+      );
+
+    case 40:
+      // WaveMatch — target sine wave + hand-drawn attempt overlaid
+      return (
+        <Svg width={90} height={62} viewBox="0 0 90 62">
+          <Rect x={0} y={0} width={90} height={62} rx={6} fill="rgba(0,0,0,0.35)" />
+          {/* Target wave */}
+          <Polyline
+            points="5,31 15,16 25,31 35,46 45,31 55,16 65,31 75,46 85,31"
+            fill="none"
+            stroke="rgba(255,255,255,0.25)"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          {/* User wave (slightly imperfect) */}
+          <Polyline
+            points="5,31 14,18 26,32 36,48 46,30 56,15 64,33 76,44 85,30"
+            fill="none"
+            stroke={a}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </Svg>
+      );
+
+    case 41: {
+      // DotChain — flow-free dots on 4×4 grid with partial connections
+      const dotGrid: Array<{ color: string | null; dot?: string }> = [
+        { color: null }, { color: null }, { color: null }, { dot: '#EF4444', color: '#EF4444' },
+        { dot: '#3B82F6', color: '#3B82F6' }, { color: '#3B82F6' }, { color: '#3B82F6' }, { color: '#EF4444' },
+        { color: null }, { color: null }, { color: '#22C55E' }, { color: '#EF4444' },
+        { dot: '#22C55E', color: '#22C55E' }, { color: null }, { dot: '#3B82F6', color: null }, { dot: '#EF4444', color: null },
+      ];
+      return (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', width: 88, gap: 2 }}>
+          {dotGrid.map((cell, i) => (
+            <View key={i} style={{ width: 19, height: 19, borderRadius: 3, backgroundColor: cell.color ? `${cell.color}44` : 'rgba(255,255,255,0.06)', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+              {cell.dot ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: cell.dot }} /> : null}
+            </View>
+          ))}
+        </View>
+      );
+    }
+
+    case 42: {
+      // SpotChange — two mini panels side-by-side, one circle differs
+      return (
+        <View style={{ flexDirection: 'row', gap: 4 }}>
+          {[false, true].map((isRight) => (
+            <View key={isRight ? 1 : 0} style={{ width: 40, height: 56, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', padding: 4, gap: 3 }}>
+              <View style={{ flexDirection: 'row', gap: 3 }}>
+                <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#EF4444' }} />
+                <View style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: '#3B82F6' }} />
+              </View>
+              <View style={{ flexDirection: 'row', gap: 3 }}>
+                <View style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: '#22C55E' }} />
+                {/* This circle differs between panels */}
+                <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: isRight ? a : '#FACC15', borderWidth: isRight ? 1.5 : 0, borderColor: '#fff' }} />
+              </View>
+              <View style={{ flexDirection: 'row', gap: 3 }}>
+                <View style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: '#A855F7' }} />
+                <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#F97316' }} />
+              </View>
+            </View>
+          ))}
+        </View>
+      );
+    }
+
     default:
       return null;
   }
