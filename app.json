@@ -30,9 +30,6 @@
     "experiments": {
       "typedRoutes": false
     },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
     "updates": {
       "fallbackToCacheTimeout": 0
     },
