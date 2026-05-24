@@ -12,11 +12,7 @@
       "bundleIdentifier": "app.flik.games",
       "infoPlist": {
         "UIStatusBarStyle": "UIStatusBarStyleLightContent",
-        "UIBackgroundModes": [
-          "audio",
-          "audio",
-          "audio"
-        ],
+        "UIBackgroundModes": ["audio"],
         "ITSAppUsesNonExemptEncryption": false
       }
     },
