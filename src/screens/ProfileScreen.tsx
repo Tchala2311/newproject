@@ -325,6 +325,16 @@ export function ProfileScreen({ onPlay, bottomInset }: Props) {
             })}
           </View>
         </View>
+
+        {/* Legal footer */}
+        <View style={{ marginTop: 32, paddingBottom: 16, alignItems: 'center', gap: 4 }}>
+          <Text style={{ fontSize: 10, fontFamily: fontFamily.medium, color: colors.textDim, textAlign: 'center' }}>
+            © 2025 ИП Цейтлин М.А.
+          </Text>
+          <Text style={{ fontSize: 10, fontFamily: fontFamily.medium, color: 'rgba(255,255,255,0.2)', textAlign: 'center' }}>
+            ИНН: 772846562633 · ОГРНИП: 326774600367465
+          </Text>
+        </View>
       </ScrollView>
 
       <AchievementDetailModal
