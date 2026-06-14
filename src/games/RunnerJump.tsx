@@ -39,7 +39,8 @@ export function RunnerJump({ game, onBack, onComplete, initialLevel }: Props) {
   const isOnGround = useRef(true);
   const obstacles = useRef<Obstacle[]>([]);
   const scoreRef = useRef(0);
-  const frameCount = useRef(0);
+  const lastTimeRef = useRef(0);
+  const spawnAccRef = useRef(0); // accumulated ms for spawn timing
   const rafRef = useRef<number | null>(null);
   const phaseRef = useRef<'idle' | 'playing' | 'complete'>('idle');
 
@@ -57,33 +58,40 @@ export function RunnerJump({ game, onBack, onComplete, initialLevel }: Props) {
     isOnGround.current = true;
     obstacles.current = [];
     scoreRef.current = 0;
-    frameCount.current = 0;
+    lastTimeRef.current = 0;
+    spawnAccRef.current = 0;
     phaseRef.current = 'idle';
     setPhase('idle');
   }, [GROUND_Y]);
 
   useEffect(() => {
     if (phase !== 'playing') return;
-    const speed = OBSTACLE_SPEED(level);
-    const spawnInterval = Math.max(60, 100 - level * 5);
-    const loop = () => {
-      frameCount.current += 1;
+    lastTimeRef.current = 0;
+    spawnAccRef.current = 0;
+    const speedPx60 = OBSTACLE_SPEED(level); // px per 60fps frame
+    const spawnIntervalMs = Math.max(1000, (100 - level * 5) * (1000 / 60));
+    const loop = (timestamp: number) => {
+      const dt = lastTimeRef.current ? Math.min(timestamp - lastTimeRef.current, 50) : 16.67;
+      lastTimeRef.current = timestamp;
+      const scale = dt / 16.67;
       if (!isOnGround.current) {
-        velocityY.current += GRAVITY;
-        playerY.current = Math.min(GROUND_Y - PLAYER_SIZE, playerY.current + velocityY.current);
+        velocityY.current += GRAVITY * scale;
+        playerY.current = Math.min(GROUND_Y - PLAYER_SIZE, playerY.current + velocityY.current * scale);
         if (playerY.current >= GROUND_Y - PLAYER_SIZE) {
           playerY.current = GROUND_Y - PLAYER_SIZE;
           velocityY.current = 0;
           isOnGround.current = true;
         }
       }
-      if (frameCount.current % spawnInterval === 0) {
+      spawnAccRef.current += dt;
+      if (spawnAccRef.current >= spawnIntervalMs) {
+        spawnAccRef.current -= spawnIntervalMs;
         const minH = OBS_MIN_H(level);
         const maxH = OBS_MAX_H(level);
         const h = minH + Math.floor(Math.random() * (maxH - minH));
         obstacles.current.push({ id: ++OID, x: BOARD_W, h, emoji: OBSTACLE_EMOJIS[Math.floor(Math.random() * OBSTACLE_EMOJIS.length)] });
       }
-      obstacles.current = obstacles.current.map((o) => ({ ...o, x: o.x - speed })).filter((o) => {
+      obstacles.current = obstacles.current.map((o) => ({ ...o, x: o.x - speedPx60 * scale })).filter((o) => {
         if (o.x + OBSTACLE_W < 44) { scoreRef.current += 1; return false; }
         return true;
       });
@@ -115,7 +123,10 @@ export function RunnerJump({ game, onBack, onComplete, initialLevel }: Props) {
       rafRef.current = requestAnimationFrame(loop);
     };
     rafRef.current = requestAnimationFrame(loop);
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      lastTimeRef.current = 0;
+    };
   }, [phase, level, BOARD_W, GROUND_Y]);
 
   if (phase === 'complete') {

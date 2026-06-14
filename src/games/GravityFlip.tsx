@@ -35,7 +35,8 @@ export function GravityFlip({ game, onBack, onComplete, initialLevel }: Props) {
   const velocityY = useRef(0);
   const gravDir = useRef(1);
   const obstacles = useRef<Obstacle[]>([]);
-  const frameCount = useRef(0);
+  const spawnAccRef = useRef(0);
+  const lastTimeRef = useRef(0);
   const scoreRef = useRef(0);
   const rafRef = useRef<number | null>(null);
   const gamePhaseRef = useRef<'idle' | 'playing' | 'complete'>('idle');
@@ -47,7 +48,8 @@ export function GravityFlip({ game, onBack, onComplete, initialLevel }: Props) {
     velocityY.current = 0;
     gravDir.current = 1;
     obstacles.current = [];
-    frameCount.current = 0;
+    spawnAccRef.current = 0;
+    lastTimeRef.current = 0;
     scoreRef.current = 0;
     gamePhaseRef.current = 'playing';
     setPhase('playing');
@@ -62,18 +64,25 @@ export function GravityFlip({ game, onBack, onComplete, initialLevel }: Props) {
 
   useEffect(() => {
     if (phase !== 'playing') return;
-    const loop = () => {
-      frameCount.current += 1;
-      velocityY.current += GRAVITY * gravDir.current;
+    lastTimeRef.current = 0;
+    spawnAccRef.current = 0;
+    const spawnMs = OBSTACLE_INTERVAL * (1000 / 60); // convert frames→ms at 60fps
+    const loop = (timestamp: number) => {
+      const dt = lastTimeRef.current ? Math.min(timestamp - lastTimeRef.current, 50) : 16.67;
+      lastTimeRef.current = timestamp;
+      const scale = dt / 16.67;
+      velocityY.current += GRAVITY * gravDir.current * scale;
       velocityY.current = Math.max(-8, Math.min(8, velocityY.current));
-      playerY.current += velocityY.current;
+      playerY.current += velocityY.current * scale;
       if (playerY.current <= 0) { playerY.current = 0; velocityY.current = Math.abs(velocityY.current) * 0.4; gravDir.current = 1; }
       if (playerY.current >= BOARD_H - PLAYER_H) { playerY.current = BOARD_H - PLAYER_H; velocityY.current = -Math.abs(velocityY.current) * 0.4; gravDir.current = -1; }
-      if (frameCount.current % OBSTACLE_INTERVAL === 0) {
+      spawnAccRef.current += dt;
+      if (spawnAccRef.current >= spawnMs) {
+        spawnAccRef.current -= spawnMs;
         const topH = 20 + Math.random() * (BOARD_H - gap - 40);
         obstacles.current.push({ x: BOARD_W, topH });
       }
-      obstacles.current = obstacles.current.map((o) => ({ ...o, x: o.x - SPEED }));
+      obstacles.current = obstacles.current.map((o) => ({ ...o, x: o.x - SPEED * scale }));
       obstacles.current = obstacles.current.filter((o) => {
         if (o.x + OBSTACLE_W < 30) { scoreRef.current += 1; return false; }
         return true;
@@ -107,7 +116,10 @@ export function GravityFlip({ game, onBack, onComplete, initialLevel }: Props) {
       rafRef.current = requestAnimationFrame(loop);
     };
     rafRef.current = requestAnimationFrame(loop);
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      lastTimeRef.current = 0;
+    };
   }, [phase, level, gap, BOARD_W, BOARD_H]);
 
   if (phase === 'complete') {
