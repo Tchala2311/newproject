@@ -148,19 +148,21 @@ export function NumberFlash({ game, onBack, onComplete, initialLevel }: Props) {
 
   if (phase === 'gameOver') {
     return (
-      <GameResult
-        won={false}
-        score={score}
-        accent={game.accent}
-        game={game}
-        onRestart={() => {
-          setLevel(initialLevel ?? 1);
-          setLives(MAX_LIVES);
-          setScore(0);
-          startLevel(initialLevel ?? 1);
-        }}
-        onBack={onBack}
-      />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <GameResult
+          won={false}
+          score={score}
+          accent={game.accent}
+          game={game}
+          onRestart={() => {
+            setLevel(initialLevel ?? 1);
+            setLives(MAX_LIVES);
+            setScore(0);
+            startLevel(initialLevel ?? 1);
+          }}
+          onBack={onBack}
+        />
+      </View>
     );
   }
 

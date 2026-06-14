@@ -40,6 +40,8 @@ export function PerfectCircle({ game, onBack, onComplete, initialLevel }: Props)
   const ptsRef = useRef<Pt[]>([]);
   const boardRef = useRef<View>(null);
   const boardOriginRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const levelRef = useRef(level);
+  levelRef.current = level;
 
   const computeScore = (pts: Pt[]) => {
     if (pts.length < 12) return 0;
@@ -50,7 +52,20 @@ export function PerfectCircle({ game, onBack, onComplete, initialLevel }: Props)
     if (meanR < 30) return 0;
     const variance = radii.reduce((s, r) => s + (r - meanR) ** 2, 0) / pts.length;
     const std = Math.sqrt(variance);
-    const raw = Math.max(0, 100 * (1 - std / meanR));
+
+    // Penalise open arcs/C-shapes: find the largest angular gap between consecutive points.
+    const angles = pts.map((p) => Math.atan2(p.y - meanY, p.x - meanX));
+    const sorted = [...angles].sort((a, b) => a - b);
+    let maxGap = sorted[0] + 2 * Math.PI - sorted[sorted.length - 1];
+    for (let i = 1; i < sorted.length; i++) {
+      maxGap = Math.max(maxGap, sorted[i] - sorted[i - 1]);
+    }
+    // A gap > 60° (π/3) starts penalising; 180° (π) → score 0.
+    const coverageFactor = maxGap < Math.PI / 3
+      ? 1
+      : Math.max(0, 1 - (maxGap - Math.PI / 3) / (Math.PI * 2 / 3));
+
+    const raw = Math.max(0, 100 * (1 - std / meanR)) * coverageFactor;
     return Math.min(99.9, raw);
   };
 
@@ -74,16 +89,17 @@ export function PerfectCircle({ game, onBack, onComplete, initialLevel }: Props)
       },
       onPanResponderRelease: () => {
         drawing.current = false;
+        const lv = levelRef.current;
         const accuracy = computeScore(ptsRef.current);
-        const threshold = LEVEL_THRESHOLD(level);
+        const threshold = LEVEL_THRESHOLD(lv);
         const passed = accuracy >= threshold;
-        const score = Math.round(accuracy * 10 * level);
+        const score = Math.round(accuracy * 10 * lv);
         setLastScore(score);
         setLastPassed(passed);
         setPhase('complete');
         if (passed) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         else Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-        onComplete(passed, score, { level, percent: Math.round(accuracy * 10) / 10 });
+        onComplete(passed, score, { level: lv, percent: Math.round(accuracy * 10) / 10 });
       },
     })
   ).current;

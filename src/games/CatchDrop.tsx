@@ -68,9 +68,12 @@ export function CatchDrop({ game, onBack, onComplete, initialLevel }: Props) {
 
   useEffect(() => {
     if (phase !== 'playing') return;
-    const loop = () => {
+    let lastTs = 0;
+    const loop = (ts: number) => {
+      const dt = lastTs ? Math.min(ts - lastTs, 50) : 16.67;
+      lastTs = ts;
       setItems((prev) => {
-        const speed = FALL_SPEED(level);
+        const speed = FALL_SPEED(level) * (dt / 16.67);
         return prev.map((item) => ({ ...item, y: item.y + speed })).filter((item) => {
           if (item.y > boardH) {
             if (item.emoji !== BOMB) {
@@ -112,7 +115,7 @@ export function CatchDrop({ game, onBack, onComplete, initialLevel }: Props) {
       });
       if (gamePhaseRef.current === 'playing') rafRef.current = requestAnimationFrame(loop);
     };
-    rafRef.current = requestAnimationFrame(loop);
+    rafRef.current = requestAnimationFrame((ts) => { lastTs = ts; loop(ts); });
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
   }, [phase, level, boardH]);
 
