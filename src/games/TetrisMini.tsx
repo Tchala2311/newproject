@@ -103,6 +103,18 @@ export function TetrisMini({ game, onBack, onComplete, initialLevel }: Props) {
   const [lastScore, setLastScore] = useState(0);
   const phaseRef = useRef(phase);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
+  const scoreRef = useRef(0);
+  const completeRef = useRef<{ won: boolean; score: number } | null>(null);
+  const doneFlagRef = useRef(false);
+
+  // Fire onComplete once after phase flips to 'complete'
+  useEffect(() => {
+    if (phase === 'complete' && completeRef.current) {
+      const { won, score: s } = completeRef.current;
+      completeRef.current = null;
+      onComplete(won, s, { level });
+    }
+  }, [phase]);
 
   // Tick
   useEffect(() => {
@@ -116,26 +128,30 @@ export function TetrisMini({ game, onBack, onComplete, initialLevel }: Props) {
           const merged = merge(board, p);
           const { board: cleared, lines } = clearLines(merged);
           setBoard(cleared);
+          const lineScore = lines * 100 * level;
+          if (lines > 0) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+            scoreRef.current += lineScore;
+            setScore(scoreRef.current);
+          }
           setLinesCleared((l) => {
             const nl = l + lines;
-            if (nl >= cfg.target) {
+            if (nl >= cfg.target && !doneFlagRef.current) {
+              doneFlagRef.current = true;
+              completeRef.current = { won: true, score: scoreRef.current };
               setLastPassed(true);
-              setLastScore(score + lines * 100 * level);
+              setLastScore(scoreRef.current);
               setPhase('complete');
-              onComplete(true, score + lines * 100 * level, { level, lines: linesCleared + lines });
             }
             return nl;
           });
-          if (lines > 0) {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-            setScore((s) => s + lines * 100 * level);
-          }
           const nextPiece = spawnPiece();
-          if (collides(cleared, nextPiece)) {
+          if (collides(cleared, nextPiece) && !doneFlagRef.current) {
+            doneFlagRef.current = true;
+            completeRef.current = { won: false, score: scoreRef.current };
             setLastPassed(false);
-            setLastScore(score + lines * 100 * level);
+            setLastScore(scoreRef.current);
             setPhase('complete');
-            onComplete(false, score + lines * 100 * level, { level });
           }
           return nextPiece;
         }
@@ -143,7 +159,7 @@ export function TetrisMini({ game, onBack, onComplete, initialLevel }: Props) {
       });
     }, cfg.tickMs);
     return () => clearInterval(t);
-  }, [phase, board, cfg.tickMs, cfg.target, score, level, onComplete]);
+  }, [phase, board, cfg.tickMs, cfg.target, level]);
 
   const move = (dx: number) => {
     if (phase !== 'playing') return;
@@ -174,6 +190,9 @@ export function TetrisMini({ game, onBack, onComplete, initialLevel }: Props) {
   };
 
   const reset = () => {
+    scoreRef.current = 0;
+    doneFlagRef.current = false;
+    completeRef.current = null;
     setBoard(emptyBoard());
     setPiece(spawnPiece());
     setScore(0);

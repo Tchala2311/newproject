@@ -112,6 +112,7 @@ export function SpotChange({ game, onBack, onComplete, initialLevel }: Props) {
   const [scenesB, setScenesB] = useState<Shape[]>([]);
   const [changedId, setChangedId] = useState<number>(-1);
   const [flashId, setFlashId] = useState<number | null>(null);
+  const wrongTapRef = useRef(false);
 
   const shapeCount = 6 + Math.min(level - 1, 4); // 6–10
 
@@ -208,11 +209,11 @@ export function SpotChange({ game, onBack, onComplete, initialLevel }: Props) {
           }, 900);
         }
       } else {
-        // Wrong tap
+        // Wrong tap — deduct time but keep same puzzle
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+        wrongTapRef.current = true;
         setFeedbackCorrect(false);
         setFeedbackText('Не то! Ищи дальше…');
-        // Deduct half a second from timer as penalty, keep playing
         setTimeLeft((t: number) => Math.max(0, t - 2));
         setPhase('feedback');
       }
@@ -245,6 +246,12 @@ export function SpotChange({ game, onBack, onComplete, initialLevel }: Props) {
       if (feedbackCorrect && round >= ROUNDS_PER_LEVEL) return; // levelComplete will take over
       if (lives <= 0) {
         setPhase('gameOver');
+        return;
+      }
+      if (!feedbackCorrect && wrongTapRef.current) {
+        // Wrong tap: resume same puzzle so player can keep looking
+        wrongTapRef.current = false;
+        setPhase('playing');
         return;
       }
       advanceRound();

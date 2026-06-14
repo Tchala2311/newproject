@@ -27,6 +27,7 @@ export function BalloonPop({ game, onBack, onComplete, initialLevel }: Props) {
   const [passed, setPassed] = useState(false);
   const scoreRef = useRef(0);
   const spawnRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const completeResultRef = useRef<{ passed: boolean } | null>(null);
 
   const spawnBalloon = useCallback(() => {
     const id = ++UID;
@@ -57,6 +58,15 @@ export function BalloonPop({ game, onBack, onComplete, initialLevel }: Props) {
     return () => clearInterval(spawnRef.current!);
   }, [phase, level, spawnBalloon]);
 
+  // Fire onComplete once after phase flips to 'complete'
+  useEffect(() => {
+    if (phase === 'complete' && completeResultRef.current) {
+      const { passed: p } = completeResultRef.current;
+      completeResultRef.current = null;
+      onComplete(p, scoreRef.current * 40, { level });
+    }
+  }, [phase]);
+
   useEffect(() => {
     if (phase !== 'playing') return;
     const t = setInterval(() => {
@@ -64,9 +74,9 @@ export function BalloonPop({ game, onBack, onComplete, initialLevel }: Props) {
         if (prev <= 1) {
           clearInterval(t);
           const p = scoreRef.current >= TARGET(level);
+          completeResultRef.current = { passed: p };
           setPassed(p);
           setPhase('complete');
-          onComplete(p, scoreRef.current * 40, { level });
           return 0;
         }
         return prev - 1;

@@ -36,6 +36,7 @@ export function FlipDuo({ game, onBack, onComplete, initialLevel }: Props) {
   const [lastScore, setLastScore] = useState(0);
   const matchedRef = useRef(0);
   const lockRef = useRef(false);
+  const completeResultRef = useRef<{ won: boolean; score: number; level: number } | null>(null);
   const pairsCount = PAIRS_PER_LEVEL(level);
   const cols = pairsCount <= 6 ? 3 : 4;
   const gridW = Math.min(width - 32, height * 0.62);
@@ -64,12 +65,11 @@ export function FlipDuo({ game, onBack, onComplete, initialLevel }: Props) {
               matchedRef.current += 1;
               const updated = deck.map((c) => next.includes(c.id) ? { ...c, matched: true } : c);
               if (matchedRef.current >= pairsCount) {
-                const p = true;
                 const score = Math.max(100, 1000 - mistakes * 60) * level;
-                setPassed(p);
+                completeResultRef.current = { won: true, score, level };
+                setPassed(true);
                 setLastScore(score);
                 setPhase('complete');
-                onComplete(p, score, { level });
               }
               lockRef.current = false;
               return updated;
@@ -92,9 +92,18 @@ export function FlipDuo({ game, onBack, onComplete, initialLevel }: Props) {
     });
   }, [pairsCount, mistakes, level, onComplete]);
 
+  useEffect(() => {
+    if (phase === 'complete' && completeResultRef.current) {
+      const { won, score: s, level: l } = completeResultRef.current;
+      completeResultRef.current = null;
+      onComplete(won, s, { level: l });
+    }
+  }, [phase]);
+
   const restart = useCallback(() => {
     matchedRef.current = 0;
     lockRef.current = false;
+    completeResultRef.current = null;
     setMistakes(0);
     setSelected([]);
     setCards(buildDeck(PAIRS_PER_LEVEL(level)));
@@ -104,7 +113,12 @@ export function FlipDuo({ game, onBack, onComplete, initialLevel }: Props) {
   if (phase === 'complete') {
     return <LevelComplete level={level} passed={passed} score={lastScore} scoreLabel="Очки" accent={game.accent}
       showAd={passed && shouldShowAdAfter(level)}
-      onContinue={() => { setLevel((l) => { const nl = l + 1; matchedRef.current = 0; lockRef.current = false; setMistakes(0); setSelected([]); setCards(buildDeck(PAIRS_PER_LEVEL(nl))); return nl; }); setPhase('playing'); }}
+      onContinue={() => {
+        const nl = level + 1;
+        matchedRef.current = 0; lockRef.current = false; completeResultRef.current = null;
+        setMistakes(0); setSelected([]); setCards(buildDeck(PAIRS_PER_LEVEL(nl)));
+        setLevel(nl); setPhase('playing');
+      }}
       onRetry={restart}
       onBack={onBack} />;
   }

@@ -4,6 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
 import { LevelComplete, shouldShowAdAfter } from './LevelComplete';
 import { GameResult } from './GameResult';
+import { GameShell } from './GameShell';
 import { colors, fontFamily } from '../theme';
 
 type Props = {
@@ -74,7 +75,11 @@ export function OddColor({ game, onBack, onComplete, initialLevel = 1 }: Props) 
     setOddIdx(Math.floor(Math.random() * cols * rows));
     setBaseHue(Math.random() * 360);
     setBaseSat(55 + Math.random() * 25);
-    setBaseLit(32 + Math.random() * 22);
+    // Clamp baseLit so baseLit + diff stays in [5, 95] — prevents hslToHex overflow
+    const d = diffForLevel(lv);
+    const maxLit = Math.min(70, 95 - d);
+    const minLit = Math.max(10, maxLit - 30);
+    setBaseLit(minLit + Math.random() * (maxLit - minLit));
     setWrongIdx(null);
     setPhase('playing');
   }, []);
@@ -107,7 +112,7 @@ export function OddColor({ game, onBack, onComplete, initialLevel = 1 }: Props) 
 
   if (phase === 'gameOver') {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
+      <GameShell game={game} onBack={onBack} score={totalScore} label={`Ур. ${level}`}>
         <GameResult
           won={false}
           score={totalScore}
@@ -116,7 +121,7 @@ export function OddColor({ game, onBack, onComplete, initialLevel = 1 }: Props) 
           onBack={onBack}
           game={game}
         />
-      </View>
+      </GameShell>
     );
   }
 
@@ -145,42 +150,40 @@ export function OddColor({ game, onBack, onComplete, initialLevel = 1 }: Props) 
   const oddColor = hslToHex(baseHue, baseSat, baseLit + diff);
 
   return (
-    <Animated.View
-      style={{ flex: 1, alignItems: 'center', justifyContent: 'center', transform: [{ translateX: shakeAnim }] }}
-    >
-      <Text style={{ fontSize: 11, fontFamily: fontFamily.bold, color: colors.textDim, letterSpacing: 1.2, marginBottom: 20 }}>
-        УРОВЕНЬ {level} · {totalScore} ОЧК
-      </Text>
+    <GameShell game={game} onBack={onBack} score={totalScore} label={`Ур. ${level}`}>
+      <Animated.View
+        style={{ alignItems: 'center', justifyContent: 'center', flex: 1, transform: [{ translateX: shakeAnim }] }}
+      >
+        <View style={{ gap }}>
+          {Array.from({ length: rows }).map((_, row) => (
+            <View key={row} style={{ flexDirection: 'row', gap }}>
+              {Array.from({ length: cols }).map((_, col) => {
+                const idx = row * cols + col;
+                const isOdd = idx === oddIdx;
+                const isWrong = idx === wrongIdx;
+                return (
+                  <Pressable
+                    key={col}
+                    onPress={() => handleTap(idx)}
+                    style={{
+                      width: cellSize,
+                      height: cellSize,
+                      borderRadius: 10,
+                      backgroundColor: isOdd ? oddColor : baseColor,
+                      borderWidth: isWrong ? 3 : 0,
+                      borderColor: '#FF4D4D',
+                    }}
+                  />
+                );
+              })}
+            </View>
+          ))}
+        </View>
 
-      <View style={{ gap }}>
-        {Array.from({ length: rows }).map((_, row) => (
-          <View key={row} style={{ flexDirection: 'row', gap }}>
-            {Array.from({ length: cols }).map((_, col) => {
-              const idx = row * cols + col;
-              const isOdd = idx === oddIdx;
-              const isWrong = idx === wrongIdx;
-              return (
-                <Pressable
-                  key={col}
-                  onPress={() => handleTap(idx)}
-                  style={{
-                    width: cellSize,
-                    height: cellSize,
-                    borderRadius: 10,
-                    backgroundColor: isOdd ? oddColor : baseColor,
-                    borderWidth: isWrong ? 3 : 0,
-                    borderColor: '#FF4D4D',
-                  }}
-                />
-              );
-            })}
-          </View>
-        ))}
-      </View>
-
-      <Text style={{ fontSize: 11, fontFamily: fontFamily.medium, color: colors.textFaint, marginTop: 20 }}>
-        Найди отличающийся цвет
-      </Text>
-    </Animated.View>
+        <Text style={{ fontSize: 11, fontFamily: fontFamily.medium, color: colors.textFaint, marginTop: 20 }}>
+          Найди отличающийся цвет
+        </Text>
+      </Animated.View>
+    </GameShell>
   );
 }

@@ -26,6 +26,7 @@ export function WhackMole({ game, onBack, onComplete, initialLevel }: Props) {
   const [passed, setPassed] = useState(false);
   const scoreRef = useRef(0);
   const moleTimers = useRef<(ReturnType<typeof setTimeout> | null)[]>(Array(CELLS).fill(null));
+  const completeResultRef = useRef<{ passed: boolean } | null>(null);
 
   const popMole = useCallback(() => {
     const available = Array.from({ length: CELLS }, (_, i) => i);
@@ -52,6 +53,15 @@ export function WhackMole({ game, onBack, onComplete, initialLevel }: Props) {
     return () => clearInterval(interval);
   }, [phase, level, popMole]);
 
+  // Fire onComplete once after phase flips to 'complete'
+  useEffect(() => {
+    if (phase === 'complete' && completeResultRef.current) {
+      const { passed: p } = completeResultRef.current;
+      completeResultRef.current = null;
+      onComplete(p, scoreRef.current * 50, { level, hits: scoreRef.current });
+    }
+  }, [phase]);
+
   // Countdown timer
   useEffect(() => {
     if (phase !== 'playing') return;
@@ -60,9 +70,9 @@ export function WhackMole({ game, onBack, onComplete, initialLevel }: Props) {
         if (prev <= 1) {
           clearInterval(t);
           const p = scoreRef.current >= TARGET_SCORE(level);
+          completeResultRef.current = { passed: p };
           setPassed(p);
           setPhase('complete');
-          onComplete(p, scoreRef.current * 50, { level, hits: scoreRef.current });
           return 0;
         }
         return prev - 1;

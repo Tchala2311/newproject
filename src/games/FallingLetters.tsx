@@ -19,7 +19,8 @@ const KEYBOARD = [
   'ЯЧСМИТЬБЮ',
 ];
 
-const RUSSIAN = 'АБВГДЕЁЖЗИКЛМНОПРСТУФХЦЧШЩЫЭЮЯЙЦУЕНГ';
+// Exactly the letters present on the keyboard (no Ё, no duplicates)
+const RUSSIAN = 'ЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ';
 
 const LEVEL_CFG = (level: number) => ({
   fall: Math.max(2800, 7800 - level * 800),
@@ -41,6 +42,7 @@ export function FallingLetters({ game, onBack, onComplete, initialLevel }: Props
   const [lastPassed, setLastPassed] = useState(false);
   const [lastScore, setLastScore] = useState(0);
   const idRef = useRef(0);
+  const completedRef = useRef(false);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -78,12 +80,14 @@ export function FallingLetters({ game, onBack, onComplete, initialLevel }: Props
       if (missedNow > 0) {
         setMissed((m) => {
           const next = m + missedNow;
-          if (next >= cfg.missLimit) {
+          if (next >= cfg.missLimit && !completedRef.current) {
+            completedRef.current = true;
             const passed = score >= cfg.target;
             setLastPassed(passed);
             setLastScore(score * level);
             setPhase('complete');
-            onComplete(passed, score * level, { level });
+            // Fire onComplete outside the updater via microtask to avoid setState-in-updater
+            Promise.resolve().then(() => onComplete(passed, score * level, { level }));
           }
           return next;
         });
@@ -94,7 +98,8 @@ export function FallingLetters({ game, onBack, onComplete, initialLevel }: Props
 
   // Also pass when target is reached early
   useEffect(() => {
-    if (phase !== 'playing' || score < cfg.target) return;
+    if (phase !== 'playing' || score < cfg.target || completedRef.current) return;
+    completedRef.current = true;
     setLastPassed(true);
     setLastScore(score * level);
     setPhase('complete');
@@ -118,6 +123,7 @@ export function FallingLetters({ game, onBack, onComplete, initialLevel }: Props
   };
 
   const reset = () => {
+    completedRef.current = false;
     setLetters([]);
     setScore(0);
     setMissed(0);
@@ -125,6 +131,7 @@ export function FallingLetters({ game, onBack, onComplete, initialLevel }: Props
   };
 
   const startNextLevel = () => {
+    completedRef.current = false;
     setLevel((l) => l + 1);
     setLetters([]);
     setScore(0);

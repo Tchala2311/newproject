@@ -41,6 +41,7 @@ export function NervePulse({ game, onBack, onComplete, initialLevel }: Props) {
   const lastTickRef = useRef(Date.now());
   const insideRef = useRef(false);
   const boardOriginRef = useRef<{ x: number; y: number } | null>(null);
+  const boardRef = useRef<View>(null);
 
   // Wobbling target ring radius — wobble multiplier scales with level
   const ringRadius = (t: number) => {
@@ -114,8 +115,10 @@ export function NervePulse({ game, onBack, onComplete, initialLevel }: Props) {
     })
   ).current;
 
-  const onLayout = (e: any) => {
-    boardOriginRef.current = { x: e.nativeEvent.layout.x, y: e.nativeEvent.layout.y };
+  const onLayout = () => {
+    boardRef.current?.measureInWindow((x, y) => {
+      boardOriginRef.current = { x, y };
+    });
   };
 
   const reset = () => {
@@ -168,6 +171,7 @@ export function NervePulse({ game, onBack, onComplete, initialLevel }: Props) {
         Удерживай палец внутри пульсирующего кольца.
       </Text>
       <View
+        ref={boardRef}
         onLayout={onLayout}
         {...responder.panHandlers}
         style={{

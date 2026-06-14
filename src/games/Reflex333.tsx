@@ -51,6 +51,7 @@ export function Reflex333({ game, onBack, onComplete, initialLevel }: Props) {
   };
 
   const tap = () => {
+    if (state === 'tooEarly') { setState('idle'); return; }
     if (state === 'waiting') {
       if (timerRef.current) clearTimeout(timerRef.current);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
