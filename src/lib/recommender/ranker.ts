@@ -19,11 +19,11 @@ export const W = {
   coEngaged: 3.0,
   contentSimilar: 2.0,
   trending: 1.2,
+  fallback: 0.8,             // cold-start / discovery path — carries curated match%
   priorAffinity: 0.4,        // already liked this game — show again with less weight
   matchPrior: 0.3,           // hand-curated match% as a tie-breaker
   recencyPenalty: -0.6,      // per-impression penalty (last 24h)
   notInterested: -1000,      // long-press → "Не интересно" — effectively banished
-  diversityCarry: 0,         // mutated by mixer at assemble time
 } as const;
 
 export type ScoredCandidate = {
@@ -44,6 +44,7 @@ export function rankCandidate(
   parts.coEngaged = W.coEngaged * (sources.get('coEngaged') ?? 0);
   parts.contentSimilar = W.contentSimilar * (sources.get('contentSimilar') ?? 0);
   parts.trending = W.trending * (sources.get('trending') ?? 0);
+  parts.fallback = W.fallback * (sources.get('fallback') ?? 0);
 
   // Direct prior affinity — log-scaled so a single like doesn't dominate.
   const prior = profile.perGameWeight.get(game.id) ?? 0;

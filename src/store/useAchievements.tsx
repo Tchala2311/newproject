@@ -53,6 +53,7 @@ export function AchievementsProvider({ children }: { children: React.ReactNode }
   const tetrisLinesRef = useRef(0);
   const adViewsRef = useRef(0);
   const followCountRef = useRef(0);
+  const commentCountRef = useRef(0);
   // Ref always mirrors progressByGame — lets persistProgress read latest
   // state synchronously without re-creating on every render.
   const progressRef = useRef<Map<number, GameProgressRow>>(new Map());
@@ -85,6 +86,7 @@ export function AchievementsProvider({ children }: { children: React.ReactNode }
     tetrisLinesRef.current = 0;
     adViewsRef.current = 0;
     followCountRef.current = 0;
+    commentCountRef.current = 0;
     if (!user) {
       setUnlocked(new Set());
       setProgressByGame(new Map());
@@ -229,7 +231,8 @@ export function AchievementsProvider({ children }: { children: React.ReactNode }
         runChecker({});
         break;
       case 'comment':
-        runChecker({ totalComments: 1 });
+        commentCountRef.current += 1;
+        runChecker({ totalComments: commentCountRef.current });
         break;
       case 'follow':
         followCountRef.current += 1;

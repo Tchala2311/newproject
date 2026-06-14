@@ -22,6 +22,7 @@ const WEIGHTS = {
   completeWon: 4,
   completeLost: 1,
   view: 0.5,
+  skip: -1.5, // swipe-past in < SKIP_THRESHOLD_MS — mild negative signal
 } as const;
 
 // Half-life in days. After 14 days, weight halves. After 28 days, ~25%.
@@ -134,6 +135,7 @@ export async function buildUserProfile(
     if (r.game_id === null || r.game_id === undefined) return;
     if (r.type === 'play') addSignal(r.game_id, WEIGHTS.play, r.created_at);
     else if (r.type === 'view') addSignal(r.game_id, WEIGHTS.view, r.created_at);
+    else if (r.type === 'skip') addSignal(r.game_id, WEIGHTS.skip, r.created_at);
     else if (r.type === 'complete') {
       const won = r.meta?.won === 1;
       addSignal(r.game_id, won ? WEIGHTS.completeWon : WEIGHTS.completeLost, r.created_at);
@@ -149,7 +151,9 @@ export async function buildUserProfile(
     });
   }
 
-  // Cold-start = user has fewer than 5 total engagement signals.
+  // Cold-start = user has fewer than 20 total engagement signals.
+  // 5 was too low — a content vector built from 5 view events has essentially
+  // zero meaningful direction and causes contentSimilar scores to be random.
   const totalSignals = (likesRes.data?.length ?? 0) + (savesRes.data?.length ?? 0) + (commentsRes.data?.length ?? 0) + (eventsRes.data?.length ?? 0);
 
   return {
@@ -159,7 +163,7 @@ export async function buildUserProfile(
     following,
     recentImpressions,
     notInterested,
-    isColdStart: totalSignals < 5,
+    isColdStart: totalSignals < 20,
   };
 }
 

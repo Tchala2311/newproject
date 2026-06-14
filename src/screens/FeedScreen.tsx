@@ -83,6 +83,9 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
   const userIdRef = useRef<string | null>(user?.id ?? null);
   useEffect(() => { userIdRef.current = user?.id ?? null; }, [user?.id]);
 
+  // Track when each game card became visible to compute skip signals.
+  const cardVisibleAtRef = useRef<number>(0);
+
   const dailyChallenge = useMemo(() => getDailyChallenge(), []);
 
   const buildFeed = useCallback(async (nonce = 0) => {
@@ -124,6 +127,20 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  // Rebuild the ranked feed in the background whenever the user's follow list
+  // changes — inNetworkCandidates needs the updated set immediately so that
+  // a newly followed creator's games surface without a manual pull-to-refresh.
+  const followsRef = useRef(follows);
+  useEffect(() => {
+    if (followsRef.current === follows) return;
+    followsRef.current = follows;
+    const nonce = refreshNonceRef.current + 1;
+    refreshNonceRef.current = nonce;
+    setRefreshNonce(nonce);
+    buildFeed(nonce).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [follows]);
 
   // Pull-to-refresh handler — Reels/TikTok-style. Re-runs the ranker with a
   // fresh nonce so ordering visibly changes, scrolls to top, and fires a
@@ -176,13 +193,31 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
     };
   }, [isAdVisible]);
 
+  // prevGameIdRef: tracks the last visible game so we can emit a skip if the
+  // user swiped past it faster than SKIP_THRESHOLD_MS.
+  const prevGameIdRef = useRef<number | null>(null);
+
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     if (!viewableItems.length) return;
     const idx = viewableItems[0].index ?? 0;
+    const now = Date.now();
+
+    // Emit skip for the card we're leaving if the user barely glanced at it.
+    if (prevGameIdRef.current !== null && cardVisibleAtRef.current > 0) {
+      const dwellMs = now - cardVisibleAtRef.current;
+      if (dwellMs < SKIP_THRESHOLD_MS) {
+        logEvent({ type: 'skip', gameId: prevGameIdRef.current });
+      }
+    }
+
     setFeedIdx(idx);
     Haptics.selectionAsync().catch(() => {});
-    // Log impression once per (session, game)
+
     const item = viewableItems[0].item as FeedItem | undefined;
+    prevGameIdRef.current = item?.type === 'game' ? item.game.id : null;
+    cardVisibleAtRef.current = now;
+
+    // Log impression once per (session, game)
     if (item?.type === 'game' && !loggedImpressions.current.has(item.game.id)) {
       loggedImpressions.current.add(item.game.id);
       logImpression(userIdRef.current, item.game.id, idx);
@@ -190,13 +225,7 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
   }).current;
 
   const handleShare = useCallback(async (game: Game) => {
-    markEngaged(user?.id ?? null, game.id);
     try {
-      // Include a deep link that resolves to the game (for v3 deep-link routing).
-      // For now share text with a `flik://` URL fragment that the receiving
-      // app — once installed — can intercept. Without an installed app it's
-      // just a recognisable token in the message that links back via app.json
-      // scheme on first launch.
       const link = `flik://game/${game.slug}`;
       await Share.share({
         message: `Зацени «${game.name}» в FLIK — ${game.tagline}\n${link}`,
