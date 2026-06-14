@@ -7,8 +7,11 @@ import { GAMES, Game } from '../data/games';
 // This means we don't need a backend table to assign the daily challenge —
 // the *result* (scores) goes into Supabase, but the *selection* is pure.
 
+// Use UTC so every user worldwide shares the same "challenge of the day" and
+// the same daily_scores leaderboard partition (local time would fragment the
+// leaderboard and hand users in different timezones different games).
 function dayKey(d = new Date()): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
 }
 
 // Cheap deterministic hash — good enough for rotation.

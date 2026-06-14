@@ -77,6 +77,11 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
   const loggedImpressions = useRef<Set<number>>(new Set());
   const refreshNonceRef = useRef(0);
   const adTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // onViewableItemsChanged must be a STABLE function reference for FlatList, so
+  // it can't close over `user.id` directly (that would freeze the value from
+  // first render). Read the current id from a ref instead.
+  const userIdRef = useRef<string | null>(user?.id ?? null);
+  useEffect(() => { userIdRef.current = user?.id ?? null; }, [user?.id]);
 
   const dailyChallenge = useMemo(() => getDailyChallenge(), []);
 
@@ -89,9 +94,13 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
         targetLength: 22,
         refreshNonce: nonce,
       });
+      // Drop the result if a newer refresh/tab-switch has superseded this one,
+      // so slow earlier requests can't overwrite a fresher feed (out-of-order).
+      if (nonce !== refreshNonceRef.current) return;
       setForYouItems(res.items);
     } catch (e) {
       console.warn('recommender failed, falling back to catalog order', e);
+      if (nonce !== refreshNonceRef.current) return;
       setForYouItems(buildSimpleFeed(GAMES));
     }
   }, [user?.id, follows, notInterested]);
@@ -135,7 +144,7 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
     buildFeed(nonce).then(() => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       onToast('🎉 Лента обновлена');
-    });
+    }).catch(() => {});
   }, [buildFeed, onToast, setFeedIdx]);
 
   const followingItems = useMemo<FeedItem[]>(() => buildSimpleFeed(followingGames), [followingGames]);
@@ -176,7 +185,7 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
     const item = viewableItems[0].item as FeedItem | undefined;
     if (item?.type === 'game' && !loggedImpressions.current.has(item.game.id)) {
       loggedImpressions.current.add(item.game.id);
-      logImpression(user?.id ?? null, item.game.id, idx);
+      logImpression(userIdRef.current, item.game.id, idx);
     }
   }).current;
 
@@ -302,7 +311,7 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
       <FlatList
         ref={listRef}
         data={items}
-        keyExtractor={(it, idx) => (it.type === 'ad' ? it.key : `g-${it.game.id}-${idx}-${refreshNonce}`)}
+        keyExtractor={(it) => (it.type === 'ad' ? it.key : `g-${it.game.id}`)}
         renderItem={renderItem}
         pagingEnabled
         scrollEnabled={!adLocked}

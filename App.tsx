@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -43,10 +43,15 @@ function Shell() {
   const [viewingCreator, setViewingCreator] = useState<Creator | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const { lastUnlocked, clearLastUnlocked } = useAchievements();
+  // The null→message flip remounts Toast so its enter animation always replays;
+  // track the timer so we can cancel it on unmount (no setState-after-unmount).
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); }, []);
 
   const showToast = (msg: string) => {
     setToast(null);
-    setTimeout(() => setToast(msg), 10);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(msg), 10);
   };
 
   const handlePlay = (game: Game) => {

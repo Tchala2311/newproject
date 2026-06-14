@@ -29,20 +29,36 @@ const MAX = 500;
 
 let buffer: Event[] = [];
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
+// Serialize the read-modify-write so two overlapping flushes can't each read
+// the same storage and clobber the other's appended events.
+let flushChain: Promise<void> = Promise.resolve();
+
+function parseEvents(raw: string | null): Event[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 async function flush() {
   if (!buffer.length) return;
   const toFlush = buffer;
   buffer = [];
   flushTimer = null;
-  try {
-    const existing = await AsyncStorage.getItem(KEY);
-    const arr: Event[] = existing ? JSON.parse(existing) : [];
-    const merged = [...arr, ...toFlush].slice(-MAX);
-    await AsyncStorage.setItem(KEY, JSON.stringify(merged));
-  } catch {
-    // swallow — events are fire-and-forget
-  }
+  flushChain = flushChain.then(async () => {
+    try {
+      const existing = await AsyncStorage.getItem(KEY);
+      const arr = parseEvents(existing);
+      const merged = [...arr, ...toFlush].slice(-MAX);
+      await AsyncStorage.setItem(KEY, JSON.stringify(merged));
+    } catch {
+      // swallow — events are fire-and-forget
+    }
+  });
+  return flushChain;
 }
 
 export function logEvent(e: Omit<Event, 'ts'>) {
@@ -53,8 +69,7 @@ export function logEvent(e: Omit<Event, 'ts'>) {
 
 export async function readEvents(): Promise<Event[]> {
   try {
-    const raw = await AsyncStorage.getItem(KEY);
-    return raw ? JSON.parse(raw) : [];
+    return parseEvents(await AsyncStorage.getItem(KEY));
   } catch {
     return [];
   }

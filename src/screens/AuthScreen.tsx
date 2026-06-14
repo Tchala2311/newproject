@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -35,18 +35,28 @@ export function AuthScreen() {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Guards: mountedRef avoids setState after the auth listener swaps this
+  // screen out on success; inFlightRef blocks a double-submit (button +
+  // keyboard "send"/"done" firing the same handler before `busy` commits).
+  const mountedRef = useRef(true);
+  const inFlightRef = useRef(false);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   const sendCode = async () => {
+    if (inFlightRef.current) return;
     if (!email.includes('@')) {
       setError('Введи корректный email');
       return;
     }
+    inFlightRef.current = true;
     setBusy(true);
     setError(null);
     const { error: e } = await supabase.auth.signInWithOtp({
       email: email.trim().toLowerCase(),
       options: { shouldCreateUser: true },
     });
+    inFlightRef.current = false;
+    if (!mountedRef.current) return;
     setBusy(false);
     if (e) {
       if (__DEV__) console.warn('OTP send failed', e.status);
@@ -59,11 +69,13 @@ export function AuthScreen() {
   };
 
   const verifyCode = async () => {
+    if (inFlightRef.current) return;
     const trimmed = code.replace(/\s+/g, '');
     if (trimmed.length < 6 || trimmed.length > 10) {
       setError('Код должен быть 6–10 цифр');
       return;
     }
+    inFlightRef.current = true;
     setBusy(true);
     setError(null);
     const { error: e } = await supabase.auth.verifyOtp({
@@ -71,6 +83,8 @@ export function AuthScreen() {
       token: trimmed,
       type: 'email',
     });
+    inFlightRef.current = false;
+    if (!mountedRef.current) return;
     setBusy(false);
     if (e) {
       if (__DEV__) console.warn('OTP verify failed', e.status);

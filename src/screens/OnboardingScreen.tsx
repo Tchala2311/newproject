@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -37,6 +37,12 @@ export function OnboardingScreen() {
   const [avatarColor, setAvatarColor] = useState(AVATAR_PALETTE[0]);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // mountedRef: the store flips `user` on success and Gate unmounts this
+  // screen, so post-await setState must be guarded. inFlightRef: block a
+  // double-submit before `submitting` commits.
+  const mountedRef = useRef(true);
+  const inFlightRef = useRef(false);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   const handleError = useMemo(() => (handle ? validateHandle(handle) : null), [handle]);
 
@@ -47,6 +53,8 @@ export function OnboardingScreen() {
     if (step === 'name') return setStep('avatar');
     if (step === 'avatar') return setStep('follow');
     if (step === 'follow') {
+      if (inFlightRef.current) return;
+      inFlightRef.current = true;
       setSubmitting(true);
       setSubmitError(null);
       const res = await setUser({
@@ -54,6 +62,8 @@ export function OnboardingScreen() {
         displayName: displayName || handle,
         avatarColor,
       });
+      inFlightRef.current = false;
+      if (!mountedRef.current) return;
       setSubmitting(false);
       if (!res.ok) {
         setSubmitError(res.error);
