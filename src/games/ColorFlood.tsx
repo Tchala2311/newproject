@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
@@ -46,12 +46,14 @@ export function ColorFlood({ game, onBack, onComplete, initialLevel }: Props) {
   const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
   const [lastPassed, setLastPassed] = useState(false);
   const [lastScore, setLastScore] = useState(0);
+  const completedRef = useRef(false);
 
   const movesLeft = cfg.max - moves;
   const boardSize = Math.min(width - 32, height * 0.52);
   const cellSize = Math.floor(boardSize / cfg.size);
 
   const reset = () => {
+    completedRef.current = false;
     setGrid(makeGrid(cfg.size, cfg.palette));
     setMoves(0);
     setPhase('playing');
@@ -60,6 +62,7 @@ export function ColorFlood({ game, onBack, onComplete, initialLevel }: Props) {
   const startNextLevel = () => {
     const nl = level + 1;
     const nc = LEVEL_CFG(nl);
+    completedRef.current = false;
     setLevel(nl);
     setGrid(makeGrid(nc.size, nc.palette));
     setMoves(0);
@@ -67,7 +70,7 @@ export function ColorFlood({ game, onBack, onComplete, initialLevel }: Props) {
   };
 
   const pick = (ci: number) => {
-    if (phase !== 'playing') return;
+    if (phase !== 'playing' || completedRef.current) return;
     Haptics.selectionAsync().catch(() => {});
     const ng = floodFill(grid, 0, 0, ci);
     const nm = moves + 1;
@@ -75,13 +78,17 @@ export function ColorFlood({ game, onBack, onComplete, initialLevel }: Props) {
     setMoves(nm);
     const allSame = ng.every((r) => r.every((c) => c === ci));
     if (allSame) {
-      const score = (cfg.max - nm) * 10 * level;
+      completedRef.current = true;
+      // A win on the very last allowed move would otherwise score 0; floor it
+      // so finishing always rewards something proportional to the level.
+      const score = Math.max(10 * level, (cfg.max - nm) * 10 * level);
       setLastPassed(true);
       setLastScore(score);
       setPhase('complete');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       onComplete(true, score, { level });
     } else if (nm >= cfg.max) {
+      completedRef.current = true;
       setLastPassed(false);
       setLastScore(0);
       setPhase('complete');

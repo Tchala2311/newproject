@@ -78,26 +78,38 @@ export function AngleGuess({ game, onBack, onComplete, initialLevel }: Props) {
   const boardOriginRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const playerAngleRef = useRef(0);
   const phaseRef = useRef<Phase>('preview');
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const submitLockRef = useRef(false);
 
   phaseRef.current = phase;
 
+  const clearTimers = useCallback(() => {
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+  }, []);
+
   const startPreview = useCallback((targetDeg: number) => {
+    clearTimers();
+    submitLockRef.current = false;
     setPlayerAngle(0);
     playerAngleRef.current = 0;
     setLastRoundScore(null);
     setPhase('preview');
     phaseRef.current = 'preview';
-    setTimeout(() => {
+    timersRef.current.push(setTimeout(() => {
       setPhase('input');
       phaseRef.current = 'input';
-    }, 2000);
-  }, []);
+    }, 2000));
+  }, [clearTimers]);
 
   useEffect(() => {
     const angle = randomAngleDeg();
     setTargetAngle(angle);
     startPreview(angle);
   }, [level]);
+
+  // Cancel any pending preview/next-round timers on unmount.
+  useEffect(() => clearTimers, [clearTimers]);
 
   const onLayout = () => {
     boardRef.current?.measure((_x, _y, _w, _h, pageX, pageY) => {
@@ -128,7 +140,8 @@ export function AngleGuess({ game, onBack, onComplete, initialLevel }: Props) {
   ).current;
 
   const submit = () => {
-    if (phase !== 'input') return;
+    if (phaseRef.current !== 'input' || submitLockRef.current) return;
+    submitLockRef.current = true;
     const diff = angleDiff(targetAngle, playerAngle);
     const pts = roundScore(diff, level);
     const newTotal = totalScore + pts;
@@ -146,15 +159,19 @@ export function AngleGuess({ game, onBack, onComplete, initialLevel }: Props) {
       setPassed(didPass);
       setTotalScore(finalScore);
       setPhase('levelComplete');
+      phaseRef.current = 'levelComplete';
       onComplete(didPass, finalScore, { level, rounds: ROUNDS_PER_LEVEL });
     } else {
       setTotalScore(newTotal);
-      setTimeout(() => {
+      // Block further input until the next round's preview starts.
+      setPhase('preview');
+      phaseRef.current = 'preview';
+      timersRef.current.push(setTimeout(() => {
         const nextAngle = randomAngleDeg();
         setTargetAngle(nextAngle);
         setRound((r) => r + 1);
         startPreview(nextAngle);
-      }, 900);
+      }, 900));
     }
   };
 

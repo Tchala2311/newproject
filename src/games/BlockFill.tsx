@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
@@ -157,6 +157,11 @@ export function BlockFill({ game, onBack, onComplete, initialLevel = 1 }: Props)
   const [pieces, setPieces] = useState<Piece[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [hoverCell, setHoverCell] = useState<[number, number] | null>(null);
+  // Synchronous mirror of `selected` + a completion latch so a fast double-tap
+  // can't place the same piece twice or fire onComplete twice.
+  const selectedRef = useRef<number | null>(null);
+  const completedRef = useRef(false);
+  useEffect(() => { selectedRef.current = selected; }, [selected]);
 
   const { rows, cols } = gridSize(level);
   const padding = 16;
@@ -167,6 +172,8 @@ export function BlockFill({ game, onBack, onComplete, initialLevel = 1 }: Props)
     const { rows, cols } = gridSize(lv);
     const emptyGrid: Cell[][] = Array.from({ length: rows }, () => Array(cols).fill(null));
     const newPieces = generatePuzzle(rows, cols);
+    completedRef.current = false;
+    selectedRef.current = null;
     setGrid(emptyGrid);
     setPieces(newPieces);
     setSelected(null);
@@ -177,18 +184,23 @@ export function BlockFill({ game, onBack, onComplete, initialLevel = 1 }: Props)
   useEffect(() => { startLevel(level); }, [level]);
 
   const handleCellPress = (row: number, col: number) => {
-    if (selected === null) return;
-    const piece = pieces.find(p => p.id === selected);
+    const sel = selectedRef.current;
+    if (sel === null || completedRef.current) return;
+    const piece = pieces.find(p => p.id === sel);
     if (!piece) return;
 
     if (!canPlace(grid, piece.shape, row, col)) {
+      // Surface the (now red) preview so the player sees why it didn't drop.
+      setHoverCell([row, col]);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       return;
     }
 
+    // Block re-entry from a second synchronous tap before state commits.
+    selectedRef.current = null;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     const newGrid = placeOnGrid(grid, piece.shape, row, col, piece.color);
-    const newPieces = pieces.filter(p => p.id !== selected);
+    const newPieces = pieces.filter(p => p.id !== sel);
     setGrid(newGrid);
     setPieces(newPieces);
     setSelected(null);
@@ -199,11 +211,13 @@ export function BlockFill({ game, onBack, onComplete, initialLevel = 1 }: Props)
     setScore(newScore);
 
     if (isFull(newGrid)) {
+      completedRef.current = true;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setPhase('levelComplete');
       onComplete(true, newScore, { level });
     } else if (newPieces.length === 0 && !isFull(newGrid)) {
       // Ran out of pieces but grid not full
+      completedRef.current = true;
       setPhase('gameOver');
       onComplete(false, newScore, { level });
     }
@@ -268,6 +282,10 @@ export function BlockFill({ game, onBack, onComplete, initialLevel = 1 }: Props)
                 <Pressable
                   key={c}
                   onPress={() => handleCellPress(r, c)}
+                  // onPressIn drives the preview on touch devices (onHoverIn
+                  // only fires for pointer/web), so the green/red placement
+                  // highlight appears the moment a finger lands on a cell.
+                  onPressIn={() => { if (selectedRef.current !== null) setHoverCell([r, c]); }}
                   onHoverIn={() => setHoverCell([r, c])}
                   onHoverOut={() => setHoverCell(null)}
                   style={{
