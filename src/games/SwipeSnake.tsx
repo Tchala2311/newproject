@@ -50,8 +50,17 @@ export function SwipeSnake({ game, onBack, onComplete, initialLevel }: Props) {
   const [food, setFood] = useState<Pt>({ x: 9, y: 9 });
   const [lastPassed, setLastPassed] = useState(false);
   const [lastScore, setLastScore] = useState(0);
+  const completeResultRef = useRef<{ won: boolean; score: number; level: number } | null>(null);
 
   useEffect(() => { dirRef.current = dir; }, [dir]);
+
+  useEffect(() => {
+    if (phase === 'complete' && completeResultRef.current) {
+      const { won, score: s, level: lv } = completeResultRef.current;
+      completeResultRef.current = null;
+      onComplete(won, s, { level: lv });
+    }
+  }, [phase]);
 
   useEffect(() => {
     if (phase !== 'playing') return;
@@ -65,12 +74,14 @@ export function SwipeSnake({ game, onBack, onComplete, initialLevel }: Props) {
         };
         if (next.x < 0 || next.x >= COLS || next.y < 0 || next.y >= ROWS ||
             prev.some((s) => s.x === next.x && s.y === next.y)) {
-          const len = prev.length - 3;
-          setLastPassed(false);
-          setLastScore(len * level);
-          setPhase('complete');
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-          onComplete(false, len * level, { level });
+          if (!completeResultRef.current) {
+            const sc = (prev.length - 3) * level;
+            setLastPassed(false);
+            setLastScore(sc);
+            completeResultRef.current = { won: false, score: sc, level };
+            setPhase('complete');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+          }
           return prev;
         }
         const ate = next.x === food.x && next.y === food.y;
@@ -80,11 +91,12 @@ export function SwipeSnake({ game, onBack, onComplete, initialLevel }: Props) {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
           setFood(spawnFood(newSnake));
           const len = newSnake.length - 3;
-          if (len >= cfg.target) {
+          if (len >= cfg.target && !completeResultRef.current) {
+            const sc = len * level * 10;
             setLastPassed(true);
-            setLastScore(len * level * 10);
+            setLastScore(sc);
+            completeResultRef.current = { won: true, score: sc, level };
             setPhase('complete');
-            onComplete(true, len * level * 10, { level });
           }
         }
         return newSnake;
@@ -105,6 +117,7 @@ export function SwipeSnake({ game, onBack, onComplete, initialLevel }: Props) {
   ).current;
 
   const reset = () => {
+    completeResultRef.current = null;
     setSnake([{ x: 6, y: 9 }, { x: 5, y: 9 }, { x: 4, y: 9 }]);
     setDir('R');
     setFood({ x: 9, y: 9 });
