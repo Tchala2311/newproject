@@ -168,6 +168,13 @@ export function DotChain({ game, onBack, onComplete, initialLevel }: Props) {
   const puzzle = getPuzzle(level);
   const N = puzzle.grid;
 
+  // Mutable refs so PanResponder (created once) always sees latest values
+  const levelRef = useRef(level);
+  const scoreRef = useRef(0);
+  const dotMapLiveRef = useRef<Record<string, string>>({});
+  const NCellRef = useRef(N);
+  const cellSizeLiveRef = useRef(0);
+
   // Map from dot key to color for quick lookup
   const dotColorMap = useRef<Record<string, string>>({});
   const initDotMap = useCallback((p: Puzzle) => {
@@ -189,6 +196,13 @@ export function DotChain({ game, onBack, onComplete, initialLevel }: Props) {
   const cellSize = gridSize / N;
 
   const dotMap = initDotMap(puzzle);
+
+  // Keep refs in sync with latest state/derived values
+  levelRef.current = level;
+  scoreRef.current = score;
+  dotMapLiveRef.current = dotMap;
+  NCellRef.current = N;
+  cellSizeLiveRef.current = cellSize;
 
   const resetLevel = useCallback(() => {
     pathsRef.current = {};
@@ -247,10 +261,15 @@ export function DotChain({ game, onBack, onComplete, initialLevel }: Props) {
         const { pageX, pageY } = evt.nativeEvent;
         const ox = pageX - gridOrigin.current.x;
         const oy = pageY - gridOrigin.current.y;
-        const cell = getCellAt(ox, oy);
+        // Use live refs so stale PanResponder closure always gets current values
+        const cs = cellSizeLiveRef.current;
+        const n = NCellRef.current;
+        const c = Math.floor(ox / cs);
+        const r = Math.floor(oy / cs);
+        const cell = (r < 0 || r >= n || c < 0 || c >= n) ? null : { r, c };
         if (!cell) return;
         const key = cellKey(cell.r, cell.c);
-        const dotColorValue = dotMap[key];
+        const dotColorValue = dotMapLiveRef.current[key];
         if (!dotColorValue) {
           // Tap on existing path cell – clear that path to allow redraw
           for (const [color, cells] of Object.entries(pathsRef.current)) {
@@ -284,7 +303,11 @@ export function DotChain({ game, onBack, onComplete, initialLevel }: Props) {
         const { pageX, pageY } = evt.nativeEvent;
         const ox = pageX - gridOrigin.current.x;
         const oy = pageY - gridOrigin.current.y;
-        const cell = getCellAt(ox, oy);
+        const cs = cellSizeLiveRef.current;
+        const n = NCellRef.current;
+        const col = Math.floor(ox / cs);
+        const row = Math.floor(oy / cs);
+        const cell = (row < 0 || row >= n || col < 0 || col >= n) ? null : { r: row, c: col };
         if (!cell) return;
         const active = activeRef.current;
         const existing = active.cells;
@@ -321,7 +344,7 @@ export function DotChain({ game, onBack, onComplete, initialLevel }: Props) {
         }
 
         // Stop if we hit a dot of a different color
-        const hitDotColor = dotMap[cellk];
+        const hitDotColor = dotMapLiveRef.current[cellk];
         if (hitDotColor && hitDotColor !== active.color) return;
 
         active.cells = [...active.cells, cell];
@@ -333,14 +356,16 @@ export function DotChain({ game, onBack, onComplete, initialLevel }: Props) {
         if (hitDotColor === active.color && active.cells.length >= 2) {
           Haptics.selectionAsync().catch(() => {});
           activeRef.current = null;
-          if (checkWin(pathsRef.current, puzzle)) {
-            const lvScore = level * 300;
-            const newScore = score + lvScore;
+          if (checkWin(pathsRef.current, getPuzzle(levelRef.current))) {
+            const lv = levelRef.current;
+            const lvScore = lv * 300;
+            const newScore = scoreRef.current + lvScore;
+            scoreRef.current = newScore;
             setScore(newScore);
             setLastLevelScore(lvScore);
             setPassed(true);
             setPhase('levelComplete');
-            onComplete(true, newScore, { level });
+            onComplete(true, newScore, { level: lv });
           }
         }
       },
