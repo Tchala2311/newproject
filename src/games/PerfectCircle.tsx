@@ -42,6 +42,7 @@ export function PerfectCircle({ game, onBack, onComplete, initialLevel }: Props)
   const boardOriginRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const levelRef = useRef(level);
   levelRef.current = level;
+  const completedRef = useRef(false);
 
   const computeScore = (pts: Pt[]) => {
     if (pts.length < 12) return 0;
@@ -89,6 +90,8 @@ export function PerfectCircle({ game, onBack, onComplete, initialLevel }: Props)
       },
       onPanResponderRelease: () => {
         drawing.current = false;
+        if (completedRef.current) return;
+        completedRef.current = true;
         const lv = levelRef.current;
         const accuracy = computeScore(ptsRef.current);
         const threshold = LEVEL_THRESHOLD(lv);
@@ -114,12 +117,14 @@ export function PerfectCircle({ game, onBack, onComplete, initialLevel }: Props)
   };
 
   const startNextLevel = () => {
+    completedRef.current = false;
     setLevel((l) => l + 1);
     setPoints([]);
     setPhase('playing');
   };
 
   const retry = () => {
+    completedRef.current = false;
     setPoints([]);
     setPhase('playing');
   };

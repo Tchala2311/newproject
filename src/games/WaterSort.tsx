@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
@@ -119,9 +119,10 @@ export function WaterSort({ game, onBack, onComplete, initialLevel }: Props) {
   const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
   const [lastPassed, setLastPassed] = useState(false);
   const [lastScore, setLastScore] = useState(0);
+  const completedRef = useRef(false);
 
   const tap = (i: number) => {
-    if (phase !== 'playing') return;
+    if (phase !== 'playing' || completedRef.current) return;
     if (picked === null) {
       if (tubes[i].length === 0) return;
       setPicked(i);
@@ -151,6 +152,7 @@ export function WaterSort({ game, onBack, onComplete, initialLevel }: Props) {
     setPicked(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     if (isSolved(next)) {
+      completedRef.current = true;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       const score = Math.max(50, 200 - moves * 2) * level;
       setLastPassed(true);
@@ -161,6 +163,7 @@ export function WaterSort({ game, onBack, onComplete, initialLevel }: Props) {
   };
 
   const reset = () => {
+    completedRef.current = false;
     setTubes(makeSolvableBoard(cfg.colorCount, cfg.buffers));
     setPicked(null);
     setMoves(0);
@@ -170,6 +173,7 @@ export function WaterSort({ game, onBack, onComplete, initialLevel }: Props) {
   const startNextLevel = () => {
     const nextLevel = level + 1;
     const nextCfg = LEVEL_CFG(nextLevel);
+    completedRef.current = false;
     setLevel(nextLevel);
     setTubes(makeSolvableBoard(nextCfg.colorCount, nextCfg.buffers));
     setPicked(null);
