@@ -42,6 +42,7 @@ export function NervePulse({ game, onBack, onComplete, initialLevel }: Props) {
   const insideRef = useRef(false);
   const boardOriginRef = useRef<{ x: number; y: number } | null>(null);
   const boardRef = useRef<View>(null);
+  const completedRef = useRef(false);
 
   // Wobbling target ring radius — wobble multiplier scales with level
   const ringRadius = (t: number) => {
@@ -56,7 +57,9 @@ export function NervePulse({ game, onBack, onComplete, initialLevel }: Props) {
       const elapsed = (Date.now() - startRef.current) / 1000;
       const remain = Math.max(0, cfg.time - elapsed);
       setTime(remain);
-      if (remain <= 0) {
+      if (remain <= 0 && !completedRef.current) {
+        completedRef.current = true;
+        clearInterval(t); // stop ticking immediately so we can't fire again
         const passed = insideMs >= cfg.targetMs;
         const score = Math.round(insideMs / 100) * level;
         setLastPassed(passed);
@@ -122,6 +125,7 @@ export function NervePulse({ game, onBack, onComplete, initialLevel }: Props) {
   };
 
   const reset = () => {
+    completedRef.current = false;
     setTime(cfg.time);
     setInsideMs(0);
     setTouching(false);
@@ -135,6 +139,7 @@ export function NervePulse({ game, onBack, onComplete, initialLevel }: Props) {
   const startNextLevel = () => {
     const nl = level + 1;
     const nc = LEVEL_CFG(nl);
+    completedRef.current = false;
     setLevel(nl);
     setTime(nc.time);
     setInsideMs(0);

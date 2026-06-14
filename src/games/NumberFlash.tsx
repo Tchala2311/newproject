@@ -58,6 +58,7 @@ export function NumberFlash({ game, onBack, onComplete, initialLevel }: Props) {
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const showingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<TextInput>(null);
+  const completedRef = useRef(false);
 
   const clearShowTimeout = () => {
     if (showingTimeout.current) {
@@ -67,6 +68,7 @@ export function NumberFlash({ game, onBack, onComplete, initialLevel }: Props) {
   };
 
   const startLevel = useCallback((lv: number) => {
+    completedRef.current = false;
     const seq = buildSequence(lv);
     setSequence(seq);
     setUserInput('');
@@ -97,8 +99,9 @@ export function NumberFlash({ game, onBack, onComplete, initialLevel }: Props) {
   };
 
   const handleSubmit = () => {
-    if (phase !== 'input') return;
+    if (phase !== 'input' || completedRef.current) return;
     if (userInput === sequence) {
+      completedRef.current = true;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       const gained = seqLength(level) * 10 * level;
       const newScore = score + gained;
@@ -114,6 +117,7 @@ export function NumberFlash({ game, onBack, onComplete, initialLevel }: Props) {
       const newLives = lives - 1;
       setLives(newLives);
       if (newLives <= 0) {
+        completedRef.current = true;
         setPhase('gameOver');
         onComplete(false, score, { level });
       } else {

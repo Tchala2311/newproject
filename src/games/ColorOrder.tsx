@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import Svg, { Path, Circle as SvgCircle } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
@@ -79,8 +79,10 @@ export function ColorOrder({ game, onBack, onComplete, initialLevel = 1 }: Props
   const [selectedSegIdx, setSelectedSegIdx] = useState<number | null>(null);
   const [wrongFlash, setWrongFlash] = useState(false);
   const [attempts, setAttempts] = useState(0);
+  const completedRef = useRef(false);
 
   const startLevel = useCallback((lv: number) => {
+    completedRef.current = false;
     const n = numSegments(lv);
     const lvl = generateLevel(n);
     setShadeColors(lvl.shadeColors);
@@ -105,6 +107,8 @@ export function ColorOrder({ game, onBack, onComplete, initialLevel = 1 }: Props
   const checkComplete = useCallback((p: (number | null)[]) => {
     if (p.some(v => v === null)) return;
     if (isValidOrder(p)) {
+      if (completedRef.current) return;
+      completedRef.current = true;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       const pts = Math.max(50, 200 - attempts * 30);
       setScore(s => s + pts);

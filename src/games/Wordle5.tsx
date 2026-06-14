@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
@@ -90,6 +90,7 @@ export function Wordle5({ game, onBack, onComplete, initialLevel }: Props) {
   const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
   const [lastPassed, setLastPassed] = useState(false);
   const [lastScore, setLastScore] = useState(0);
+  const completedRef = useRef(false);
 
   const press = (ch: string) => {
     if (phase !== 'playing' || current.length >= 5) return;
@@ -103,7 +104,7 @@ export function Wordle5({ game, onBack, onComplete, initialLevel }: Props) {
   };
 
   const submit = () => {
-    if (phase !== 'playing' || current.length !== 5) return;
+    if (phase !== 'playing' || current.length !== 5 || completedRef.current) return;
     const judged = judgeRow(current, target);
     const newRows = [...rows, judged];
     setRows(newRows);
@@ -112,6 +113,7 @@ export function Wordle5({ game, onBack, onComplete, initialLevel }: Props) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       const newSolved = solvedCount + 1;
       if (newSolved >= cfg.words) {
+        completedRef.current = true;
         const score = (cfg.tries - newRows.length + 1) * 50 * level;
         setLastPassed(true);
         setLastScore(score);
@@ -125,6 +127,7 @@ export function Wordle5({ game, onBack, onComplete, initialLevel }: Props) {
       return;
     }
     if (newRows.length >= cfg.tries) {
+      completedRef.current = true;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       setLastPassed(false);
       setLastScore(solvedCount * 50 * level);
@@ -134,6 +137,7 @@ export function Wordle5({ game, onBack, onComplete, initialLevel }: Props) {
   };
 
   const reset = () => {
+    completedRef.current = false;
     setTarget(pickWord());
     setSolvedCount(0);
     setRows([]);
@@ -142,6 +146,7 @@ export function Wordle5({ game, onBack, onComplete, initialLevel }: Props) {
   };
 
   const startNextLevel = () => {
+    completedRef.current = false;
     setLevel((l) => l + 1);
     setTarget(pickWord());
     setSolvedCount(0);

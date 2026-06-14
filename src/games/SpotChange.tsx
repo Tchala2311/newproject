@@ -113,6 +113,7 @@ export function SpotChange({ game, onBack, onComplete, initialLevel }: Props) {
   const [changedId, setChangedId] = useState<number>(-1);
   const [flashId, setFlashId] = useState<number | null>(null);
   const wrongTapRef = useRef(false);
+  const completedRef = useRef(false);
 
   const shapeCount = 6 + Math.min(level - 1, 4); // 6–10
 
@@ -201,7 +202,8 @@ export function SpotChange({ game, onBack, onComplete, initialLevel }: Props) {
         setFeedbackText(`Верно! +${gained} очков`);
         setPhase('feedback');
 
-        if (round >= ROUNDS_PER_LEVEL) {
+        if (round >= ROUNDS_PER_LEVEL && !completedRef.current) {
+          completedRef.current = true;
           setLastLevelScore(newScore - score + gained);
           setTimeout(() => {
             setPhase('levelComplete');
@@ -271,6 +273,7 @@ export function SpotChange({ game, onBack, onComplete, initialLevel }: Props) {
         showAd={shouldShowAdAfter(level)}
         onContinue={() => {
           const nextLevel = level + 1;
+          completedRef.current = false;
           setLevel(nextLevel);
           setRound(1);
           setLives(MAX_LIVES);
@@ -278,6 +281,7 @@ export function SpotChange({ game, onBack, onComplete, initialLevel }: Props) {
           setPhase('playing');
         }}
         onRetry={() => {
+          completedRef.current = false;
           setRound(1);
           setLives(MAX_LIVES);
           generateRound(level);
@@ -298,6 +302,7 @@ export function SpotChange({ game, onBack, onComplete, initialLevel }: Props) {
           accent={game.accent}
           game={game}
           onRestart={() => {
+            completedRef.current = false;
             setScore(0);
             setLevel(initialLevel ?? 1);
             setRound(1);

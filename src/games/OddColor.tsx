@@ -61,11 +61,24 @@ export function OddColor({ game, onBack, onComplete, initialLevel = 1 }: Props) 
   const [baseLit, setBaseLit] = useState(40);
 
   const shakeAnim = useRef(new Animated.Value(0)).current;
+  const totalScoreRef = useRef(0);
+  const reportedRef = useRef(false);
+  const lockRef = useRef(false);
 
-  // Report game-over exactly once when phase transitions to gameOver
+  // Keep totalScoreRef fresh BEFORE the phase-watcher below reads it (effects
+  // run in declaration order, so this commits the latest score first).
+  useEffect(() => { totalScoreRef.current = totalScore; }, [totalScore]);
+
+  // Report completion exactly once per round for BOTH outcomes. Previously a
+  // win (phase 'levelComplete') never called onComplete at all, so level wins
+  // were never logged / scored / counted toward achievements.
   useEffect(() => {
-    if (phase === 'gameOver') {
-      onComplete(false, totalScore, { level });
+    if (phase === 'gameOver' || phase === 'levelComplete') {
+      if (reportedRef.current) return;
+      reportedRef.current = true;
+      onComplete(phase === 'levelComplete', totalScoreRef.current, { level });
+    } else {
+      reportedRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
@@ -81,6 +94,7 @@ export function OddColor({ game, onBack, onComplete, initialLevel = 1 }: Props) 
     const minLit = Math.max(10, maxLit - 30);
     setBaseLit(minLit + Math.random() * (maxLit - minLit));
     setWrongIdx(null);
+    lockRef.current = false;
     setPhase('playing');
   }, []);
 
@@ -96,13 +110,17 @@ export function OddColor({ game, onBack, onComplete, initialLevel = 1 }: Props) 
   };
 
   const handleTap = (idx: number) => {
-    if (phase !== 'playing') return;
+    if (phase !== 'playing' || lockRef.current) return;
     if (idx === oddIdx) {
+      lockRef.current = true;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       const pts = scoreForLevel(level);
-      setTotalScore(s => s + pts);
+      const newTotal = totalScore + pts;
+      totalScoreRef.current = newTotal;
+      setTotalScore(newTotal);
       setPhase('levelComplete');
     } else {
+      lockRef.current = true;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       setWrongIdx(idx);
       setPhase('wrong');

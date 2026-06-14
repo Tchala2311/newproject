@@ -33,6 +33,7 @@ export function SimonSays({ game, onBack, onComplete, initialLevel }: Props) {
   // next round's state.
   const showGenRef = useRef(0);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const completedRef = useRef(false);
 
   const clearShowTimers = useCallback(() => {
     timersRef.current.forEach(clearTimeout);
@@ -46,6 +47,7 @@ export function SimonSays({ game, onBack, onComplete, initialLevel }: Props) {
 
   const showSequence = useCallback((seq: number[]) => {
     clearShowTimers();
+    completedRef.current = false;
     const gen = ++showGenRef.current;
     const push = (fn: () => void, ms: number) => {
       timersRef.current.push(setTimeout(() => { if (gen === showGenRef.current) fn(); }, ms));
@@ -73,13 +75,14 @@ export function SimonSays({ game, onBack, onComplete, initialLevel }: Props) {
   useEffect(() => clearShowTimers, [clearShowTimers]);
 
   const tap = (idx: number) => {
-    if (phase !== 'input') return;
+    if (phase !== 'input' || completedRef.current) return;
     Haptics.selectionAsync().catch(() => {});
     setLit(idx);
     setTimeout(() => setLit(null), 150);
     const next = [...userSeq, idx];
     const pos = next.length - 1;
     if (next[pos] !== sequence[pos]) {
+      completedRef.current = true;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       setStatus('Ошибка! 😬');
       const score = Math.max(0, (level - 1)) * 100;
@@ -91,6 +94,7 @@ export function SimonSays({ game, onBack, onComplete, initialLevel }: Props) {
     }
     setUserSeq(next);
     if (next.length === sequence.length) {
+      completedRef.current = true;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setStatus('Отлично! 🎉');
       const score = level * 200;

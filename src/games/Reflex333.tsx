@@ -32,6 +32,7 @@ export function Reflex333({ game, onBack, onComplete, initialLevel }: Props) {
   const [lastScore, setLastScore] = useState(0);
   const goAtRef = useRef<number>(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const completedRef = useRef(false);
 
   const cfg = LEVEL_CFG(level);
 
@@ -65,6 +66,8 @@ export function Reflex333({ game, onBack, onComplete, initialLevel }: Props) {
       setScores(newScores);
       const next = round + 1;
       if (next >= cfg.rounds) {
+        if (completedRef.current) return;
+        completedRef.current = true;
         const avg = Math.round(newScores.reduce((a, b) => a + b, 0) / newScores.length);
         const passed = avg <= cfg.targetMs;
         const score = Math.max(0, (cfg.targetMs * 2 - avg) * level);
@@ -82,6 +85,7 @@ export function Reflex333({ game, onBack, onComplete, initialLevel }: Props) {
   };
 
   const reset = () => {
+    completedRef.current = false;
     setRound(0);
     setScores([]);
     setMs(null);

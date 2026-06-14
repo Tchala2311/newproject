@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
@@ -143,6 +143,7 @@ export function Picross({ game, onBack, onComplete, initialLevel }: Props) {
   const [lastPassed, setLastPassed] = useState(false);
   const [lastScore, setLastScore] = useState(0);
   const [mode, setMode] = useState<'fill' | 'cross'>('fill');
+  const completedRef = useRef(false);
 
   const rowClues = puzzle.map(clues);
   const colClues: number[][] = [];
@@ -153,7 +154,7 @@ export function Picross({ game, onBack, onComplete, initialLevel }: Props) {
   }
 
   const tap = (x: number, y: number) => {
-    if (phase !== 'playing') return;
+    if (phase !== 'playing' || completedRef.current) return;
     const cur = grid[y][x];
     let next: Cell = cur;
     if (mode === 'fill') {
@@ -168,6 +169,7 @@ export function Picross({ game, onBack, onComplete, initialLevel }: Props) {
       const m = mistakes + 1;
       setMistakes(m);
       if (m >= cfg.mistakes) {
+        completedRef.current = true;
         setLastPassed(false);
         setLastScore(0);
         setPhase('complete');
@@ -190,6 +192,7 @@ export function Picross({ game, onBack, onComplete, initialLevel }: Props) {
       }
     }
     if (won) {
+      completedRef.current = true;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       const score = (cfg.size * cfg.size * 5 - mistakes * 20) * level;
       setLastPassed(true);
@@ -200,12 +203,14 @@ export function Picross({ game, onBack, onComplete, initialLevel }: Props) {
   };
 
   const reset = () => {
+    completedRef.current = false;
     setGrid(Array.from({ length: cfg.size }, () => Array(cfg.size).fill('empty')));
     setMistakes(0);
     setPhase('playing');
   };
 
   const startNextLevel = () => {
+    completedRef.current = false;
     setLevel((l) => l + 1);
     const nc = LEVEL_CFG(level + 1);
     setGrid(Array.from({ length: nc.size }, () => Array(nc.size).fill('empty')));

@@ -36,6 +36,7 @@ export function CatchDrop({ game, onBack, onComplete, initialLevel }: Props) {
   const basketXRef = useRef(boardW / 2 - BASKET_W / 2);
   const scoreRef = useRef(0);
   const livesRef = useRef(3);
+  const timeLeftRef = useRef(GAME_TIME);
   const rafRef = useRef<number | null>(null);
   const gamePhaseRef = useRef<'playing' | 'complete'>('playing');
 
@@ -51,6 +52,7 @@ export function CatchDrop({ game, onBack, onComplete, initialLevel }: Props) {
 
   const startGame = useCallback(() => {
     scoreRef.current = 0; livesRef.current = 3; gamePhaseRef.current = 'playing';
+    timeLeftRef.current = GAME_TIME;
     setScore(0); setLives(3); setItems([]); setTimeLeft(GAME_TIME);
   }, []);
 
@@ -122,20 +124,19 @@ export function CatchDrop({ game, onBack, onComplete, initialLevel }: Props) {
   useEffect(() => {
     if (phase !== 'playing') return;
     const t = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(t);
-          if (gamePhaseRef.current !== 'complete') {
-            gamePhaseRef.current = 'complete';
-            const p = scoreRef.current >= TARGET(level);
-            setPassed(p);
-            setPhase('complete');
-            onComplete(p, scoreRef.current * 50, { level });
-          }
-          return 0;
-        }
-        return prev - 1;
-      });
+      const next = timeLeftRef.current - 1;
+      timeLeftRef.current = next;
+      setTimeLeft(Math.max(0, next));
+      // End the round OUTSIDE the setState updater so onComplete (a parent
+      // setState + Supabase write) is never invoked during render.
+      if (next <= 0 && gamePhaseRef.current !== 'complete') {
+        clearInterval(t);
+        gamePhaseRef.current = 'complete';
+        const p = scoreRef.current >= TARGET(level);
+        setPassed(p);
+        setPhase('complete');
+        onComplete(p, scoreRef.current * 50, { level });
+      }
     }, 1000);
     return () => clearInterval(t);
   }, [phase, level]);
