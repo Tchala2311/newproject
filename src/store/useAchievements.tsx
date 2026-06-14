@@ -144,14 +144,18 @@ export function AchievementsProvider({ children }: { children: React.ReactNode }
   }, [user?.id]);
 
   const runChecker = useCallback((extra: Partial<CheckContext>) => {
+    // Read progress from the ref (updated synchronously by persistProgress) so
+    // a checker run triggered in the same tick as a progress write sees the
+    // latest data instead of the lagging state map.
+    const progress = progressRef.current;
     const ctx: CheckContext = {
       unlocked,
       totalLikes: Object.values(likes).filter(Boolean).length,
       totalComments: 0,
       totalFollows: 0,
-      totalPlays: [...progressByGame.values()].reduce((s, p) => s + p.total_plays, 0),
+      totalPlays: [...progress.values()].reduce((s, p) => s + p.total_plays, 0),
       totalAdViews: adViewsRef.current,
-      progress: progressByGame,
+      progress,
       hasAccount: !!user,
       totalTetrisLines: tetrisLinesRef.current,
       ...extra,

@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session } from '@supabase/supabase-js';
 import { supabase, Profile } from '../lib/supabase';
@@ -84,8 +84,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [follows, setFollows] = useState<Record<string, boolean>>({});
   const [followsHydrated, setFollowsHydrated] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
-  // Tracks in-flight follow toggles to prevent race conditions.
+  // Tracks in-flight follow toggles to prevent race conditions. The ref is the
+  // synchronous source of truth (state would be stale within the same tick, so
+  // two fast taps could both pass the guard and double-write).
   const [followPending, setFollowPending] = useState<Set<string>>(new Set());
+  const followPendingRef = useRef<Set<string>>(new Set());
+  const followsRef = useRef<Record<string, boolean>>({});
+  useEffect(() => { followsRef.current = follows; }, [follows]);
 
   // Bootstrap session
   useEffect(() => {
@@ -263,34 +268,36 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, [session?.user?.id, user]);
 
   const toggleFollow = useCallback((handle: string) => {
-    // Prevent double-tap race: ignore if a request is already in-flight.
-    if (followPending.has(handle)) return;
+    // Synchronous guard: ignore if a request for this handle is already
+    // in-flight (state-based checks are stale within the same tick).
+    if (followPendingRef.current.has(handle)) return;
+    const isOn = !!followsRef.current[handle];
 
-    setFollows((prev) => {
-      const isOn = !!prev[handle];
-      const next = { ...prev, [handle]: !isOn };
+    // Optimistic update (outside any setState updater so the DB op below runs
+    // exactly once, not twice under StrictMode's double-invoked updater).
+    followsRef.current = { ...followsRef.current, [handle]: !isOn };
+    setFollows((prev) => ({ ...prev, [handle]: !isOn }));
 
-      if (session?.user) {
-        const uid = session.user.id;
-        setFollowPending((p) => new Set(p).add(handle));
+    if (!session?.user) return;
+    const uid = session.user.id;
+    followPendingRef.current.add(handle);
+    setFollowPending((p) => new Set(p).add(handle));
 
-        const op = isOn
-          ? supabase.from('creator_follows').delete().match({ user_id: uid, creator_handle: handle })
-          : supabase.from('creator_follows').upsert({ user_id: uid, creator_handle: handle });
+    const op = isOn
+      ? supabase.from('creator_follows').delete().match({ user_id: uid, creator_handle: handle })
+      : supabase.from('creator_follows').upsert({ user_id: uid, creator_handle: handle }, { onConflict: 'user_id,creator_handle' });
 
-        op.then(({ error }) => {
-          if (error) {
-            if (__DEV__) console.warn('follow toggle failed');
-            // Revert optimistic update on failure.
-            setFollows((cur) => ({ ...cur, [handle]: isOn }));
-          }
-          setFollowPending((p) => { const s = new Set(p); s.delete(handle); return s; });
-        });
+    op.then(({ error }) => {
+      if (error) {
+        if (__DEV__) console.warn('follow toggle failed');
+        // Revert optimistic update on failure.
+        followsRef.current = { ...followsRef.current, [handle]: isOn };
+        setFollows((cur) => ({ ...cur, [handle]: isOn }));
       }
-
-      return next;
+      followPendingRef.current.delete(handle);
+      setFollowPending((p) => { const s = new Set(p); s.delete(handle); return s; });
     });
-  }, [session?.user?.id, followPending]);
+  }, [session?.user?.id]);
 
   const pickAvatarColor = useCallback(() => {
     return AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
