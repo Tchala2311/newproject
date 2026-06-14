@@ -41,11 +41,14 @@ export function TapRush({ game, onBack, onComplete, initialLevel }: Props) {
   const [lastPassed, setLastPassed] = useState(false);
   const [lastScore, setLastScore] = useState(0);
   const nextId = useRef(100);
+  const completedRef = useRef(false);
 
   useEffect(() => {
     if (phase !== 'playing' || !started) return undefined;
     // Early-pass: hit target → instantly advance, reward the speedrunners.
     if (score >= cfg.target) {
+      if (completedRef.current) return undefined;
+      completedRef.current = true;
       setLastPassed(true);
       setLastScore(score + timer * 5); // bonus for time remaining
       setPhase('complete');
@@ -53,6 +56,8 @@ export function TapRush({ game, onBack, onComplete, initialLevel }: Props) {
       return undefined;
     }
     if (timer <= 0) {
+      if (completedRef.current) return undefined;
+      completedRef.current = true;
       setLastPassed(false);
       setLastScore(score);
       setPhase('complete');
@@ -64,6 +69,7 @@ export function TapRush({ game, onBack, onComplete, initialLevel }: Props) {
   }, [phase, started, timer, score, cfg.target, onComplete, level]);
 
   const reset = () => {
+    completedRef.current = false;
     setBubbles(Array.from({ length: cfg.count }, (_, i) => makeBubble(i, cfg.bombProb)));
     setScore(0);
     setTimer(cfg.time);
@@ -74,6 +80,7 @@ export function TapRush({ game, onBack, onComplete, initialLevel }: Props) {
   const startNextLevel = () => {
     const nl = level + 1;
     const nc = LEVEL_CFG(nl);
+    completedRef.current = false;
     setLevel(nl);
     setBubbles(Array.from({ length: nc.count }, (_, i) => makeBubble(i, nc.bombProb)));
     setScore(0);

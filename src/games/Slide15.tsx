@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
@@ -80,11 +80,12 @@ export function Slide15({ game, onBack, onComplete, initialLevel }: Props) {
   const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
   const [lastPassed, setLastPassed] = useState(false);
   const [lastScore, setLastScore] = useState(0);
+  const completedRef = useRef(false);
 
   const cell = Math.floor(Math.min(width - 32, height * 0.58) / cfg.size);
 
   const tap = (x: number, y: number) => {
-    if (phase !== 'playing') return;
+    if (phase !== 'playing' || completedRef.current) return;
     const empty = findEmpty(board);
     const dx = Math.abs(empty.x - x);
     const dy = Math.abs(empty.y - y);
@@ -95,6 +96,7 @@ export function Slide15({ game, onBack, onComplete, initialLevel }: Props) {
     setMoves((m) => m + 1);
     Haptics.selectionAsync().catch(() => {});
     if (isSolved(next)) {
+      completedRef.current = true;
       const passed = moves + 1 <= cfg.target;
       const score = Math.max(50, (cfg.target - moves) * 10) * level;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -106,6 +108,7 @@ export function Slide15({ game, onBack, onComplete, initialLevel }: Props) {
   };
 
   const reset = () => {
+    completedRef.current = false;
     setBoard(shuffle(cfg.size, cfg.shuffles));
     setMoves(0);
     setPhase('playing');
@@ -114,6 +117,7 @@ export function Slide15({ game, onBack, onComplete, initialLevel }: Props) {
   const startNextLevel = () => {
     const nl = level + 1;
     const nc = LEVEL_CFG(nl);
+    completedRef.current = false;
     setLevel(nl);
     setBoard(shuffle(nc.size, nc.shuffles));
     setMoves(0);
