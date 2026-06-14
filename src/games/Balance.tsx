@@ -71,6 +71,7 @@ export function Balance({ game, onBack, onComplete, initialLevel }: Props) {
   const counterweightRef = useRef(0);
   const levelRef = useRef(level);
   const scoreRef = useRef(0);
+  const timeLeftRef = useRef(SURVIVE_TIME);
   const spawnTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const landedRef = useRef<LandedObject[]>([]);
@@ -116,6 +117,7 @@ export function Balance({ game, onBack, onComplete, initialLevel }: Props) {
       rightWeightRef.current = 0;
       counterweightRef.current = 0;
       scoreRef.current = 0;
+      timeLeftRef.current = SURVIVE_TIME;
       landedRef.current = [];
       fallingRef.current = [];
       setPhase('playing');
@@ -138,19 +140,19 @@ export function Balance({ game, onBack, onComplete, initialLevel }: Props) {
 
     initLevel(level);
 
-    // Countdown timer
+    // Countdown timer. We drive time via a ref and call endGame OUTSIDE the
+    // setState updater so onComplete can never be invoked from inside a render
+    // (which would double-fire under StrictMode).
     countdownRef.current = setInterval(() => {
       if (phaseRef.current !== 'playing') return;
-      setTimeLeft((prev: number) => {
-        const next = prev - 1;
-        scoreRef.current = SURVIVE_TIME - next;
-        setScore(scoreRef.current);
-        if (next <= 0) {
-          endGame(true);
-          return 0;
-        }
-        return next;
-      });
+      const next = timeLeftRef.current - 1;
+      timeLeftRef.current = next;
+      scoreRef.current = SURVIVE_TIME - Math.max(0, next);
+      setTimeLeft(Math.max(0, next));
+      setScore(scoreRef.current);
+      if (next <= 0) {
+        endGame(true);
+      }
     }, 1000);
 
     // Object spawner

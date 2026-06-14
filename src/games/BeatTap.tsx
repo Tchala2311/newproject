@@ -46,8 +46,18 @@ export function BeatTap({ game, onBack, onComplete, initialLevel }: Props) {
   const [flash, setFlash] = useState<string | null>(null);
   const [lastPassed, setLastPassed] = useState(false);
   const [lastScore, setLastScore] = useState(0);
+  const [, setRenderTick] = useState(0);
   const startRef = useRef(Date.now());
   const noteIdRef = useRef(0);
+  const scoreRef = useRef(0);
+  const completedRef = useRef(false);
+  const notesRef = useRef<Note[]>([]);
+  const phaseRef = useRef<'playing' | 'complete'>('playing');
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => { scoreRef.current = score; }, [score]);
+  useEffect(() => { notesRef.current = notes; }, [notes]);
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
 
   const buildSchedule = (durSec: number, bMs: number) => {
     const sched: Note[] = [];
@@ -70,34 +80,47 @@ export function BeatTap({ game, onBack, onComplete, initialLevel }: Props) {
       const elapsed = (Date.now() - startRef.current) / 1000;
       const remain = Math.max(0, cfg.time - elapsed);
       setTime(remain);
-      if (remain <= 0) {
-        const passed = score >= cfg.target;
+      if (remain <= 0 && !completedRef.current) {
+        completedRef.current = true;
+        const finalScore = scoreRef.current;
+        const passed = finalScore >= cfg.target;
         setLastPassed(passed);
-        setLastScore(score);
+        setLastScore(finalScore);
         setPhase('complete');
-        onComplete(passed, score, { level });
+        onComplete(passed, finalScore, { level });
       }
     }, 100);
     return () => clearInterval(t);
-  }, [phase, score, onComplete, cfg.time, cfg.target]);
+  }, [phase, onComplete, cfg.time, cfg.target, level]);
 
+  // Miss sweep — combo is reset OUTSIDE the setNotes updater (computed from a
+  // notesRef snapshot) so we never call setState from inside another updater.
   useEffect(() => {
     if (phase !== 'playing') return;
     const t = setInterval(() => {
       const now = Date.now() - startRef.current;
-      setNotes((prev) =>
-        prev.map((n) => {
-          if (n.judgement) return n;
-          if (now > n.spawnAt + TRAVEL + 180) {
-            setCombo(0);
-            return { ...n, judgement: 'miss' as const };
-          }
-          return n;
-        })
-      );
+      const missDeadline = (n: Note) => !n.judgement && now > n.spawnAt + TRAVEL + 180;
+      if (notesRef.current.some(missDeadline)) {
+        setCombo(0);
+        setNotes((prev) => prev.map((n) => (missDeadline(n) ? { ...n, judgement: 'miss' as const } : n)));
+      }
     }, 80);
     return () => clearInterval(t);
   }, [phase, TRAVEL]);
+
+  // Smooth 60fps render loop so notes are drawn from the real clock (Date.now)
+  // rather than the 100ms-quantized `time` state — keeps the visual note
+  // position aligned with the Date.now()-based hit detection in tap().
+  useEffect(() => {
+    if (phase !== 'playing') return;
+    const loop = () => {
+      if (phaseRef.current !== 'playing') return;
+      setRenderTick((t) => (t + 1) % 1000000);
+      rafRef.current = requestAnimationFrame(loop);
+    };
+    rafRef.current = requestAnimationFrame(loop);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [phase]);
 
   const tap = (lane: number) => {
     const now = Date.now() - startRef.current;
@@ -133,6 +156,8 @@ export function BeatTap({ game, onBack, onComplete, initialLevel }: Props) {
   };
 
   const reset = () => {
+    completedRef.current = false;
+    scoreRef.current = 0;
     setScore(0);
     setCombo(0);
     setTime(cfg.time);
@@ -146,6 +171,8 @@ export function BeatTap({ game, onBack, onComplete, initialLevel }: Props) {
     const nl = level + 1;
     const nc = LEVEL_CFG(nl);
     const nb = (60 / nc.bpm) * 1000;
+    completedRef.current = false;
+    scoreRef.current = 0;
     setLevel(nl);
     setScore(0);
     setCombo(0);
@@ -172,8 +199,9 @@ export function BeatTap({ game, onBack, onComplete, initialLevel }: Props) {
     );
   }
 
-  const elapsed = cfg.time - time;
-  const elapsedMs = elapsed * 1000;
+  // Drive note position from the real clock (re-rendered each RAF frame) so it
+  // stays in lock-step with the Date.now()-based hit window in tap().
+  const elapsedMs = Date.now() - startRef.current;
   const targetY = 0.78; // 78% down the play area
 
   return (

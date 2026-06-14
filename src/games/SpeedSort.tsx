@@ -56,26 +56,35 @@ export function SpeedSort({ game, onBack, onComplete, initialLevel }: Props) {
   const correctRef = useRef(0);
 
   // Keep a ref to the current round so panResponder always reads fresh values.
+  // level is also mirrored to a ref because the panResponder is created once
+  // and captures the first nextCard closure — without this, scoring and the
+  // reported level stay stuck at level 1 after advancing.
   const roundRef = useRef(round);
   const idxRef = useRef(0);
+  const levelRef = useRef(level);
+  const completedRef = useRef(false);
   useEffect(() => { roundRef.current = round; }, [round]);
   useEffect(() => { idxRef.current = idx; }, [idx]);
+  useEffect(() => { levelRef.current = level; }, [level]);
 
   const nextCard = useCallback((isCorrect: boolean) => {
     if (isCorrect) { correctRef.current += 1; setCorrect(correctRef.current); }
     pan.setValue({ x: 0, y: 0 });
     const next = idxRef.current + 1;
     if (next >= roundRef.current.deck.length) {
+      if (completedRef.current) return;
+      completedRef.current = true;
+      const lvl = levelRef.current;
       const p = correctRef.current >= Math.ceil(roundRef.current.deck.length * 0.7);
-      const score = correctRef.current * 80 * level;
+      const score = correctRef.current * 80 * lvl;
       setLastScore(score);
       setPassed(p);
       setPhase('complete');
-      onComplete(p, score, { level, correct: correctRef.current });
+      onComplete(p, score, { level: lvl, correct: correctRef.current });
       return;
     }
     setIdx(next);
-  }, [level, pan, onComplete]);
+  }, [pan, onComplete]);
 
   const panResponder = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
@@ -104,6 +113,7 @@ export function SpeedSort({ game, onBack, onComplete, initialLevel }: Props) {
   })).current;
 
   const startNewRound = useCallback((nextLevel: number) => {
+    completedRef.current = false;
     correctRef.current = 0;
     setCorrect(0);
     setIdx(0);
@@ -111,6 +121,7 @@ export function SpeedSort({ game, onBack, onComplete, initialLevel }: Props) {
     setRound(r);
     roundRef.current = r;
     idxRef.current = 0;
+    levelRef.current = nextLevel;
     setPhase('playing');
   }, []);
 

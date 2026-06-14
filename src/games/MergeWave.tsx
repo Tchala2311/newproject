@@ -117,9 +117,14 @@ export function MergeWave({ game, onBack, onComplete, initialLevel }: Props) {
   const [lastScore, setLastScore] = useState(0);
   const gridRef = useRef(grid);
   const phaseRef = useRef(phase);
+  const scoreRef = useRef(0);
+  const levelRef = useRef(level);
+  const completedRef = useRef(false);
 
   useEffect(() => { gridRef.current = grid; }, [grid]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
+  useEffect(() => { scoreRef.current = score; }, [score]);
+  useEffect(() => { levelRef.current = level; }, [level]);
 
   const apply = (dir: Direction) => {
     if (phaseRef.current !== 'playing') return;
@@ -128,13 +133,17 @@ export function MergeWave({ game, onBack, onComplete, initialLevel }: Props) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     setGrid(ng);
     setScore((s) => s + pts);
-    if (ng.some((r) => r.some((v) => v >= target))) {
+    const lvl = levelRef.current;
+    const tgt = LEVEL_TARGET(lvl);
+    if (ng.some((r) => r.some((v) => v >= tgt))) {
+      if (completedRef.current) return;
+      completedRef.current = true;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      const finalScore = (score + pts) * level;
+      const finalScore = (scoreRef.current + pts) * lvl;
       setLastPassed(true);
       setLastScore(finalScore);
       setPhase('complete');
-      onComplete(true, finalScore, { level });
+      onComplete(true, finalScore, { level: lvl });
       return;
     }
     const hasMoves = ng.some((r, y) =>
@@ -146,21 +155,25 @@ export function MergeWave({ game, onBack, onComplete, initialLevel }: Props) {
       })
     );
     if (!hasMoves) {
-      const finalScore = (score + pts) * level;
+      if (completedRef.current) return;
+      completedRef.current = true;
+      const finalScore = (scoreRef.current + pts) * lvl;
       setLastPassed(false);
       setLastScore(finalScore);
       setPhase('complete');
-      onComplete(false, finalScore, { level });
+      onComplete(false, finalScore, { level: lvl });
     }
   };
 
   const reset = () => {
+    completedRef.current = false;
     setGrid(newGrid());
     setScore(0);
     setPhase('playing');
   };
 
   const startNextLevel = () => {
+    completedRef.current = false;
     setLevel((l) => l + 1);
     setGrid(newGrid());
     setScore(0);
