@@ -3,8 +3,7 @@ import { Animated, Pressable, Text, View, useWindowDimensions } from 'react-nati
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { fontFamily, radius, colors } from '../theme';
-import { AdHipHub } from '../components/AdHipHub';
-import { AdProtokol } from '../components/AdProtokol';
+import { AdYandex } from '../components/AdYandex';
 import { useAchievements } from '../store/useAchievements';
 
 type Props = {
@@ -20,8 +19,6 @@ type Props = {
   onBack: () => void;            // exit to feed
   bottomInset?: number;
 };
-
-const AD_VARIANTS: Array<'hiphub' | 'protokol'> = ['hiphub', 'protokol'];
 
 // Single-screen between-levels overlay. When `showAd` is true, the ad takes
 // up the top portion (full visual brand exposure), the unlock-result chip is
@@ -70,17 +67,12 @@ export function LevelComplete({
     return () => clearTimeout(t);
   }, [secondsLeft, showAd]);
 
-  // Pick a deterministic-ish ad variant per level so user sees both eventually
-  const adVariant = AD_VARIANTS[level % AD_VARIANTS.length];
-
   // ----- Ad mode: ad on top, banner on bottom -----
   if (showAd && passed) {
     return (
       <View style={{ flex: 1, backgroundColor: '#000' }}>
         {/* Ad fills the screen */}
-        {adVariant === 'hiphub'
-          ? <AdHipHub height={height} bottomInset={bottomInset + 80} />
-          : <AdProtokol height={height} bottomInset={bottomInset + 80} />}
+        <AdYandex height={height} bottomInset={bottomInset + 80} />
 
         {/* Banner ribbon over the top edge */}
         <View

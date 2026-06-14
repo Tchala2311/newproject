@@ -119,11 +119,15 @@ export function Zigzag({ game, onBack, onComplete, initialLevel }: Props) {
     const wTop = CORRIDOR_CENTER - corridorGap(level) / 2;
     const wBottom = CORRIDOR_CENTER + corridorGap(level) / 2;
 
-    const loop = () => {
+    let lastTs = 0;
+    const loop = (ts: number) => {
       if (phaseRef.current !== 'playing') return;
+      const dt = lastTs ? Math.min(ts - lastTs, 50) : 16.67;
+      lastTs = ts;
+      const scale = dt / 16.67;
 
-      ballX.current += velX.current;
-      ballY.current += velY.current;
+      ballX.current += velX.current * scale;
+      ballY.current += velY.current * scale;
 
       // Bounce off left/right walls
       if (ballX.current - BALL_RADIUS <= 0) {
@@ -164,7 +168,7 @@ export function Zigzag({ game, onBack, onComplete, initialLevel }: Props) {
       rafRef.current = requestAnimationFrame(loop);
     };
 
-    rafRef.current = requestAnimationFrame(loop);
+    rafRef.current = requestAnimationFrame((ts) => { lastTs = ts; loop(ts); });
     return stopLoop;
   }, [phase, level, CORRIDOR_CENTER, BOARD_W, endLevel]);
 

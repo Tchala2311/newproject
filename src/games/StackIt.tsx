@@ -46,11 +46,14 @@ export function StackIt({ game, onBack, onComplete, initialLevel }: Props) {
   useEffect(() => {
     if (phase !== 'playing') return undefined;
     let raf: number;
-    const speed = cfg.baseSpeed + score * 0.04;
-    const loop = () => {
+    let lastTs = 0;
+    const speed = cfg.baseSpeed + score * 0.04; // px per 60fps frame
+    const loop = (ts: number) => {
       if (phaseRef.current !== 'playing') return;
+      const dt = lastTs ? Math.min(ts - lastTs, 50) : 16.67;
+      lastTs = ts;
       const stW = stWRef.current;
-      const next = cxRef.current + speed * dirRef.current;
+      const next = cxRef.current + speed * (dt / 16.67) * dirRef.current;
       if (next + cwRef.current > stW) dirRef.current = -1;
       else if (next < 0) dirRef.current = 1;
       const clamped = Math.max(0, Math.min(stW - cwRef.current, next));
