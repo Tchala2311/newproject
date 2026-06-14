@@ -91,7 +91,9 @@ function normalizeUserPoints(pts: Pt[], boardWidth: number, count: number): numb
       }
     }
     if (lo === hi) return sorted[lo].y;
-    const t = (targetX - sorted[lo].x) / (sorted[hi].x - sorted[lo].x);
+    const dx = sorted[hi].x - sorted[lo].x;
+    if (Math.abs(dx) < 0.001) return sorted[lo].y;
+    const t = (targetX - sorted[lo].x) / dx;
     return sorted[lo].y + t * (sorted[hi].y - sorted[lo].y);
   });
 }

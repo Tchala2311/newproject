@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { PanResponder, Text, View, useWindowDimensions } from 'react-native';
 import Svg, { Circle, Line } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
@@ -67,9 +67,13 @@ export function Connect({ game, onBack, onComplete, initialLevel }: Props) {
   const [lastScore, setLastScore] = useState(0);
   const dotsAbsRef = useRef<Pt[]>([]);
   const boardOriginRef = useRef<{ x: number; y: number } | null>(null);
+  const boardViewRef = useRef<View>(null);
+  const completeRef = useRef<{ points: number } | null>(null);
 
-  const layoutBoard = (e: any) => {
-    boardOriginRef.current = { x: e.nativeEvent.layout.x, y: e.nativeEvent.layout.y };
+  const layoutBoard = () => {
+    boardViewRef.current?.measureInWindow((x, y) => {
+      boardOriginRef.current = { x, y };
+    });
     dotsAbsRef.current = dots.map((d) => ({ x: d.x * boardSize, y: d.y * boardSize, n: d.n }));
   };
 
@@ -113,11 +117,11 @@ export function Connect({ game, onBack, onComplete, initialLevel }: Props) {
           const next = [...prev, dot];
           if (next.length === dots.length) {
             const points = (100 + (dots.length - 5) * 50) * level;
+            completeRef.current = { points };
             setLastPassed(true);
             setLastScore(points);
             setPhase('complete');
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-            onComplete(true, points, { level });
           }
           return next;
         });
@@ -129,7 +133,16 @@ export function Connect({ game, onBack, onComplete, initialLevel }: Props) {
     })
   ).current;
 
+  useEffect(() => {
+    if (phase === 'complete' && completeRef.current) {
+      const { points } = completeRef.current;
+      completeRef.current = null;
+      onComplete(true, points, { level });
+    }
+  }, [phase]);
+
   const reset = () => {
+    completeRef.current = null;
     setPath([]);
     setDrag(null);
     setPhase('playing');
@@ -164,6 +177,7 @@ export function Connect({ game, onBack, onComplete, initialLevel }: Props) {
         Соедини точки по порядку. Линии не должны пересекаться.
       </Text>
       <View
+        ref={boardViewRef}
         onLayout={layoutBoard}
         {...responder.panHandlers}
         style={{
