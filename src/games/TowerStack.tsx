@@ -61,18 +61,21 @@ export function TowerStack({ game, onBack, onComplete, initialLevel = 1 }: Props
   useEffect(() => {
     if (phase !== 'playing') return;
     let raf: number;
+    let lastTs = 0;
     const speed = speedForLevel(level);
-    const loop = () => {
+    const loop = (ts: number) => {
       if (phaseRef.current !== 'playing') return;
+      const dt = lastTs ? Math.min(ts - lastTs, 50) : 16.67;
+      lastTs = ts;
       const w = sliderWRef.current;
-      let next = sliderXRef.current + speed * dirRef.current;
+      let next = sliderXRef.current + speed * (dt / 16.67) * dirRef.current;
       if (next + w > PLAY_W) { next = PLAY_W - w; dirRef.current = -1; }
       if (next < 0) { next = 0; dirRef.current = 1; }
       sliderXRef.current = next;
       setSliderX(next);
       raf = requestAnimationFrame(loop);
     };
-    raf = requestAnimationFrame(loop);
+    raf = requestAnimationFrame((ts) => { lastTs = ts; loop(ts); });
     return () => cancelAnimationFrame(raf);
   }, [phase, level, PLAY_W]);
 
