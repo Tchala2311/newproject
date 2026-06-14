@@ -16,6 +16,9 @@ export function AchievementToast({ achievement, onDone }: Props) {
   const insets = useSafeAreaInsets();
   const slide = useRef(new Animated.Value(-200)).current;
   const accent = RARITY_COLOR[achievement.rarity];
+  // Ref so an unstable parent onDone can't keep resetting the 4s auto-dismiss.
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
 
   useEffect(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -27,11 +30,11 @@ export function AchievementToast({ achievement, onDone }: Props) {
     }).start();
     const t = setTimeout(() => {
       Animated.timing(slide, { toValue: -200, duration: 260, easing: Easing.in(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
-        if (finished) onDone();
+        if (finished) onDoneRef.current();
       });
     }, 4000);
     return () => clearTimeout(t);
-  }, [achievement.id, slide, onDone]);
+  }, [achievement.id, slide]);
 
   return (
     <Animated.View

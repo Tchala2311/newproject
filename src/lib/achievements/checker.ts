@@ -2,7 +2,7 @@
 // achievements that should now be unlocked. The provider compares against
 // the already-unlocked set and only fires new ones.
 
-import { Game } from '../../data/games';
+import { Game, GAMES } from '../../data/games';
 import { ACHIEVEMENTS, CLASSIC_GAME_SLUGS } from './catalog';
 
 export type CheckContext = {
@@ -78,11 +78,11 @@ export function checkAchievements(ctx: CheckContext): string[] {
     if (fastWinsAcrossGames >= 5) fire('speedrunner');
   }
 
-  // Completionist — best_level >= 5 in EVERY game
-  // (we don't know total game count here; use a threshold approach: 19 games)
+  // Completionist — best_level >= 5 in EVERY game. Derive the count from the
+  // catalog so it stays correct as games are added (was a stale hardcoded 19).
   let lvl5OrMore = 0;
   for (const p of ctx.progress.values()) if (p.best_level >= 5) lvl5OrMore += 1;
-  if (lvl5OrMore >= 19) fire('completionist');
+  if (lvl5OrMore >= GAMES.length) fire('completionist');
 
   // Collector — 10 unlocked total (computed AFTER above so it can chain on the same call)
   const wouldUnlockCount = ctx.unlocked.size + unlocked.length;

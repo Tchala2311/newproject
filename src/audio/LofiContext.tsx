@@ -34,10 +34,16 @@ export function LofiProvider({ children }: { children: React.ReactNode }) {
   const [playing, setPlaying] = useState(false);
   const playerRef = useRef<AudioPlayer | null>(null);
   const audioModeReady = useRef<Promise<void> | null>(null);
+  const mountedRef = useRef(true);
+  // Bumped on every load (and on unmount) so an older in-flight loadAndPlay can
+  // detect it's been superseded and release the player it created instead of
+  // leaking it / playing two tracks at once.
+  const loadGenRef = useRef(0);
 
   const hasAudio = TRACKS.some((t) => t.source !== null);
 
   useEffect(() => {
+    mountedRef.current = true;
     audioModeReady.current = setAudioModeAsync({
       playsInSilentMode: true,
       shouldPlayInBackground: true,
@@ -46,6 +52,8 @@ export function LofiProvider({ children }: { children: React.ReactNode }) {
       console.warn('audio mode setup failed', e);
     });
     return () => {
+      mountedRef.current = false;
+      loadGenRef.current += 1; // invalidate any in-flight load
       try { playerRef.current?.release(); } catch {}
       playerRef.current = null;
     };
@@ -54,6 +62,7 @@ export function LofiProvider({ children }: { children: React.ReactNode }) {
   const loadAndPlay = useCallback(async (idx: number) => {
     const track = TRACKS[idx];
     if (!track?.source) return false;
+    const gen = ++loadGenRef.current;
     try {
       // Make sure the iOS audio session is configured before we touch a player.
       if (audioModeReady.current) await audioModeReady.current;
@@ -66,6 +75,12 @@ export function LofiProvider({ children }: { children: React.ReactNode }) {
       player.volume = 1.0;
       // Some Expo builds need a tick before play() lands.
       await new Promise((r) => setTimeout(r, 50));
+      // A newer load started or we unmounted while awaiting — drop this player
+      // so it can't play over the newer track or outlive the provider.
+      if (gen !== loadGenRef.current || !mountedRef.current) {
+        try { player.release(); } catch {}
+        return false;
+      }
       player.play();
       playerRef.current = player;
       return true;
@@ -85,14 +100,14 @@ export function LofiProvider({ children }: { children: React.ReactNode }) {
       playerRef.current?.pause();
       setPlaying(false);
     } else {
-      loadAndPlay(trackIdx).then((ok) => setPlaying(ok));
+      loadAndPlay(trackIdx).then((ok) => { if (mountedRef.current) setPlaying(ok); });
     }
   }, [playing, trackIdx, loadAndPlay, hasAudio]);
 
   const nextTrack = useCallback(() => {
     const next = (trackIdx + 1) % TRACKS.length;
     setTrackIdx(next);
-    if (playing && hasAudio) loadAndPlay(next).then((ok) => setPlaying(ok));
+    if (playing && hasAudio) loadAndPlay(next).then((ok) => { if (mountedRef.current) setPlaying(ok); });
   }, [trackIdx, playing, loadAndPlay, hasAudio]);
 
   const value = useMemo<LofiState>(

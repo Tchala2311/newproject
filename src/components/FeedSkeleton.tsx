@@ -14,12 +14,16 @@ export function FeedSkeleton() {
   const spin = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.loop(
+    const shimmerLoop = Animated.loop(
       Animated.timing(shimmer, { toValue: 1, duration: 1400, easing: Easing.inOut(Easing.cubic), useNativeDriver: true })
-    ).start();
-    Animated.loop(
+    );
+    const spinLoop = Animated.loop(
       Animated.timing(spin, { toValue: 1, duration: 2400, easing: Easing.linear, useNativeDriver: true })
-    ).start();
+    );
+    shimmerLoop.start();
+    spinLoop.start();
+    // Stop both loops when the skeleton is swapped out for the real feed.
+    return () => { shimmerLoop.stop(); spinLoop.stop(); };
   }, [shimmer, spin]);
 
   const translateX = shimmer.interpolate({ inputRange: [0, 1], outputRange: [-width, width] });

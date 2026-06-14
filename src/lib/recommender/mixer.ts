@@ -56,26 +56,34 @@ export function assembleFeed(ranked: ScoredCandidate[], targetLength = 18): Feed
   const result: FeedItem[] = [];
   let adIdx = 0;
   let explorationCursor = 0;
+  // Count games as they're actually placed (primary + exploration) and inject
+  // an ad every AD_EVERY games. The previous code re-filtered the whole result
+  // each iteration, so an exploration card could bump the running count and
+  // produce back-to-back / mis-spaced ads.
+  let gamesSinceAd = 0;
+  const pushGame = (item: FeedItem) => {
+    result.push(item);
+    gamesSinceAd += 1;
+    if (gamesSinceAd >= AD_EVERY) {
+      result.push({ type: 'ad', key: `ad-${adIdx}`, adIdx });
+      adIdx += 1;
+      gamesSinceAd = 0;
+    }
+  };
 
   for (let i = 0; i < selected.length; i += 1) {
-    result.push({
+    pushGame({
       type: 'game',
       game: selected[i].game,
       score: selected[i].total,
       debug: selected[i].parts,
     });
-    // Inject ad after every Nth game
-    if ((result.filter((r) => r.type === 'game').length) % AD_EVERY === 0) {
-      result.push({ type: 'ad', key: `ad-${adIdx}`, adIdx });
-      adIdx += 1;
-    }
     // Inject exploration card every Mth slot
     if (
       (i + 1) % EXPLORATION_EVERY === 0 &&
       explorationCursor < explorationPool.length
     ) {
-      const explore = explorationPool[explorationCursor++];
-      result.push({ type: 'game', game: explore });
+      pushGame({ type: 'game', game: explorationPool[explorationCursor++] });
     }
   }
 

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
@@ -58,6 +58,11 @@ type Props = {
 export function AdYandex({ height, bottomInset }: Props) {
   const [loaded, setLoaded] = useState(false);
   const webViewRef = useRef<WebView>(null);
+
+  // Ad slots mount/unmount constantly as the feed is swiped; stopping the
+  // WebView on unmount halts the in-page Yandex script and curbs native memory
+  // growth on Android.
+  useEffect(() => () => { try { webViewRef.current?.stopLoading(); } catch {} }, []);
 
   return (
     <View style={{ height, width: '100%', backgroundColor: '#08071A' }}>

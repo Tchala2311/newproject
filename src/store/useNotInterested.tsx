@@ -58,7 +58,7 @@ export function NotInterestedProvider({ children }: { children: React.ReactNode 
     if (session?.user) {
       supabase
         .from('not_interested')
-        .upsert({ user_id: session.user.id, game_id: gameId })
+        .upsert({ user_id: session.user.id, game_id: gameId }, { onConflict: 'user_id,game_id' })
         .then(({ error }) => { if (error && __DEV__) console.warn('not_interested write failed'); });
     }
   }, [session?.user?.id]);

@@ -49,6 +49,15 @@ export function PrefsProvider({ children }: { children: React.ReactNode }) {
   const likePending = useRef<Record<number, PendingEntry>>({});
   const savePending = useRef<Record<number, PendingEntry>>({});
 
+  // Cancel any pending debounced writes on unmount so they don't fire setState
+  // or issue DB writes after sign-out / teardown.
+  useEffect(() => () => {
+    Object.values(likePending.current).forEach((e) => clearTimeout(e.timer));
+    Object.values(savePending.current).forEach((e) => clearTimeout(e.timer));
+    likePending.current = {};
+    savePending.current = {};
+  }, []);
+
   // 1) Cache hydrate from encrypted storage (instant — no network)
   useEffect(() => {
     (async () => {
@@ -120,7 +129,7 @@ export function PrefsProvider({ children }: { children: React.ReactNode }) {
           // If the user toggled back to the original state, no write needed.
           if (wanted === committed) return;
           const op = wanted
-            ? supabase.from('likes').upsert({ user_id: user.id, game_id: id })
+            ? supabase.from('likes').upsert({ user_id: user.id, game_id: id }, { onConflict: 'user_id,game_id' })
             : supabase.from('likes').delete().match({ user_id: user.id, game_id: id });
           op.then(({ error }) => {
             if (error) {
@@ -152,7 +161,7 @@ export function PrefsProvider({ children }: { children: React.ReactNode }) {
           delete savePending.current[id];
           if (wanted === committed) return;
           const op = wanted
-            ? supabase.from('saves').upsert({ user_id: user.id, game_id: id })
+            ? supabase.from('saves').upsert({ user_id: user.id, game_id: id }, { onConflict: 'user_id,game_id' })
             : supabase.from('saves').delete().match({ user_id: user.id, game_id: id });
           op.then(({ error }) => {
             if (error) {

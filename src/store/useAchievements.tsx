@@ -78,6 +78,13 @@ export function AchievementsProvider({ children }: { children: React.ReactNode }
 
   // Hydrate
   useEffect(() => {
+    // Always reset the mutable refs on a user change so the previous account's
+    // progress/counters can never be written under the new user's id (the refs
+    // are read synchronously by persistProgress before the new hydrate lands).
+    progressRef.current = new Map();
+    tetrisLinesRef.current = 0;
+    adViewsRef.current = 0;
+    followCountRef.current = 0;
     if (!user) {
       setUnlocked(new Set());
       setProgressByGame(new Map());
@@ -122,7 +129,10 @@ export function AchievementsProvider({ children }: { children: React.ReactNode }
     setProgressByGame(m);
     await supabase
       .from('game_progress')
-      .upsert({ user_id: user.id, ...next, updated_at: new Date().toISOString() })
+      .upsert(
+        { user_id: user.id, ...next, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id,game_id' },
+      )
       .then(({ error }) => { if (error && __DEV__) console.warn('progress upsert failed'); });
   }, [user?.id]);
 

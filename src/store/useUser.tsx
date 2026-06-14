@@ -94,6 +94,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       if (!mounted) return;
       setSession(data.session);
       setAuthLoading(false);
+    }).catch((e) => {
+      // Without this, a getSession() rejection (network/secure-store) would
+      // leave authLoading=true forever and hang the app on the loading gate.
+      if (__DEV__) console.warn('getSession failed', e);
+      if (!mounted) return;
+      setSession(null);
+      setAuthLoading(false);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);

@@ -10,16 +10,20 @@ type Props = {
 // Auto-dismissing toast that slides in from the right. Used for "Saved!", "Liked", etc.
 export function Toast({ message, onDone }: Props) {
   const x = useRef(new Animated.Value(180)).current;
+  // Keep onDone in a ref so an unstable parent callback can't restart the
+  // dismiss timer on every re-render (which would make the toast linger).
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
 
   useEffect(() => {
     Animated.spring(x, { toValue: 0, useNativeDriver: true, damping: 14 }).start();
     const t = setTimeout(() => {
       Animated.timing(x, { toValue: 180, duration: 280, useNativeDriver: true }).start(({ finished }) => {
-        if (finished) onDone();
+        if (finished) onDoneRef.current();
       });
     }, 1900);
     return () => clearTimeout(t);
-  }, [x, onDone]);
+  }, [x]);
 
   return (
     <Animated.View
