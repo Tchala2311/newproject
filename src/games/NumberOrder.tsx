@@ -32,9 +32,11 @@ export function NumberOrder({ game, onBack, onComplete, initialLevel }: Props) {
   const [lastScore, setLastScore] = useState(0);
   const startTs = useRef(Date.now());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const completedRef = useRef(false);
   const limit = TIME_LIMIT(level);
 
   const startGame = useCallback(() => {
+    completedRef.current = false;
     setNumbers(shuffle(Array.from({ length: GRID * GRID }, (_, i) => i + 1)));
     setNextExpected(1);
     setElapsed(0);
@@ -50,6 +52,8 @@ export function NumberOrder({ game, onBack, onComplete, initialLevel }: Props) {
       setElapsed(secs);
       if (secs >= limit) {
         clearInterval(timerRef.current!);
+        if (completedRef.current) return;
+        completedRef.current = true;
         const score = 0;
         setLastScore(score);
         setPassed(false);
@@ -68,6 +72,8 @@ export function NumberOrder({ game, onBack, onComplete, initialLevel }: Props) {
     Haptics.selectionAsync().catch(() => {});
     if (n === GRID * GRID) {
       clearInterval(timerRef.current!);
+      if (completedRef.current) return;
+      completedRef.current = true;
       const secs = Math.floor((Date.now() - startTs.current) / 1000);
       const score = Math.max(50, Math.round((limit - secs) / limit * 800) + level * 50);
       setLastScore(score);

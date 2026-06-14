@@ -58,6 +58,8 @@ export function WordBlast({ game, onBack, onComplete, initialLevel }: Props) {
   const [lastPassed, setLastPassed] = useState(false);
   const [lastScore, setLastScore] = useState(0);
   const shake = useRef(new Animated.Value(0)).current;
+  const completedRef = useRef(false);
+  const wrongTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const word = cfg.words[wi % cfg.words.length];
 
@@ -69,6 +71,8 @@ export function WordBlast({ game, onBack, onComplete, initialLevel }: Props) {
   useEffect(() => {
     if (phase !== 'playing') return undefined;
     if (timer <= 0) {
+      if (completedRef.current) return undefined;
+      completedRef.current = true;
       const passed = score >= cfg.target;
       setLastPassed(passed);
       setLastScore(score);
@@ -80,7 +84,11 @@ export function WordBlast({ game, onBack, onComplete, initialLevel }: Props) {
     return () => clearTimeout(t);
   }, [phase, timer, score, cfg.target, onComplete]);
 
+  // Cancel the pending "wrong word" reshuffle if we unmount mid-animation.
+  useEffect(() => () => { if (wrongTimeoutRef.current) clearTimeout(wrongTimeoutRef.current); }, []);
+
   const reset = () => {
+    completedRef.current = false;
     setWi(0);
     setScore(0);
     setTimer(cfg.time);
@@ -92,6 +100,7 @@ export function WordBlast({ game, onBack, onComplete, initialLevel }: Props) {
   const startNextLevel = () => {
     const nl = level + 1;
     const nc = LEVEL_CFG(nl);
+    completedRef.current = false;
     setLevel(nl);
     setWi(0);
     setScore(0);
@@ -126,7 +135,7 @@ export function WordBlast({ game, onBack, onComplete, initialLevel }: Props) {
       setTimer(cfg.time);
     } else if (typed.length === word.length) {
       triggerShake();
-      setTimeout(() => {
+      wrongTimeoutRef.current = setTimeout(() => {
         setInput([]);
         setLetters(scramble(word));
       }, 300);

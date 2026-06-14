@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
@@ -50,10 +50,13 @@ export function ColorSnipe({ game, onBack, onComplete, initialLevel }: Props) {
   const [time, setTime] = useState(cfg.time);
   const [lastPassed, setLastPassed] = useState(false);
   const [lastScore, setLastScore] = useState(0);
+  const completedRef = useRef(false);
 
   useEffect(() => {
     if (phase !== 'playing') return;
     if (time <= 0) {
+      if (completedRef.current) return;
+      completedRef.current = true;
       const passed = score >= cfg.target;
       setLastPassed(passed);
       setLastScore(score);
@@ -80,6 +83,7 @@ export function ColorSnipe({ game, onBack, onComplete, initialLevel }: Props) {
   };
 
   const reset = () => {
+    completedRef.current = false;
     setRound(pickRound(cfg.lieProb));
     setScore(0);
     setCombo(0);
@@ -90,6 +94,7 @@ export function ColorSnipe({ game, onBack, onComplete, initialLevel }: Props) {
   const startNextLevel = () => {
     const nextLevel = level + 1;
     const nextCfg = LEVEL_CFG(nextLevel);
+    completedRef.current = false;
     setLevel(nextLevel);
     setRound(pickRound(nextCfg.lieProb));
     setScore(0);

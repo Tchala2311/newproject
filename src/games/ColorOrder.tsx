@@ -54,8 +54,9 @@ function generateLevel(n: number) {
   const hue = Math.floor(Math.random() * 360);
   const sat = 55 + Math.random() * 20;
   const shadeColors: string[] = [];
+  const denom = n > 1 ? n - 1 : 1; // avoid divide-by-zero / NaN lightness
   for (let i = 0; i < n; i++) {
-    const light = 18 + (i / (n - 1)) * 54;
+    const light = 18 + (i / denom) * 54;
     shadeColors.push(hslHex(hue, sat, light));
   }
   // tray = shuffled indices
