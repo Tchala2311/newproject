@@ -49,11 +49,94 @@ function clues(line: boolean[]): number[] {
   return out.length ? out : [0];
 }
 
+// All 0/1 fillings of a line of length `len` whose runs match `clue`.
+function lineArrangements(clue: number[], len: number): number[][] {
+  const res: number[][] = [];
+  const blocks = clue.length === 1 && clue[0] === 0 ? [] : clue;
+  const place = (idx: number, acc: number[]) => {
+    if (idx === blocks.length) {
+      const arr = acc.slice();
+      while (arr.length < len) arr.push(0);
+      res.push(arr);
+      return;
+    }
+    const blk = blocks[idx];
+    // minimum cells still needed for the remaining blocks (+gaps)
+    let remainingMin = 0;
+    for (let k = idx + 1; k < blocks.length; k += 1) remainingMin += blocks[k] + 1;
+    for (let start = acc.length; start + blk + remainingMin <= len; start += 1) {
+      const acc2 = acc.slice();
+      while (acc2.length < start) acc2.push(0);
+      for (let k = 0; k < blk; k += 1) acc2.push(1);
+      if (idx < blocks.length - 1) acc2.push(0); // mandatory gap after a non-final block
+      place(idx + 1, acc2);
+    }
+  };
+  place(0, []);
+  return res;
+}
+
+// One line-solving pass: intersect every arrangement consistent with the known
+// cells. state cell: 0 unknown, 1 filled, -1 empty. Returns null on contradiction.
+function solveLine(clue: number[], cur: number[]): number[] | null {
+  const len = cur.length;
+  const arrs = lineArrangements(clue, len).filter((a) =>
+    a.every((v, idx) => cur[idx] === 0 || (cur[idx] === 1 ? v === 1 : v === 0)),
+  );
+  if (arrs.length === 0) return null;
+  const out = cur.slice();
+  for (let idx = 0; idx < len; idx += 1) {
+    if (arrs.every((a) => a[idx] === 1)) out[idx] = 1;
+    else if (arrs.every((a) => a[idx] === 0)) out[idx] = -1;
+  }
+  return out;
+}
+
+// A puzzle solvable by pure line logic (no guessing) is guaranteed to have a
+// unique solution — exactly what a mistake-penalty nonogram needs to be fair.
+function isLineSolvable(puzzle: boolean[][]): boolean {
+  const size = puzzle.length;
+  const rowClues = puzzle.map(clues);
+  const colClues: number[][] = [];
+  for (let x = 0; x < size; x += 1) {
+    const col: boolean[] = [];
+    for (let y = 0; y < size; y += 1) col.push(puzzle[y][x]);
+    colClues.push(clues(col));
+  }
+  const state: number[][] = Array.from({ length: size }, () => Array(size).fill(0));
+  let changed = true;
+  let guard = 0;
+  while (changed && guard < size * size * 4) {
+    changed = false;
+    guard += 1;
+    for (let y = 0; y < size; y += 1) {
+      const solved = solveLine(rowClues[y], state[y].slice());
+      if (!solved) return false;
+      for (let x = 0; x < size; x += 1) if (solved[x] !== state[y][x]) { state[y][x] = solved[x]; changed = true; }
+    }
+    for (let x = 0; x < size; x += 1) {
+      const solved = solveLine(colClues[x], state.map((r) => r[x]));
+      if (!solved) return false;
+      for (let y = 0; y < size; y += 1) if (solved[y] !== state[y][x]) { state[y][x] = solved[y]; changed = true; }
+    }
+  }
+  for (let y = 0; y < size; y += 1) for (let x = 0; x < size; x += 1) if (state[y][x] === 0) return false;
+  return true;
+}
+
+function genSolvablePuzzle(size: number, prob: number): boolean[][] {
+  let board = genPuzzle(size, prob);
+  for (let attempt = 0; attempt < 40 && !isLineSolvable(board); attempt += 1) {
+    board = genPuzzle(size, prob);
+  }
+  return board;
+}
+
 export function Picross({ game, onBack, onComplete, initialLevel }: Props) {
   const { width, height } = useWindowDimensions();
   const [level, setLevel] = useState(initialLevel ?? 1);
   const cfg = LEVEL_CFG(level);
-  const puzzle = useMemo(() => genPuzzle(cfg.size, cfg.fillProb), [level]);
+  const puzzle = useMemo(() => genSolvablePuzzle(cfg.size, cfg.fillProb), [level]);
   const [grid, setGrid] = useState<Cell[][]>(() => Array.from({ length: cfg.size }, () => Array(cfg.size).fill('empty')));
   const [mistakes, setMistakes] = useState(0);
   const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
