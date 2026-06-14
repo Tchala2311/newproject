@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
@@ -48,10 +48,13 @@ export function EmojiMatch({ game, onBack, onComplete, initialLevel }: Props) {
   const [lock, setLock] = useState(false);
   const [lastPassed, setLastPassed] = useState(false);
   const [lastScore, setLastScore] = useState(0);
+  const completedRef = useRef(false);
 
   useEffect(() => {
     if (phase !== 'playing') return;
     if (time <= 0) {
+      if (completedRef.current) return;
+      completedRef.current = true;
       const matched = tiles.filter((t) => t.matched).length / 2;
       setLastPassed(false);
       setLastScore(matched);
@@ -60,6 +63,8 @@ export function EmojiMatch({ game, onBack, onComplete, initialLevel }: Props) {
       return;
     }
     if (tiles.every((t) => t.matched)) {
+      if (completedRef.current) return;
+      completedRef.current = true;
       const score = Math.max(50, time * 5 + (cfg.pairs * 10 - moves) * 2) * level;
       setLastPassed(true);
       setLastScore(score);
@@ -86,15 +91,18 @@ export function EmojiMatch({ game, onBack, onComplete, initialLevel }: Props) {
     const next = tiles.map((t, i) => (i === idx ? { ...t, flipped: true } : t));
     setTiles(next);
     setMoves((m) => m + 1);
+    // Lock immediately while the pair resolves so a fast third tap can't
+    // compare against a tile that's mid-match-animation.
+    setLock(true);
 
     if (next[first].emoji === next[idx].emoji) {
       setTimeout(() => {
         setTiles((prev) => prev.map((t, i) => (i === first || i === idx ? { ...t, matched: true } : t)));
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         setFirst(null);
+        setLock(false);
       }, 220);
     } else {
-      setLock(true);
       setTimeout(() => {
         setTiles((prev) => prev.map((t, i) => (i === first || i === idx ? { ...t, flipped: false } : t)));
         setFirst(null);
@@ -104,6 +112,7 @@ export function EmojiMatch({ game, onBack, onComplete, initialLevel }: Props) {
   };
 
   const reset = () => {
+    completedRef.current = false;
     setTiles(makeBoard(cfg.pairs));
     setFirst(null);
     setMoves(0);
@@ -115,6 +124,7 @@ export function EmojiMatch({ game, onBack, onComplete, initialLevel }: Props) {
   const startNextLevel = () => {
     const nl = level + 1;
     const nc = LEVEL_CFG(nl);
+    completedRef.current = false;
     setLevel(nl);
     setTiles(makeBoard(nc.pairs));
     setFirst(null);

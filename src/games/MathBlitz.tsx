@@ -47,12 +47,20 @@ export function MathBlitz({ game, onBack, onComplete, initialLevel }: Props) {
   const [timeLeft, setTimeLeft] = useState(SECS_PER_Q(initialLevel ?? 1));
   const [flash, setFlash] = useState<'right' | 'wrong' | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const advanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const correctRef = useRef(0);
+  const timeLeftRef = useRef(SECS_PER_Q(initialLevel ?? 1));
+  // Guards the window between answering/timeout and the next question appearing
+  // so the timer and a tap can't both schedule nextQ for the same question.
+  const transitioningRef = useRef(false);
+  const completedRef = useRef(false);
 
   const nextQ = useCallback((wasCorrect: boolean) => {
     if (wasCorrect) { correctRef.current += 1; setCorrect(correctRef.current); }
     const next = qIdx + 1;
     if (next >= TOTAL_QUESTIONS) {
+      if (completedRef.current) return;
+      completedRef.current = true;
       const p = correctRef.current >= Math.ceil(TOTAL_QUESTIONS * 0.7);
       const score = correctRef.current * 100 * level;
       setLastScore(score);
@@ -63,34 +71,48 @@ export function MathBlitz({ game, onBack, onComplete, initialLevel }: Props) {
     }
     setQIdx(next);
     setQ(makeQuestion(level));
+    timeLeftRef.current = SECS_PER_Q(level);
     setTimeLeft(SECS_PER_Q(level));
     setFlash(null);
+    transitioningRef.current = false;
   }, [qIdx, level, onComplete]);
+
+  const scheduleAdvance = useCallback((wasCorrect: boolean, delay: number) => {
+    if (transitioningRef.current) return;
+    transitioningRef.current = true;
+    if (timerRef.current) clearInterval(timerRef.current);
+    advanceRef.current = setTimeout(() => nextQ(wasCorrect), delay);
+  }, [nextQ]);
 
   useEffect(() => {
     if (phase !== 'playing') return;
     timerRef.current = setInterval(() => {
-      setTimeLeft((t) => {
-        if (t <= 1) { clearInterval(timerRef.current!); setFlash('wrong'); setTimeout(() => nextQ(false), 400); return 0; }
-        return t - 1;
-      });
+      const t = timeLeftRef.current - 1;
+      timeLeftRef.current = t;
+      setTimeLeft(Math.max(0, t));
+      if (t <= 0) {
+        setFlash('wrong');
+        scheduleAdvance(false, 400);
+      }
     }, 1000);
-    return () => clearInterval(timerRef.current!);
-  }, [q, phase]);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [q, phase, scheduleAdvance]);
+
+  useEffect(() => () => { if (advanceRef.current) clearTimeout(advanceRef.current); }, []);
 
   const answer = (choice: number) => {
-    clearInterval(timerRef.current!);
+    if (transitioningRef.current) return;
     const ok = choice === q.answer;
-    Haptics[ok ? 'notificationAsync' : 'notificationAsync'](ok ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error).catch(() => {});
+    Haptics.notificationAsync(ok ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error).catch(() => {});
     setFlash(ok ? 'right' : 'wrong');
-    setTimeout(() => nextQ(ok), 350);
+    scheduleAdvance(ok, 350);
   };
 
   if (phase === 'complete') {
     return <LevelComplete level={level} passed={passed} score={lastScore} scoreLabel="Очки" accent={game.accent}
       showAd={passed && shouldShowAdAfter(level)}
-      onContinue={() => { setLevel((l) => l + 1); setQIdx(0); correctRef.current = 0; setCorrect(0); setQ(makeQuestion(level + 1)); setTimeLeft(SECS_PER_Q(level + 1)); setPhase('playing'); }}
-      onRetry={() => { setQIdx(0); correctRef.current = 0; setCorrect(0); setQ(makeQuestion(level)); setTimeLeft(SECS_PER_Q(level)); setPhase('playing'); }}
+      onContinue={() => { transitioningRef.current = false; completedRef.current = false; setLevel((l) => l + 1); setQIdx(0); correctRef.current = 0; setCorrect(0); setQ(makeQuestion(level + 1)); timeLeftRef.current = SECS_PER_Q(level + 1); setTimeLeft(SECS_PER_Q(level + 1)); setFlash(null); setPhase('playing'); }}
+      onRetry={() => { transitioningRef.current = false; completedRef.current = false; setQIdx(0); correctRef.current = 0; setCorrect(0); setQ(makeQuestion(level)); timeLeftRef.current = SECS_PER_Q(level); setTimeLeft(SECS_PER_Q(level)); setFlash(null); setPhase('playing'); }}
       onBack={onBack} />;
   }
 

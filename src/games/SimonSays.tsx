@@ -27,29 +27,50 @@ export function SimonSays({ game, onBack, onComplete, initialLevel }: Props) {
   const [lastScore, setLastScore] = useState(0);
   const [status, setStatus] = useState('Запоминай…');
 
+  // Every showSequence run gets a generation id; pending timeouts check it and
+  // abort if a newer run (retry / level change / unmount) has started. Without
+  // this, an old timeout chain keeps firing setLit/setPhase and corrupts the
+  // next round's state.
+  const showGenRef = useRef(0);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const clearShowTimers = useCallback(() => {
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+  }, []);
+
   const buildSequence = useCallback((lv: number) => {
     const len = lv + 2;
     return Array.from({ length: len }, () => Math.floor(Math.random() * 4));
   }, []);
 
   const showSequence = useCallback((seq: number[]) => {
+    clearShowTimers();
+    const gen = ++showGenRef.current;
+    const push = (fn: () => void, ms: number) => {
+      timersRef.current.push(setTimeout(() => { if (gen === showGenRef.current) fn(); }, ms));
+    };
     setStatus('Запоминай…');
     setPhase('showing');
     setUserSeq([]);
     let i = 0;
     const tick = () => {
-      if (i >= seq.length) { setLit(null); setTimeout(() => { setPhase('input'); setStatus('Повтори!'); }, 400); return; }
+      if (gen !== showGenRef.current) return;
+      if (i >= seq.length) { setLit(null); push(() => { setPhase('input'); setStatus('Повтори!'); }, 400); return; }
       setLit(null);
-      setTimeout(() => { setLit(seq[i]); Haptics.selectionAsync().catch(() => {}); i++; setTimeout(tick, 600); }, 200);
+      push(() => { setLit(seq[i]); Haptics.selectionAsync().catch(() => {}); i++; push(tick, 600); }, 200);
     };
-    setTimeout(tick, 500);
-  }, []);
+    push(tick, 500);
+  }, [clearShowTimers]);
 
   useEffect(() => {
     const seq = buildSequence(level);
     setSequence(seq);
     showSequence(seq);
   }, [level]);
+
+  // Stop any pending light-up timers when the component unmounts.
+  useEffect(() => clearShowTimers, [clearShowTimers]);
 
   const tap = (idx: number) => {
     if (phase !== 'input') return;
