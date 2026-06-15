@@ -171,7 +171,12 @@ export function AchievementsProvider({ children }: { children: React.ReactNode }
     });
     setUnlockQueue((q) => [...q, ...newIds.map((id) => ACHIEVEMENTS_BY_ID[id]).filter(Boolean)]);
     persistUnlocks(newIds);
-  }, [unlocked, likes, progressByGame, user, persistUnlocks]);
+  // progressByGame intentionally omitted: runChecker reads from progressRef.current
+  // (updated synchronously by persistProgress) rather than the lagging state map.
+  // Including progressByGame would cause runChecker — and therefore report and the
+  // entire achievements context — to re-create on every level-complete write.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unlocked, likes, user, persistUnlocks]);
 
   const report = useCallback((e: ReportEvent) => {  // eslint-disable-line react-hooks/exhaustive-deps
     switch (e.type) {

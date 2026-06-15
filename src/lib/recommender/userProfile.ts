@@ -115,12 +115,15 @@ export async function buildUserProfile(
   const contentVec = zeroVec();
   let totalWeight = 0;
   const now = Date.now();
+  // Build a lookup map once — addSignal is called for every event row (up to
+  // 600+) so GAMES.find would cost O(43×600) = ~25K comparisons per profile build.
+  const gameById = new Map(GAMES.map((g) => [g.id, g]));
 
   const addSignal = (gameId: number, weight: number, createdAt: string) => {
     const days = (now - new Date(createdAt).getTime()) / 86400000;
     const decayed = weight * decayFactor(days);
     perGame.set(gameId, (perGame.get(gameId) ?? 0) + decayed);
-    const game = GAMES.find((g) => g.id === gameId);
+    const game = gameById.get(gameId);
     if (game) {
       addScaled(contentVec, extractFeatures(game), decayed);
       totalWeight += decayed;
@@ -151,10 +154,12 @@ export async function buildUserProfile(
     });
   }
 
-  // Cold-start = user has fewer than 20 total engagement signals.
-  // 5 was too low — a content vector built from 5 view events has essentially
-  // zero meaningful direction and causes contentSimilar scores to be random.
-  const totalSignals = (likesRes.data?.length ?? 0) + (savesRes.data?.length ?? 0) + (commentsRes.data?.length ?? 0) + (eventsRes.data?.length ?? 0);
+  // Cold-start = user has fewer than 20 *positive* engagement signals.
+  // Skip events have negative weight — counting them toward the threshold would
+  // let a user who swipes past 20 cards exit cold-start with an inverted
+  // (all-negative) content vector, causing the ranker to surface the wrong games.
+  const positiveEventCount = (eventsRes.data ?? []).filter((r: any) => r.type !== 'skip').length;
+  const totalSignals = (likesRes.data?.length ?? 0) + (savesRes.data?.length ?? 0) + (commentsRes.data?.length ?? 0) + positiveEventCount;
 
   return {
     userId,

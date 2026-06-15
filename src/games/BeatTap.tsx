@@ -55,7 +55,6 @@ export function BeatTap({ game, onBack, onComplete, initialLevel }: Props) {
   const phaseRef = useRef<'playing' | 'complete'>('playing');
   const rafRef = useRef<number | null>(null);
 
-  useEffect(() => { scoreRef.current = score; }, [score]);
   useEffect(() => { notesRef.current = notes; }, [notes]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
@@ -145,7 +144,13 @@ export function BeatTap({ game, onBack, onComplete, initialLevel }: Props) {
     const judgement: 'perfect' | 'good' | 'miss' =
       bestDelta < 80 ? 'perfect' : bestDelta < 180 ? 'good' : 'miss';
     const points = judgement === 'perfect' ? 100 : judgement === 'good' ? 50 : 0;
-    setScore((s) => s + points + (combo * 5));
+    // Update scoreRef synchronously so the 100ms-interval timer always reads the
+    // latest accumulated score — setScore is async (batched) and scoreRef is only
+    // synced by an effect that runs after the render, so without this direct write
+    // a note hit in the same tick as the timer could be excluded from finalScore.
+    const pts = points + combo * 5;
+    scoreRef.current += pts;
+    setScore(scoreRef.current);
     setCombo((c) => (judgement === 'miss' ? 0 : c + 1));
     setFlash(judgement);
     setTimeout(() => setFlash(null), 220);

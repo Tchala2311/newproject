@@ -270,6 +270,10 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
 
   const switchTab = (next: FeedTab) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    // Clear skip-detection state on every tab switch so the first swipe on the
+    // new tab doesn't fire a spurious skip event for the previous tab's game.
+    prevGameIdRef.current = null;
+    cardVisibleAtRef.current = 0;
     if (next === tab) {
       if (next === 'forYou') {
         // Instant shuffle so the user sees a new order immediately, no network wait
