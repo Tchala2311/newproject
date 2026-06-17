@@ -31,6 +31,9 @@
     "experiments": {
       "typedRoutes": false
     },
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
     "updates": {
       "fallbackToCacheTimeout": 0,
       "url": "https://u.expo.dev/b015b98f-573b-4f81-b3ec-3a5e1e4783ed"
