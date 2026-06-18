@@ -54,6 +54,7 @@ export function Zigzag({ game, onBack, onComplete, initialLevel }: Props) {
   const tapsRef = useRef(0);
   const livesRef = useRef(maxLives(initialLevel ?? 1));
   const scoreRef = useRef(0);
+  const totalScoreRef = useRef(0);
   const phaseRef = useRef<Phase>('idle');
   const rafRef = useRef<number | null>(null);
 
@@ -97,19 +98,21 @@ export function Zigzag({ game, onBack, onComplete, initialLevel }: Props) {
     (won: boolean) => {
       stopLoop();
       const finalScore = scoreRef.current;
+      const newTotal = totalScoreRef.current + finalScore;
+      totalScoreRef.current = newTotal;
       setLastLevelScore(finalScore);
-      setTotalScore((s) => s + finalScore);
+      setTotalScore(newTotal);
       if (won) {
         phaseRef.current = 'levelComplete';
         setPhase('levelComplete');
-        onComplete(true, totalScore + finalScore, { level, taps: tapsRef.current });
+        onComplete(true, newTotal, { level, taps: tapsRef.current });
       } else {
         phaseRef.current = 'gameOver';
         setPhase('gameOver');
-        onComplete(false, totalScore + finalScore, { level, taps: tapsRef.current });
+        onComplete(false, newTotal, { level, taps: tapsRef.current });
       }
     },
-    [level, totalScore, onComplete],
+    [level, onComplete],
   );
 
   // RAF game loop
@@ -220,6 +223,7 @@ export function Zigzag({ game, onBack, onComplete, initialLevel }: Props) {
         accent={game.accent}
         game={game}
         onRestart={() => {
+          totalScoreRef.current = 0;
           setLevel(initialLevel ?? 1);
           setTotalScore(0);
           startGame(initialLevel ?? 1);

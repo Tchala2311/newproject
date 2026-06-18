@@ -104,6 +104,8 @@ export function TetrisMini({ game, onBack, onComplete, initialLevel }: Props) {
   const phaseRef = useRef(phase);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   const scoreRef = useRef(0);
+  const boardRef = useRef<Board>(emptyBoard());
+  useEffect(() => { boardRef.current = board; }, [board]);
   const completeRef = useRef<{ won: boolean; score: number } | null>(null);
   const doneFlagRef = useRef(false);
 
@@ -116,16 +118,18 @@ export function TetrisMini({ game, onBack, onComplete, initialLevel }: Props) {
     }
   }, [phase]);
 
-  // Tick
+  // Tick — reads board from boardRef so removing `board` from deps prevents the
+  // interval from restarting on every line clear (which caused a gravity stutter).
   useEffect(() => {
     if (phase !== 'playing') return;
     const t = setInterval(() => {
       if (phaseRef.current !== 'playing') return;
       setPiece((p) => {
+        const b = boardRef.current;
         const next = { ...p, y: p.y + 1 };
-        if (collides(board, next)) {
+        if (collides(b, next)) {
           // Lock piece
-          const merged = merge(board, p);
+          const merged = merge(b, p);
           const { board: cleared, lines } = clearLines(merged);
           setBoard(cleared);
           const lineScore = lines * 100 * level;
@@ -159,7 +163,7 @@ export function TetrisMini({ game, onBack, onComplete, initialLevel }: Props) {
       });
     }, cfg.tickMs);
     return () => clearInterval(t);
-  }, [phase, board, cfg.tickMs, cfg.target, level]);
+  }, [phase, cfg.tickMs, cfg.target, level]);
 
   const move = (dx: number) => {
     if (phase !== 'playing') return;

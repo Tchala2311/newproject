@@ -47,6 +47,7 @@ export function TowerStack({ game, onBack, onComplete, initialLevel = 1 }: Props
   const phaseRef = useRef<Phase>('playing');
   const blocksRef = useRef<Block[]>([{ x: 0, w: PLAY_W, color: NEON_COLORS[0] }]);
   const colorIdxRef = useRef(1);
+  const scoreRef = useRef(0);
   // Synchronous single-fire latch — phaseRef lags by a commit, so a sub-frame
   // double-tap could otherwise reach onComplete twice.
   const reportedRef = useRef(false);
@@ -85,6 +86,7 @@ export function TowerStack({ game, onBack, onComplete, initialLevel = 1 }: Props
 
   const reset = useCallback((lv: number) => {
     reportedRef.current = false;
+    scoreRef.current = 0;
     const base: Block[] = [{ x: 0, w: PLAY_W, color: NEON_COLORS[0] }];
     blocksRef.current = base;
     setBlocks(base);
@@ -133,7 +135,8 @@ export function TowerStack({ game, onBack, onComplete, initialLevel = 1 }: Props
     setSliderX(left);
     setSliderW(newW);
 
-    const newScore = score + Math.round((newW / top.w) * 100);
+    const newScore = scoreRef.current + Math.round((newW / top.w) * 100);
+    scoreRef.current = newScore;
     setScore(newScore);
     syncScroll(newBlocks.length);
 
@@ -144,7 +147,7 @@ export function TowerStack({ game, onBack, onComplete, initialLevel = 1 }: Props
       setPhase('levelComplete');
       onComplete(true, newScore, { level });
     }
-  }, [score, level, onComplete, syncScroll]);
+  }, [level, onComplete, syncScroll]);
 
   if (phase === 'gameOver') {
     return (

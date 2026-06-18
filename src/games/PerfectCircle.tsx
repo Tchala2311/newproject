@@ -42,6 +42,8 @@ export function PerfectCircle({ game, onBack, onComplete, initialLevel }: Props)
   const boardOriginRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const levelRef = useRef(level);
   levelRef.current = level;
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
   const completedRef = useRef(false);
 
   const computeScore = (pts: Pt[]) => {
@@ -72,8 +74,8 @@ export function PerfectCircle({ game, onBack, onComplete, initialLevel }: Props)
 
   const responder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => phase === 'playing',
-      onMoveShouldSetPanResponder: () => phase === 'playing',
+      onStartShouldSetPanResponder: () => phaseRef.current === 'playing',
+      onMoveShouldSetPanResponder: () => phaseRef.current === 'playing',
       onPanResponderGrant: (_, g) => {
         drawing.current = true;
         const ox = boardOriginRef.current.x;

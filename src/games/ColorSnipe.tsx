@@ -51,28 +51,37 @@ export function ColorSnipe({ game, onBack, onComplete, initialLevel }: Props) {
   const [lastPassed, setLastPassed] = useState(false);
   const [lastScore, setLastScore] = useState(0);
   const completedRef = useRef(false);
+  const scoreRef = useRef(0);
+  scoreRef.current = score;
+  const comboRef = useRef(0);
+  comboRef.current = combo;
 
+  // Timer runs independently — no game-state deps so a tap can't reset the clock.
   useEffect(() => {
     if (phase !== 'playing') return;
-    if (time <= 0) {
-      if (completedRef.current) return;
-      completedRef.current = true;
-      const passed = score >= cfg.target;
-      setLastPassed(passed);
-      setLastScore(score);
-      setPhase('complete');
-      onComplete(passed, score, { level });
-      return;
-    }
-    const t = setTimeout(() => setTime((s) => s - 1), 1000);
-    return () => clearTimeout(t);
-  }, [time, phase, score, cfg.target, onComplete]);
+    const t = setInterval(() => setTime((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [phase]);
+
+  // End-check: only runs when time hits 0.
+  useEffect(() => {
+    if (phase !== 'playing' || time > 0) return;
+    if (completedRef.current) return;
+    completedRef.current = true;
+    const finalScore = scoreRef.current;
+    const passed = finalScore >= cfg.target;
+    setLastPassed(passed);
+    setLastScore(finalScore);
+    setPhase('complete');
+    onComplete(passed, finalScore, { level });
+  }, [time, phase]);
 
   const tap = (name: string) => {
     if (phase !== 'playing') return;
     if (name === round.correct) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-      setScore((s) => s + 1 + Math.floor(combo / 3));
+      const bonus = Math.floor(comboRef.current / 3);
+      setScore((s) => s + 1 + bonus);
       setCombo((c) => c + 1);
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});

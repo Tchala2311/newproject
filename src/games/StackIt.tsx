@@ -72,8 +72,8 @@ export function StackIt({ game, onBack, onComplete, initialLevel }: Props) {
     if (phase !== 'playing') return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     const last = blocks[blocks.length - 1];
-    const left = Math.max(cx, last.x);
-    const right = Math.min(cx + cw, last.x + last.w);
+    const left = Math.max(cxRef.current, last.x);
+    const right = Math.min(cxRef.current + cwRef.current, last.x + last.w);
     const newW = right - left;
     if (newW <= 4) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});

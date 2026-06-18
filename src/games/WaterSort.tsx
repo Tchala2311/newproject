@@ -154,7 +154,7 @@ export function WaterSort({ game, onBack, onComplete, initialLevel }: Props) {
     if (isSolved(next)) {
       completedRef.current = true;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      const score = Math.max(50, 200 - moves * 2) * level;
+      const score = Math.max(50, 200 - (moves + 1) * 2) * level;
       setLastPassed(true);
       setLastScore(score);
       setPhase('complete');
