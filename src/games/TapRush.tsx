@@ -22,7 +22,10 @@ function makeBubble(id: number, bombProb: number): Bubble {
   return {
     id,
     x: 8 + Math.random() * 74,
-    y: 10 + Math.random() * 70,
+    // Lower the vertical spawn ceiling so bubbles (radius up to ~40, drawn with
+    // marginTop:-r) stay fully inside the play area instead of clipping past the
+    // content-box bottom.
+    y: 10 + Math.random() * 62,
     r: 22 + Math.random() * 18,
     bomb: Math.random() < bombProb,
   };

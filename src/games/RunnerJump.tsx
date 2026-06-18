@@ -12,7 +12,9 @@ const PLAYER_SIZE = 30;
 const GRAVITY = 0.7;
 const JUMP_VY = -14;
 const OBSTACLE_W = 22;
-const OBSTACLE_SPEED = (level: number) => 3.8 + level * 0.5;
+// Cap obstacle speed so the reaction window never collapses. The jump arc is a
+// fixed ~40 frames of airtime, so faster obstacles just shorten the time to react.
+const OBSTACLE_SPEED = (level: number) => Math.min(7, 3.8 + level * 0.5);
 const TARGET = (level: number) => 6 + level * 3;
 // Heights: min grows with level so early levels are forgiving, later are trickier
 const OBS_MIN_H = (level: number) => Math.min(28 + level * 3, 50);
@@ -69,7 +71,10 @@ export function RunnerJump({ game, onBack, onComplete, initialLevel }: Props) {
     lastTimeRef.current = 0;
     spawnAccRef.current = 0;
     const speedPx60 = OBSTACLE_SPEED(level); // px per 60fps frame
-    const spawnIntervalMs = Math.max(1000, (100 - level * 5) * (1000 / 60));
+    // Jump airtime is ~40 frames (JUMP_VY/-GRAVITY * 2 = 40). The floor below gives
+    // ~66 frames between spawns (1100/16.67) ≈ 1.65× the jump arc, so a single
+    // well-timed jump always lands and clears before the next obstacle arrives.
+    const spawnIntervalMs = Math.max(1100, (100 - level * 5) * (1000 / 60));
     const loop = (timestamp: number) => {
       const dt = lastTimeRef.current ? Math.min(timestamp - lastTimeRef.current, 50) : 16.67;
       lastTimeRef.current = timestamp;

@@ -18,7 +18,7 @@ type Props = {
 const LEVEL_CFG = (level: number) => ({
   time: 30,
   targetMs: Math.min(28500, 13000 + level * 3000),
-  bandWidth: Math.max(14, 40 - level * 4),
+  bandWidth: Math.max(22, 40 - level * 4),
   wobbleMul: Math.min(2.5, 0.9 + level * 0.25),
 });
 
@@ -40,15 +40,19 @@ export function NervePulse({ game, onBack, onComplete, initialLevel }: Props) {
   const startRef = useRef(Date.now());
   const lastTickRef = useRef(Date.now());
   const insideRef = useRef(false);
+  const fingerRef = useRef<{ x: number; y: number } | null>(null);
   const boardOriginRef = useRef<{ x: number; y: number } | null>(null);
   const boardRef = useRef<View>(null);
   const completedRef = useRef(false);
 
-  // Wobbling target ring radius — wobble multiplier scales with level
+  // Wobbling target ring radius — wobble multiplier scales with level.
+  // Clamp so the outer edge of the band (base + maxWobble) always stays inside
+  // the board with the full band reachable: base + maxWobble + bandWidth < cx.
+  const maxWobble = (12 + 10) * cfg.wobbleMul;
+  const ringRadiusBase = Math.min(70, cx - maxWobble - cfg.bandWidth - 4);
   const ringRadius = (t: number) => {
-    const base = 70;
     const wobble = (Math.sin(t * 0.0028) * 12 + Math.cos(t * 0.0019) * 10) * cfg.wobbleMul;
-    return base + wobble;
+    return ringRadiusBase + wobble;
   };
 
   useEffect(() => {
@@ -77,6 +81,18 @@ export function NervePulse({ game, onBack, onComplete, initialLevel }: Props) {
       const now = Date.now();
       const dt = now - lastTickRef.current;
       lastTickRef.current = now;
+      // Recompute inside/outside against the CURRENT (wobbling) ring using the
+      // last known finger position — the finger may be still while the ring moves.
+      const finger = fingerRef.current;
+      if (touching && finger) {
+        const r = Math.hypot(finger.x - cx, finger.y - cy);
+        const ring = ringRadius(now - startRef.current);
+        const newInside = r < ring && r > ring - cfg.bandWidth;
+        if (newInside !== insideRef.current) {
+          if (!newInside) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+          insideRef.current = newInside;
+        }
+      }
       if (touching && insideRef.current) {
         setInsideMs((m) => m + dt);
       }
@@ -93,6 +109,7 @@ export function NervePulse({ game, onBack, onComplete, initialLevel }: Props) {
         const origin = boardOriginRef.current ?? { x: 0, y: 0 };
         const lx = g.x0 - origin.x;
         const ly = g.y0 - origin.y;
+        fingerRef.current = { x: lx, y: ly };
         setPos({ x: lx, y: ly });
         const r = Math.hypot(lx - cx, ly - cy);
         const ring = ringRadius(Date.now() - startRef.current);
@@ -102,6 +119,7 @@ export function NervePulse({ game, onBack, onComplete, initialLevel }: Props) {
         const origin = boardOriginRef.current ?? { x: 0, y: 0 };
         const lx = g.moveX - origin.x;
         const ly = g.moveY - origin.y;
+        fingerRef.current = { x: lx, y: ly };
         setPos({ x: lx, y: ly });
         const r = Math.hypot(lx - cx, ly - cy);
         const ring = ringRadius(Date.now() - startRef.current);
@@ -114,6 +132,7 @@ export function NervePulse({ game, onBack, onComplete, initialLevel }: Props) {
       onPanResponderRelease: () => {
         setTouching(false);
         insideRef.current = false;
+        fingerRef.current = null;
       },
     })
   ).current;
@@ -130,6 +149,7 @@ export function NervePulse({ game, onBack, onComplete, initialLevel }: Props) {
     setInsideMs(0);
     setTouching(false);
     insideRef.current = false;
+    fingerRef.current = null;
     setPos({ x: cx, y: cy });
     startRef.current = Date.now();
     lastTickRef.current = Date.now();
@@ -145,6 +165,7 @@ export function NervePulse({ game, onBack, onComplete, initialLevel }: Props) {
     setInsideMs(0);
     setTouching(false);
     insideRef.current = false;
+    fingerRef.current = null;
     setPos({ x: cx, y: cy });
     startRef.current = Date.now();
     lastTickRef.current = Date.now();

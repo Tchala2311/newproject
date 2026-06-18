@@ -66,6 +66,11 @@ export function CommentsSheet({ visible, onClose, game, onOpenCreator }: Props) 
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // Distinguish a genuine "no comments yet" empty state from a fetch that
+  // actually failed (network/session), so the latter shows a retry instead of
+  // silently looking like an empty thread.
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Slide animation
   useEffect(() => {
@@ -81,6 +86,7 @@ export function CommentsSheet({ visible, onClose, game, onOpenCreator }: Props) 
     if (!visible || !game) return;
     let cancelled = false;
     setLoading(true);
+    setLoadError(false);
     (async () => {
       const { data, error } = await supabase
         .from('comments')
@@ -95,6 +101,7 @@ export function CommentsSheet({ visible, onClose, game, onOpenCreator }: Props) 
       if (error) {
         if (__DEV__) console.warn('comments fetch failed');
         setComments([]);
+        setLoadError(true);
         setLoading(false);
         return;
       } else {
@@ -153,7 +160,7 @@ export function CommentsSheet({ visible, onClose, game, onOpenCreator }: Props) 
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [visible, game?.id, user?.id]);
+  }, [visible, game?.id, user?.id, reloadKey]);
 
   const submit = async () => {
     const body = draft.trim();
@@ -276,6 +283,22 @@ export function CommentsSheet({ visible, onClose, game, onOpenCreator }: Props) 
                     <Text style={{ textAlign: 'center', color: colors.textDim, fontSize: 13, fontFamily: fontFamily.medium, marginTop: 20 }}>
                       Загружаем…
                     </Text>
+                  ) : loadError ? (
+                    <View style={{ alignItems: 'center', marginTop: 56, paddingHorizontal: 20 }}>
+                      <Text style={{ fontSize: 40, marginBottom: 8 }}>📡</Text>
+                      <Text style={{ fontSize: 15, fontFamily: fontFamily.bold, color: '#fff', marginBottom: 6 }}>
+                        Не удалось загрузить
+                      </Text>
+                      <Text style={{ fontSize: 12, fontFamily: fontFamily.medium, color: colors.textDim, textAlign: 'center', lineHeight: 18, marginBottom: 14 }}>
+                        Проверь соединение и попробуй снова
+                      </Text>
+                      <Pressable
+                        onPress={() => setReloadKey((k) => k + 1)}
+                        style={{ paddingHorizontal: 20, paddingVertical: 10, borderRadius: radius.pill, backgroundColor: 'rgba(255,255,255,0.12)' }}
+                      >
+                        <Text style={{ fontSize: 13, fontFamily: fontFamily.bold, color: '#fff' }}>Повторить ↺</Text>
+                      </Pressable>
+                    </View>
                   ) : comments.length === 0 ? (
                     <View style={{ alignItems: 'center', marginTop: 56, paddingHorizontal: 20 }}>
                       <Text style={{ fontSize: 48, marginBottom: 8 }}>🎤</Text>

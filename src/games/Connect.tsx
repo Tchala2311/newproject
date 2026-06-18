@@ -105,10 +105,21 @@ export function Connect({ game, onBack, onComplete, initialLevel }: Props) {
         const lx = g.x0 - origin.x;
         const ly = g.y0 - origin.y;
         const dot = findDot(lx, ly);
-        if (dot && dot.n === 1) {
-          setPath([dot]);
-          setDrag({ x: lx, y: ly });
-        }
+        if (!dot) return;
+        setPath((prev) => {
+          // Fresh start: must grab dot #1.
+          if (prev.length === 0) {
+            if (dot.n !== 1) return prev;
+            setDrag({ x: lx, y: ly });
+            return [dot];
+          }
+          // Resume: re-grab the last connected dot to keep dragging from it.
+          // Grabbing any other dot leaves the existing progress untouched.
+          if (dot.n === prev[prev.length - 1].n) {
+            setDrag({ x: lx, y: ly });
+          }
+          return prev;
+        });
       },
       onPanResponderMove: (_, g) => {
         const origin = boardOriginRef.current ?? { x: 0, y: 0 };
@@ -139,8 +150,10 @@ export function Connect({ game, onBack, onComplete, initialLevel }: Props) {
         });
       },
       onPanResponderRelease: () => {
+        // Preserve progress: lifting the finger mid-path keeps the connected
+        // dots so the player can resume by re-grabbing from the last one,
+        // instead of being thrown back to dot 1.
         setDrag(null);
-        setPath((prev) => (prev.length === dotsRef.current.length ? prev : []));
       },
     })
   ).current;

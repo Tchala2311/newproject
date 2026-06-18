@@ -12,8 +12,11 @@ const COLS = 3;
 const ROWS = 3;
 const CELLS = COLS * ROWS;
 const GAME_TIME = 30;
-const MOLE_DURATION = (level: number) => Math.max(500, 900 - level * 60);
-const TARGET_SCORE = (level: number) => 5 + level * 2;
+// Lifetime floor 650ms keeps moles whackable; spawn floor 800ms (see effect below)
+// still feeds ~37 moles in 30s. Target growth is slowed and capped at 22 so it
+// stays reachable within GAME_TIME even at high levels.
+const MOLE_DURATION = (level: number) => Math.max(650, 900 - level * 50);
+const TARGET_SCORE = (level: number) => Math.min(22, Math.round(5 + level * 1.5));
 
 export function WhackMole({ game, onBack, onComplete, initialLevel }: Props) {
   const { width, height } = useWindowDimensions();
@@ -64,7 +67,7 @@ export function WhackMole({ game, onBack, onComplete, initialLevel }: Props) {
   // Spawn moles on interval
   useEffect(() => {
     if (phase !== 'playing') return;
-    const interval = setInterval(popMole, Math.max(700, 1200 - level * 80));
+    const interval = setInterval(popMole, Math.max(800, 1200 - level * 80));
     return () => clearInterval(interval);
   }, [phase, level, popMole]);
 

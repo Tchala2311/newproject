@@ -20,6 +20,13 @@ type Props = {
   bottomInset?: number;
 };
 
+// Ad-gating timing. The skip countdown only runs once the ad has actually
+// rendered (so a slow ad doesn't burn the timer against a blank screen), and the
+// hard cap guarantees the player is never blocked longer than this even if the
+// ad never loads.
+const AD_IMPRESSION_SECS = 4;
+const AD_HARD_CAP_MS = 6500;
+
 // Single-screen between-levels overlay. When `showAd` is true, the ad takes
 // up the top portion (full visual brand exposure), the unlock-result chip is
 // docked at the bottom, and the user must tap "Продолжить" to dismiss.
@@ -40,8 +47,10 @@ export function LevelComplete({
 }: Props) {
   const { height } = useWindowDimensions();
   const { report } = useAchievements();
-  const [adReady, setAdReady] = useState(!showAd);
-  const [secondsLeft, setSecondsLeft] = useState(showAd ? 5 : 0);
+  const [adLoaded, setAdLoaded] = useState(!showAd);
+  const [secondsLeft, setSecondsLeft] = useState(showAd ? AD_IMPRESSION_SECS : 0);
+  const [hardCap, setHardCap] = useState(false);
+  const adReady = hardCap || (adLoaded && secondsLeft <= 0);
 
   useEffect(() => {
     if (showAd && passed) report({ type: 'ad-view' });
@@ -59,20 +68,27 @@ export function LevelComplete({
     ]).start();
   }, [opacity, scoreScale, passed]);
 
-  // Countdown to enable the skip button on ad shows
+  // Never block the player longer than the hard cap, even if the ad stalls.
   useEffect(() => {
     if (!showAd) return;
-    if (secondsLeft <= 0) { setAdReady(true); return; }
+    const t = setTimeout(() => setHardCap(true), AD_HARD_CAP_MS);
+    return () => clearTimeout(t);
+  }, [showAd]);
+
+  // The skip countdown only ticks once the ad has actually rendered, so a slow
+  // ad no longer counts down against a blank screen.
+  useEffect(() => {
+    if (!showAd || !adLoaded || secondsLeft <= 0) return;
     const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
     return () => clearTimeout(t);
-  }, [secondsLeft, showAd]);
+  }, [secondsLeft, showAd, adLoaded]);
 
   // ----- Ad mode: ad on top, banner on bottom -----
   if (showAd && passed) {
     return (
       <View style={{ flex: 1, backgroundColor: '#000' }}>
         {/* Ad fills the screen */}
-        <AdYandex height={height} bottomInset={bottomInset + 80} />
+        <AdYandex height={height} bottomInset={bottomInset + 80} onLoaded={() => setAdLoaded(true)} />
 
         {/* Banner ribbon over the top edge */}
         <View
@@ -125,7 +141,7 @@ export function LevelComplete({
             }}
           >
             <Text style={{ fontSize: 14, fontFamily: fontFamily.bold, color: adReady ? '#000' : 'rgba(255,255,255,0.55)' }}>
-              {adReady ? `Уровень ${level + 1} →` : `Подожди ${secondsLeft}…`}
+              {adReady ? `Уровень ${level + 1} →` : !adLoaded ? 'Реклама загружается…' : `Подожди ${secondsLeft}…`}
             </Text>
           </Pressable>
         </View>

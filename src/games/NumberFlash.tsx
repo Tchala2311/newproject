@@ -60,6 +60,9 @@ export function NumberFlash({ game, onBack, onComplete, initialLevel }: Props) {
   const retryTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<TextInput>(null);
   const completedRef = useRef(false);
+  // Synchronous lock so one question can only be judged once, even on a fast
+  // double-submit (soft-keyboard "done" + button tap). Released on retry/new level.
+  const judgingRef = useRef(false);
 
   const clearShowTimeout = () => {
     if (showingTimeout.current) {
@@ -74,6 +77,7 @@ export function NumberFlash({ game, onBack, onComplete, initialLevel }: Props) {
 
   const startLevel = useCallback((lv: number) => {
     completedRef.current = false;
+    judgingRef.current = false;
     const seq = buildSequence(lv);
     setSequence(seq);
     setUserInput('');
@@ -104,7 +108,8 @@ export function NumberFlash({ game, onBack, onComplete, initialLevel }: Props) {
   };
 
   const handleSubmit = () => {
-    if (phase !== 'input' || completedRef.current) return;
+    if (phase !== 'input' || completedRef.current || judgingRef.current) return;
+    judgingRef.current = true;
     if (userInput === sequence) {
       completedRef.current = true;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -129,6 +134,8 @@ export function NumberFlash({ game, onBack, onComplete, initialLevel }: Props) {
         retryTimeout.current = setTimeout(() => {
           retryTimeout.current = null;
           if (completedRef.current) return;
+          // Release the judging lock so the next attempt can be evaluated.
+          judgingRef.current = false;
           setUserInput('');
           setStatusMsg('Введи число');
           inputRef.current?.focus();

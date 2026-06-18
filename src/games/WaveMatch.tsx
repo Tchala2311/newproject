@@ -163,8 +163,8 @@ export function WaveMatch({ game, onBack, onComplete, initialLevel }: Props) {
   }, [level]);
 
   const onLayout = () => {
-    boardRef.current?.measure((_x, _y, _w, _h, pageX, pageY) => {
-      boardOriginRef.current = { x: pageX, y: pageY };
+    boardRef.current?.measureInWindow((x, y) => {
+      boardOriginRef.current = { x, y };
     });
   };
 
@@ -173,6 +173,11 @@ export function WaveMatch({ game, onBack, onComplete, initialLevel }: Props) {
       onStartShouldSetPanResponder: () => phaseRef.current === 'drawing',
       onMoveShouldSetPanResponder: () => phaseRef.current === 'drawing',
       onPanResponderGrant: (_, g) => {
+        // Re-measure the true board position at gesture start — measure() on
+        // layout is unreliable, so refresh the origin via measureInWindow here.
+        boardRef.current?.measureInWindow((x, y) => {
+          boardOriginRef.current = { x, y };
+        });
         const ox = boardOriginRef.current.x;
         const oy = boardOriginRef.current.y;
         const pt = { x: g.x0 - ox, y: g.y0 - oy };

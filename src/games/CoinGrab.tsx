@@ -27,7 +27,9 @@ const ITEMS_PER_LEVEL = 8;
 const COOLDOWN_MS = 1400;
 
 function botReactionMs(level: number): number {
-  return Math.max(380, 1800 - (level - 1) * 130);
+  // Competitive from level 1 — the bot is a real opponent, not a pushover.
+  // Was 1800ms at L1 (trivially beatable); now ~0.8s and tightening each level.
+  return Math.max(250, 820 - (level - 1) * 80);
 }
 
 function randomKind(level: number): CoinKind {

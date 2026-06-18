@@ -51,7 +51,7 @@ const MAX_LIVES = 3;
 type Phase = 'playing' | 'wrong' | 'levelComplete' | 'gameOver';
 
 export function OddColor({ game, onBack, onComplete, initialLevel = 1 }: Props) {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const [level, setLevel] = useState(initialLevel);
   const [lives, setLives] = useState(MAX_LIVES);
   const [totalScore, setTotalScore] = useState(0);
@@ -173,7 +173,14 @@ export function OddColor({ game, onBack, onComplete, initialLevel = 1 }: Props) 
   const diff = diffForLevel(level);
   const gap = 6;
   const padding = 20;
-  const cellSize = Math.floor((width - padding * 2 - gap * (cols - 1)) / cols);
+  // Size cells by BOTH the available width AND a height budget so the grid never
+  // overflows the play area and covers the header/back button. As rows grow with
+  // level the height constraint shrinks the cells to keep everything in-frame.
+  const availW = width - padding * 2;
+  const availH = height * 0.56;
+  const cellByW = (availW - gap * (cols - 1)) / cols;
+  const cellByH = (availH - gap * (rows - 1)) / rows;
+  const cellSize = Math.max(10, Math.floor(Math.min(cellByW, cellByH)));
   const baseColor = hslToHex(baseHue, baseSat, baseLit);
   const oddColor = hslToHex(baseHue, baseSat, baseLit + diff);
 

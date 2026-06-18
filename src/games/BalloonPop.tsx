@@ -18,7 +18,7 @@ let UID = 0;
 
 export function BalloonPop({ game, onBack, onComplete, initialLevel }: Props) {
   const { width, height: screenH } = useWindowDimensions();
-  const boardH = screenH * 0.62;
+  const boardH = Math.min(screenH * 0.62, screenH - 230);
   const [level, setLevel] = useState(initialLevel ?? 1);
   const [balloons, setBalloons] = useState<Balloon[]>([]);
   const [score, setScore] = useState(0);
@@ -31,9 +31,12 @@ export function BalloonPop({ game, onBack, onComplete, initialLevel }: Props) {
 
   const spawnBalloon = useCallback(() => {
     const id = ++UID;
-    const x = Math.random() * (width - 80) + 16;
     const emoji = BALLOON_EMOJIS[Math.floor(Math.random() * BALLOON_EMOJIS.length)];
     const size = 40 + Math.floor(Math.random() * 26);
+    // Board inner width is width-32; keep the balloon fully inside by spawning
+    // x within [0, boardW - size] (emoji can be ~66px wide).
+    const boardW = width - 32;
+    const x = Math.random() * Math.max(0, boardW - size);
     const anim = new Animated.Value(boardH);
     const dur = 2500 - level * 200 + Math.random() * 800;
     setBalloons((prev) => [...prev.slice(-12), { id, x, emoji, anim, size }]);

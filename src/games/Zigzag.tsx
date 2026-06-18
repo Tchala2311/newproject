@@ -17,15 +17,22 @@ type Props = {
 type Phase = 'idle' | 'playing' | 'levelComplete' | 'gameOver';
 
 const BALL_RADIUS = 10;
-const TAPS_TO_WIN = 20;
+const TAPS_TO_WIN = 16;
 const MAX_LIVES = 3;
+// The ball drifts vertically slower than it travels horizontally, so the player
+// gets a real reaction window to tap before hitting a corridor wall. Lower =
+// easier. The previous build had vertical == horizontal speed, which (combined
+// with a narrow corridor) made level 1 nearly unplayable — losing instantly.
+const VERT_FACTOR = 0.75;
 
 function corridorGap(level: number) {
-  return Math.max(48, 120 - level * 8);
+  // Starts roomy (150px) and narrows gradually with a 70px floor.
+  return Math.max(70, 150 - level * 7);
 }
 
 function ballSpeed(level: number) {
-  return 2.5 + level * 0.4;
+  // Gentler start and slope than before (was 2.5 + 0.4·level).
+  return 2.0 + level * 0.3;
 }
 
 function maxLives(_level: number) {
@@ -52,7 +59,7 @@ export function Zigzag({ game, onBack, onComplete, initialLevel }: Props) {
   const ballX = useRef(BOARD_W / 2);
   const ballY = useRef(CORRIDOR_CENTER);
   const velX = useRef(ballSpeed(initialLevel ?? 1));
-  const velY = useRef(ballSpeed(initialLevel ?? 1));
+  const velY = useRef(ballSpeed(initialLevel ?? 1) * VERT_FACTOR);
   const tapsRef = useRef(0);
   const livesRef = useRef(maxLives(initialLevel ?? 1));
   const scoreRef = useRef(0);
@@ -77,7 +84,7 @@ export function Zigzag({ game, onBack, onComplete, initialLevel }: Props) {
       ballX.current = BOARD_W / 2;
       ballY.current = CORRIDOR_CENTER;
       velX.current = speed;
-      velY.current = speed;
+      velY.current = speed * VERT_FACTOR;
       tapsRef.current = 0;
       scoreRef.current = 0;
     },

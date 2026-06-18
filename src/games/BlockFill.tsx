@@ -149,8 +149,12 @@ function isFull(grid: Cell[][]): boolean {
   return grid.every(row => row.every(cell => cell !== null));
 }
 
+// Max height the bottom piece tray is allowed to occupy. The grid budget
+// reserves this so the grid can never collide with (or be covered by) the tray.
+const TRAY_MAX_H = 150;
+
 export function BlockFill({ game, onBack, onComplete, initialLevel = 1 }: Props) {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const [level, setLevel] = useState(initialLevel);
   const [score, setScore] = useState(0);
   const [phase, setPhase] = useState<Phase>('playing');
@@ -166,7 +170,14 @@ export function BlockFill({ game, onBack, onComplete, initialLevel = 1 }: Props)
 
   const { rows, cols } = gridSize(level);
   const padding = 16;
-  const cellSize = Math.floor((Math.min(width - padding * 2, 380)) / cols);
+  // Height available for the grid: full height minus the header (SAFE_TOP +
+  // header chrome ≈ 60), the grid's top margin + hint (≈ 60), and the bottom
+  // tray. Divide by row count so cells shrink as the grid grows taller, and
+  // take the smaller of the width-based and height-based sizes so it always fits.
+  const gridAvailH = height - SAFE_TOP - 60 - 60 - TRAY_MAX_H;
+  const cellSize = Math.floor(
+    Math.min((Math.min(width - padding * 2, 380)) / cols, gridAvailH / rows)
+  );
   const previewCell = 10;
 
   const startLevel = useCallback((lv: number) => {
@@ -333,7 +344,7 @@ export function BlockFill({ game, onBack, onComplete, initialLevel = 1 }: Props)
       </Text>
 
       {/* Pieces tray */}
-      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.85)', paddingVertical: 16, paddingHorizontal: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
+      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, maxHeight: TRAY_MAX_H, backgroundColor: 'rgba(0,0,0,0.85)', paddingVertical: 16, paddingHorizontal: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
         <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16, flexWrap: 'wrap' }}>
           {pieces.map((piece) => {
             const maxR = Math.max(...piece.shape.map(([r]) => r));

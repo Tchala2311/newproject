@@ -170,7 +170,7 @@ export function TetrisMini({ game, onBack, onComplete, initialLevel }: Props) {
     Haptics.selectionAsync().catch(() => {});
     setPiece((p) => {
       const next = { ...p, x: p.x + dx };
-      return collides(board, next) ? p : next;
+      return collides(boardRef.current, next) ? p : next;
     });
   };
 
@@ -179,7 +179,7 @@ export function TetrisMini({ game, onBack, onComplete, initialLevel }: Props) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     setPiece((p) => {
       const next = { ...p, rot: p.rot + 1 };
-      return collides(board, next) ? p : next;
+      return collides(boardRef.current, next) ? p : next;
     });
   };
 
@@ -188,7 +188,7 @@ export function TetrisMini({ game, onBack, onComplete, initialLevel }: Props) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     setPiece((p) => {
       let next = p;
-      while (!collides(board, { ...next, y: next.y + 1 })) next = { ...next, y: next.y + 1 };
+      while (!collides(boardRef.current, { ...next, y: next.y + 1 })) next = { ...next, y: next.y + 1 };
       return next;
     });
   };

@@ -24,9 +24,12 @@ const COLORS = [
 // Per-level: round time, lie probability (word color != ink), target score.
 // Procedural infinite scaling.
 const LEVEL_CFG = (level: number) => ({
-  time: Math.max(10, 32 - level * 2),
+  // Keep the clock generous (floor 18s) and slow the target growth + cap it so
+  // high levels stay reachable: at ~2 correct taps/sec a skilled player can still
+  // clear even the capped target within the time budget.
+  time: Math.max(18, 32 - level * 1.5),
   lieProb: Math.min(1, 0.3 + level * 0.15),
-  target: 8 + level * 6,
+  target: Math.min(28, 8 + level * 3),
 });
 
 function pickRound(lieProb: number) {

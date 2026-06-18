@@ -58,7 +58,7 @@ function makeBalls(count: number, bw: number, bh: number, speed: number): Ball[]
 
 export function ChainBoom({ game, onBack, onComplete, initialLevel }: Props) {
   const { width, height } = useWindowDimensions();
-  const boardH = height * 0.65;
+  const boardH = Math.min(height * 0.62, height - 210);
   const boardW = width - 32;
 
   const [level, setLevel] = useState(initialLevel ?? 1);

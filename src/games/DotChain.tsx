@@ -440,8 +440,8 @@ export function DotChain({ game, onBack, onComplete, initialLevel }: Props) {
       <View
         ref={gridRef}
         onLayout={() => {
-          gridRef.current?.measure((_x, _y, _w, _h, px, py) => {
-            gridOrigin.current = { x: px, y: py };
+          gridRef.current?.measureInWindow((x, y) => {
+            gridOrigin.current = { x, y };
           });
         }}
         style={{

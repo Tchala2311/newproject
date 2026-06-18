@@ -155,7 +155,10 @@ export function FallingLetters({ game, onBack, onComplete, initialLevel }: Props
     );
   }
 
-  const playH = Math.floor(height * 0.40);
+  // Reserve the 3-row keyboard (~150px) plus GameShell header/timer/instruction
+  // (~150px) so the keyboard's bottom row is always on-screen on short devices.
+  const KEYBOARD_H = 150;
+  const playH = Math.floor(Math.min(height * 0.40, height - 150 - KEYBOARD_H));
   const now = Date.now();
 
   return (

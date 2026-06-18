@@ -14,7 +14,10 @@ type Props = {
 };
 
 const LEVEL_CFG = (level: number) => ({
-  size: Math.min(10, 4 + level),
+  // Cap board size at 8 (was 10): the line-solver enumerates arrangements per
+  // line, which grows combinatorially, so 9–10 could freeze the JS thread (ANR)
+  // on a level transition. 8x8 keeps the search space bounded and responsive.
+  size: Math.min(8, 4 + level),
   fillProb: 0.5 + Math.max(0, 0.15 - level * 0.02),
   mistakes: Math.max(2, 6 - level),
 });
@@ -50,10 +53,15 @@ function clues(line: boolean[]): number[] {
 }
 
 // All 0/1 fillings of a line of length `len` whose runs match `clue`.
+// Hard-capped: stops enumerating past MAX_ARRANGEMENTS so one pathological line
+// can't blow up the synchronous solver. Hitting the cap just makes
+// isLineSolvable conservatively report "not uniquely solvable" (safe fallback).
+const MAX_ARRANGEMENTS = 4000;
 function lineArrangements(clue: number[], len: number): number[][] {
   const res: number[][] = [];
   const blocks = clue.length === 1 && clue[0] === 0 ? [] : clue;
   const place = (idx: number, acc: number[]) => {
+    if (res.length > MAX_ARRANGEMENTS) return;
     if (idx === blocks.length) {
       const arr = acc.slice();
       while (arr.length < len) arr.push(0);
@@ -80,7 +88,12 @@ function lineArrangements(clue: number[], len: number): number[][] {
 // cells. state cell: 0 unknown, 1 filled, -1 empty. Returns null on contradiction.
 function solveLine(clue: number[], cur: number[]): number[] | null {
   const len = cur.length;
-  const arrs = lineArrangements(clue, len).filter((a) =>
+  const all = lineArrangements(clue, len);
+  // Enumeration was capped: the arrangement set is incomplete, so we can't
+  // safely intersect. Report "no progress" (return cur unchanged) — this just
+  // prevents isLineSolvable from fully solving and triggers the fallback.
+  if (all.length > MAX_ARRANGEMENTS) return cur.slice();
+  const arrs = all.filter((a) =>
     a.every((v, idx) => cur[idx] === 0 || (cur[idx] === 1 ? v === 1 : v === 0)),
   );
   if (arrs.length === 0) return null;
@@ -124,9 +137,16 @@ function isLineSolvable(puzzle: boolean[][]): boolean {
   return true;
 }
 
+// Each genPuzzle produces a valid, always-winnable board (the win check only
+// requires reproducing its filled cells). isLineSolvable is the stricter
+// "solvable by logic alone / unique" fairness check; if we can't find one within
+// a bounded number of attempts we fall back to the last valid board instead of
+// burning unbounded CPU on the render thread (the cause of the ANR).
 function genSolvablePuzzle(size: number, prob: number): boolean[][] {
   let board = genPuzzle(size, prob);
-  for (let attempt = 0; attempt < 40 && !isLineSolvable(board); attempt += 1) {
+  // Bound attempts low on big boards where each solver pass is most expensive.
+  const maxAttempts = size >= 7 ? 8 : 20;
+  for (let attempt = 0; attempt < maxAttempts && !isLineSolvable(board); attempt += 1) {
     board = genPuzzle(size, prob);
   }
   return board;

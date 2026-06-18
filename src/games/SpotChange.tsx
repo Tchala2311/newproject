@@ -254,8 +254,11 @@ export function SpotChange({ game, onBack, onComplete, initialLevel }: Props) {
         return;
       }
       if (!feedbackCorrect && wrongTapRef.current) {
-        // Wrong tap: resume same puzzle so player can keep looking
+        // Wrong tap: resume same puzzle so player can keep looking. The −2s
+        // penalty may have driven time to ~0; clamp up so the timeout effect
+        // doesn't immediately fire a life loss with no chance to react.
         wrongTapRef.current = false;
+        setTimeLeft((t: number) => Math.max(t, 1.5));
         setPhase('playing');
         return;
       }

@@ -17,7 +17,7 @@ const FALL_SPEED = (level: number) => 2.5 + level * 0.5;
 const ITEMS = ['🍎','🍊','🍋','🍇','🍓','🫐','🥝','🍒'];
 const BOMB = '💣';
 
-type FallingItem = { id: number; x: number; y: number; emoji: string };
+type FallingItem = { id: number; x: number; y: number; prevY: number; emoji: string };
 let NEXT_ID = 0;
 
 export function CatchDrop({ game, onBack, onComplete, initialLevel }: Props) {
@@ -63,7 +63,7 @@ export function CatchDrop({ game, onBack, onComplete, initialLevel }: Props) {
     const interval = setInterval(() => {
       const isBomb = Math.random() < 0.15;
       const emoji = isBomb ? BOMB : ITEMS[Math.floor(Math.random() * ITEMS.length)];
-      setItems((prev) => [...prev, { id: ++NEXT_ID, x: Math.random() * (boardW - ITEM_SIZE), y: -ITEM_SIZE, emoji }]);
+      setItems((prev) => [...prev, { id: ++NEXT_ID, x: Math.random() * (boardW - ITEM_SIZE), y: -ITEM_SIZE, prevY: -ITEM_SIZE, emoji }]);
     }, Math.max(500, 1000 - level * 60));
     return () => clearInterval(interval);
   }, [phase, level, boardW]);
@@ -76,24 +76,16 @@ export function CatchDrop({ game, onBack, onComplete, initialLevel }: Props) {
       lastTs = ts;
       setItems((prev) => {
         const speed = FALL_SPEED(level) * (dt / 16.67);
-        return prev.map((item) => ({ ...item, y: item.y + speed })).filter((item) => {
-          if (item.y > boardH) {
-            if (item.emoji !== BOMB) {
-              livesRef.current = Math.max(0, livesRef.current - 1);
-              setLives(livesRef.current);
-              if (livesRef.current <= 0 && gamePhaseRef.current === 'playing') {
-                gamePhaseRef.current = 'complete';
-                const p = scoreRef.current >= TARGET(level);
-                setPassed(p);
-                setPhase('complete');
-                onComplete(p, scoreRef.current * 50, { level });
-              }
-            }
-            return false;
-          }
+        return prev.map((item) => ({ ...item, prevY: item.y, y: item.y + speed })).filter((item) => {
           const bx = basketXRef.current;
-          if (item.y + ITEM_SIZE >= boardH - BASKET_H &&
-              item.x + ITEM_SIZE > bx && item.x < bx + BASKET_W) {
+          // Swept catch test: at high fall speeds an item can skip past the basket
+          // band between frames. Catch if the item-bottom crossed the band this
+          // frame (prev above band, now at/below it) while horizontally over basket.
+          const bandTop = boardH - BASKET_H;
+          const prevBottom = item.prevY + ITEM_SIZE;
+          const currBottom = item.y + ITEM_SIZE;
+          const sweptIntoBand = currBottom >= bandTop && prevBottom <= boardH;
+          if (sweptIntoBand && item.x + ITEM_SIZE > bx && item.x < bx + BASKET_W) {
             if (item.emoji === BOMB) {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
               livesRef.current = Math.max(0, livesRef.current - 1);
@@ -109,6 +101,20 @@ export function CatchDrop({ game, onBack, onComplete, initialLevel }: Props) {
               setPassed(p);
               setPhase('complete');
               onComplete(p, scoreRef.current * 50, { level });
+            }
+            return false;
+          }
+          if (item.y > boardH) {
+            if (item.emoji !== BOMB) {
+              livesRef.current = Math.max(0, livesRef.current - 1);
+              setLives(livesRef.current);
+              if (livesRef.current <= 0 && gamePhaseRef.current === 'playing') {
+                gamePhaseRef.current = 'complete';
+                const p = scoreRef.current >= TARGET(level);
+                setPassed(p);
+                setPhase('complete');
+                onComplete(p, scoreRef.current * 50, { level });
+              }
             }
             return false;
           }

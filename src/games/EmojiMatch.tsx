@@ -38,7 +38,12 @@ export function EmojiMatch({ game, onBack, onComplete, initialLevel }: Props) {
   const { width, height } = useWindowDimensions();
   const [level, setLevel] = useState(initialLevel ?? 1);
   const cfg = LEVEL_CFG(level);
-  const cell = Math.min((width - 60) / cfg.cols, height * 0.14);
+  // Size by both width AND a height budget. The board can wrap into up to
+  // ceil(pairs*2/cols) rows; cap total board height at ~0.6·height by dividing
+  // that budget by the row count so cells shrink as levels add rows.
+  const rows = Math.ceil((cfg.pairs * 2) / cfg.cols);
+  const availH = height * 0.6;
+  const cell = Math.min((width - 60) / cfg.cols, availH / rows);
 
   const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
   const [tiles, setTiles] = useState<Tile[]>(() => makeBoard(cfg.pairs));

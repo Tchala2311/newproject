@@ -48,11 +48,13 @@ export function SwipeSnake({ game, onBack, onComplete, initialLevel }: Props) {
   const [dir, setDir] = useState<Dir>('R');
   const dirRef = useRef<Dir>('R');
   const [food, setFood] = useState<Pt>({ x: 9, y: 9 });
+  const foodRef = useRef<Pt>({ x: 9, y: 9 });
   const [lastPassed, setLastPassed] = useState(false);
   const [lastScore, setLastScore] = useState(0);
   const completeResultRef = useRef<{ won: boolean; score: number; level: number } | null>(null);
 
   useEffect(() => { dirRef.current = dir; }, [dir]);
+  useEffect(() => { foodRef.current = food; }, [food]);
 
   useEffect(() => {
     if (phase === 'complete' && completeResultRef.current) {
@@ -84,12 +86,15 @@ export function SwipeSnake({ game, onBack, onComplete, initialLevel }: Props) {
           }
           return prev;
         }
-        const ate = next.x === food.x && next.y === food.y;
+        const f = foodRef.current;
+        const ate = next.x === f.x && next.y === f.y;
         const newSnake = [next, ...prev];
         if (!ate) newSnake.pop();
         else {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-          setFood(spawnFood(newSnake));
+          const nf = spawnFood(newSnake);
+          foodRef.current = nf;
+          setFood(nf);
           const len = newSnake.length - 3;
           if (len >= cfg.target && !completeResultRef.current) {
             const sc = len * level * 10;
@@ -103,7 +108,7 @@ export function SwipeSnake({ game, onBack, onComplete, initialLevel }: Props) {
       });
     }, cfg.tickMs);
     return () => clearInterval(t);
-  }, [phase, food, onComplete, cfg.tickMs, cfg.target, level]);
+  }, [phase, onComplete, cfg.tickMs, cfg.target, level]);
 
   const turnedRef = useRef(false);
   const responder = useRef(
@@ -125,6 +130,7 @@ export function SwipeSnake({ game, onBack, onComplete, initialLevel }: Props) {
     completeResultRef.current = null;
     setSnake([{ x: 6, y: 9 }, { x: 5, y: 9 }, { x: 4, y: 9 }]);
     setDir('R');
+    foodRef.current = { x: 9, y: 9 };
     setFood({ x: 9, y: 9 });
     setPhase('playing');
   };

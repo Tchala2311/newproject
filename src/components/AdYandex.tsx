@@ -39,11 +39,20 @@ function buildAdHtml(blockId: string): string {
     <div id="yandex_rtb_${blockId}"></div>
   </div>
   <script>
+    function flikPost(tag) {
+      try { window.ReactNativeWebView && window.ReactNativeWebView.postMessage(tag); } catch (e) {}
+    }
     window.yaContextCb.push(function() {
-      Ya.Context.AdvManager.render({
-        blockId: "${blockId}",
-        renderTo: "yandex_rtb_${blockId}"
-      });
+      try {
+        Ya.Context.AdvManager.render({
+          blockId: "${blockId}",
+          renderTo: "yandex_rtb_${blockId}",
+          onRender: function() { flikPost('ad-ok'); },
+          onError: function() { flikPost('ad-fail'); }
+        });
+      } catch (e) { flikPost('ad-fail'); }
+      // Fallback: signal anyway if the SDK never invokes a callback.
+      setTimeout(function() { flikPost('ad-timeout'); }, 4000);
     });
   </script>
 </body>
@@ -55,11 +64,32 @@ const AD_HTML = buildAdHtml(BLOCK_ID);
 type Props = {
   height: number;
   bottomInset: number;
+  // Fires when the ad has actually rendered (or definitively failed/timed out),
+  // so callers can gate a skip/continue button on a real impression rather than
+  // a blind fixed delay.
+  onLoaded?: () => void;
 };
 
-export function AdYandex({ height, bottomInset }: Props) {
+export function AdYandex({ height, bottomInset, onLoaded }: Props) {
   const [loaded, setLoaded] = useState(false);
   const webViewRef = useRef<WebView>(null);
+  const firedRef = useRef(false);
+
+  // Signal "ad resolved" exactly once — on render, failure, timeout, or the
+  // native safety net below — so a gating caller is never stuck waiting.
+  const fire = () => {
+    if (firedRef.current) return;
+    firedRef.current = true;
+    onLoaded?.();
+  };
+
+  // Safety net: if no in-page signal ever arrives (script blocked, offline),
+  // resolve anyway after a few seconds.
+  useEffect(() => {
+    const t = setTimeout(fire, 4500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Ad slots mount/unmount constantly as the feed is swiped; stopping the
   // WebView on unmount halts the in-page Yandex script and curbs native memory
@@ -84,7 +114,8 @@ export function AdYandex({ height, bottomInset }: Props) {
         cacheEnabled
         cacheMode="LOAD_CACHE_ELSE_NETWORK"
         onLoad={() => setLoaded(true)}
-        onError={() => setLoaded(true)}
+        onError={() => { setLoaded(true); fire(); }}
+        onMessage={() => { setLoaded(true); fire(); }}
         allowsInlineMediaPlayback
         mediaPlaybackRequiresUserAction={false}
         nestedScrollEnabled={false}

@@ -198,9 +198,13 @@ export function WaterSort({ game, onBack, onComplete, initialLevel }: Props) {
   }
 
   const totalTubes = cfg.colorCount + cfg.buffers;
-  const maxTubeW = Math.floor((width - 32) / Math.min(totalTubes, 5)) - 10;
+  const perRow = Math.min(totalTubes, 5);
+  const maxTubeW = Math.floor((width - 32) / perRow) - 10;
   const tubeWidth = Math.min(maxTubeW, totalTubes > 6 ? 54 : 68);
-  const segH = Math.floor(Math.min(height * 0.55, 400) / TUBE_HEIGHT);
+  // Tubes flexWrap into `rows` rows; divide the height budget by that so every
+  // row fits within the content box (2 rows at level 4+ no longer overflow).
+  const tubeRows = Math.ceil(totalTubes / perRow);
+  const segH = Math.floor(Math.min(height * 0.55, 400) / tubeRows / TUBE_HEIGHT);
   const tubeHeight = TUBE_HEIGHT * segH + 4;
 
   return (

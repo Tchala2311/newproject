@@ -40,8 +40,9 @@ export function StackIt({ game, onBack, onComplete, initialLevel }: Props) {
   // Keep stWRef updated if dimensions change (e.g., orientation)
   stWRef.current = ST_W;
   // Speed grows with score; read from a ref inside the loop so the RAF doesn't
-  // have to restart (and stutter) on every drop.
-  speedRef.current = cfg.baseSpeed + score * 0.04;
+  // have to restart (and stutter) on every drop. Cap at 9 px/frame so the slider
+  // never moves faster than a human can reliably time a clean drop (luck-based).
+  speedRef.current = Math.min(9, cfg.baseSpeed + score * 0.04);
 
   useEffect(() => { cxRef.current = cx; }, [cx]);
   useEffect(() => { cwRef.current = cw; }, [cw]);
@@ -75,6 +76,8 @@ export function StackIt({ game, onBack, onComplete, initialLevel }: Props) {
     const left = Math.max(cxRef.current, last.x);
     const right = Math.min(cxRef.current + cwRef.current, last.x + last.w);
     const newW = right - left;
+    // Fail only on a true miss (<=4px overlap). The real difficulty fix is the
+    // speed cap above; keeping this threshold low stays forgiving.
     if (newW <= 4) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       setLastPassed(false);

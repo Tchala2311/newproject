@@ -16,9 +16,11 @@ type Props = {
 type State = 'idle' | 'waiting' | 'go' | 'tooEarly';
 
 // Level config: rounds and target avg ms.
+// Floor is 300ms (above human reaction+touch latency) and the slope is softened
+// so high levels stay humanly winnable.
 const LEVEL_CFG = (level: number) => ({
   rounds: Math.min(8, 2 + level),
-  targetMs: Math.max(220, 400 - level * 25),
+  targetMs: Math.max(300, 400 - level * 15),
 });
 
 export function Reflex333({ game, onBack, onComplete, initialLevel }: Props) {
@@ -68,7 +70,12 @@ export function Reflex333({ game, onBack, onComplete, initialLevel }: Props) {
       if (next >= cfg.rounds) {
         if (completedRef.current) return;
         completedRef.current = true;
-        const avg = Math.round(newScores.reduce((a, b) => a + b, 0) / newScores.length);
+        // Drop the single worst round before averaging so one slow/fumbled tap
+        // can't mathematically doom an otherwise-good run (needs >=2 rounds).
+        const trimmed = newScores.length > 1
+          ? [...newScores].sort((a, b) => a - b).slice(0, -1)
+          : newScores;
+        const avg = Math.round(trimmed.reduce((a, b) => a + b, 0) / trimmed.length);
         const passed = avg <= cfg.targetMs;
         const score = Math.max(0, (cfg.targetMs * 2 - avg) * level);
         setLastPassed(passed);
