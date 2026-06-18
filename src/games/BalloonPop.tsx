@@ -10,7 +10,7 @@ type Props = { game: Game; onBack: () => void; onComplete: (won: boolean, score:
 
 const GAME_TIME = 30;
 const TARGET = (level: number) => 8 + level * 3;
-const BALLOON_EMOJIS = ['🎈', '🟠', '🔵', '🟣', '🟢', '🟡'];
+const BALLOON_EMOJIS = ['🎈', '🎀', '🎊', '🎉', '💫', '⭐'];
 
 type Balloon = { id: number; x: number; emoji: string; anim: Animated.Value; size: number };
 
@@ -101,7 +101,7 @@ export function BalloonPop({ game, onBack, onComplete, initialLevel }: Props) {
   }
 
   return (
-    <GameShell game={game} onBack={onBack} score={`${score} 🎈`} label={`⏱ ${timeLeft}с · нужно ${TARGET(level)}`}>
+    <GameShell game={game} onBack={onBack} score={`${score} 🎈`} label={`нужно ${TARGET(level)}`} timer={timeLeft} timerMax={GAME_TIME}>
       <View style={{ width: width - 32, height: boardH, overflow: 'hidden', borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.2)' }}>
         {balloons.map((b) => (
           <Animated.View key={b.id} style={{ position: 'absolute', left: b.x, transform: [{ translateY: b.anim }] }}>

@@ -47,11 +47,13 @@ function scoreForLevel(level: number): number {
   return Math.min(200, 50 + level * 15);
 }
 
+const MAX_LIVES = 3;
 type Phase = 'playing' | 'wrong' | 'levelComplete' | 'gameOver';
 
 export function OddColor({ game, onBack, onComplete, initialLevel = 1 }: Props) {
   const { width } = useWindowDimensions();
   const [level, setLevel] = useState(initialLevel);
+  const [lives, setLives] = useState(MAX_LIVES);
   const [totalScore, setTotalScore] = useState(0);
   const [phase, setPhase] = useState<Phase>('playing');
   const [oddIdx, setOddIdx] = useState(0);
@@ -124,7 +126,15 @@ export function OddColor({ game, onBack, onComplete, initialLevel = 1 }: Props) 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       setWrongIdx(idx);
       setPhase('wrong');
-      shake(() => setPhase('gameOver'));
+      const newLives = lives - 1;
+      setLives(newLives);
+      shake(() => {
+        if (newLives <= 0) {
+          setPhase('gameOver');
+        } else {
+          startRound(level);
+        }
+      });
     }
   };
 
@@ -135,7 +145,7 @@ export function OddColor({ game, onBack, onComplete, initialLevel = 1 }: Props) 
           won={false}
           score={totalScore}
           accent={game.accent}
-          onRestart={() => { setLevel(1); setTotalScore(0); startRound(1); }}
+          onRestart={() => { setLevel(1); setTotalScore(0); setLives(MAX_LIVES); startRound(1); }}
           onBack={onBack}
           game={game}
         />
@@ -152,7 +162,7 @@ export function OddColor({ game, onBack, onComplete, initialLevel = 1 }: Props) 
         scoreLabel="Очки"
         accent={game.accent}
         showAd={shouldShowAdAfter(level)}
-        onContinue={() => setLevel(l => l + 1)}
+        onContinue={() => { setLives(MAX_LIVES); setLevel(l => l + 1); }}
         onRetry={() => startRound(level)}
         onBack={onBack}
       />
@@ -167,8 +177,10 @@ export function OddColor({ game, onBack, onComplete, initialLevel = 1 }: Props) 
   const baseColor = hslToHex(baseHue, baseSat, baseLit);
   const oddColor = hslToHex(baseHue, baseSat, baseLit + diff);
 
+  const hearts = Array.from({ length: MAX_LIVES }, (_, i) => (i < lives ? '❤️' : '🖤')).join('');
+
   return (
-    <GameShell game={game} onBack={onBack} score={totalScore} label={`Ур. ${level}`}>
+    <GameShell game={game} onBack={onBack} score={totalScore} label={`${hearts} · Ур. ${level}`}>
       <Animated.View
         style={{ alignItems: 'center', justifyContent: 'center', flex: 1, transform: [{ translateX: shakeAnim }] }}
       >

@@ -90,6 +90,11 @@ const TILE_BG: Record<number, string> = {
   64: '#f65e3b',
   128: '#edcf72',
   256: '#edcc61',
+  512: '#e8c84a',
+  1024: '#e5c132',
+  2048: '#e5bf1a',
+  4096: '#22c55e',
+  8192: '#3b82f6',
 };
 
 const TILE_TEXT: Record<number, string> = {
@@ -101,6 +106,11 @@ const TILE_TEXT: Record<number, string> = {
   64: '#fff',
   128: '#fff',
   256: '#fff',
+  512: '#fff',
+  1024: '#fff',
+  2048: '#fff',
+  4096: '#fff',
+  8192: '#fff',
 };
 
 type Props = { game: Game; onBack: () => void; onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void; initialLevel?: number };

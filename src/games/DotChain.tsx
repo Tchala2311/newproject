@@ -140,7 +140,7 @@ const PUZZLES: Puzzle[] = [
 ];
 
 function getPuzzle(level: number): Puzzle {
-  return PUZZLES[Math.min(level - 1, PUZZLES.length - 1)];
+  return PUZZLES[(level - 1) % PUZZLES.length];
 }
 
 // paths[color] = list of {r,c} cells in order

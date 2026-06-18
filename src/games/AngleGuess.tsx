@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { PanResponder, Text, View, useWindowDimensions } from 'react-native';
+import { PanResponder, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import Svg, { Circle, Line } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
@@ -303,7 +303,8 @@ export function AngleGuess({ game, onBack, onComplete, initialLevel }: Props) {
       )}
 
       {phase === 'input' ? (
-        <View
+        <Pressable
+          onPress={submit}
           style={{
             marginTop: 20,
             backgroundColor: game.accent,
@@ -312,13 +313,10 @@ export function AngleGuess({ game, onBack, onComplete, initialLevel }: Props) {
             borderRadius: radius.pill,
           }}
         >
-          <Text
-            onPress={submit}
-            style={{ fontSize: 15, fontFamily: fontFamily.bold, color: '#000' }}
-          >
+          <Text style={{ fontSize: 15, fontFamily: fontFamily.bold, color: '#000' }}>
             Готово
           </Text>
-        </View>
+        </Pressable>
       ) : null}
 
       <Text

@@ -105,10 +105,15 @@ export function SwipeSnake({ game, onBack, onComplete, initialLevel }: Props) {
     return () => clearInterval(t);
   }, [phase, food, onComplete, cfg.tickMs, cfg.target, level]);
 
+  const turnedRef = useRef(false);
   const responder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 8 || Math.abs(g.dy) > 8,
-      onPanResponderRelease: (_, g) => {
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 12 || Math.abs(g.dy) > 12,
+      onPanResponderGrant: () => { turnedRef.current = false; },
+      onPanResponderMove: (_, g) => {
+        if (turnedRef.current) return;
+        if (Math.abs(g.dx) < 12 && Math.abs(g.dy) < 12) return;
+        turnedRef.current = true;
         const horiz = Math.abs(g.dx) > Math.abs(g.dy);
         const next: Dir = horiz ? (g.dx > 0 ? 'R' : 'L') : (g.dy > 0 ? 'D' : 'U');
         if (next !== opp[dirRef.current]) setDir(next);

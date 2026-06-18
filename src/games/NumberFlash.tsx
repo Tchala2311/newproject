@@ -26,7 +26,7 @@ type Phase = 'showing' | 'input' | 'levelComplete' | 'gameOver';
 const MAX_LIVES = 3;
 
 function seqLength(level: number) {
-  return level + 2;
+  return Math.min(level + 2, 8);
 }
 
 function displayDuration(level: number) {

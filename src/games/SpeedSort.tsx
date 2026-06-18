@@ -18,6 +18,7 @@ const CATEGORIES: Category[] = [
 ];
 
 const TOTAL = 12;
+const GAME_TIME = (level: number) => Math.max(15, 35 - level * 2);
 
 type Card = { emoji: string; category: string };
 
@@ -52,6 +53,8 @@ export function SpeedSort({ game, onBack, onComplete, initialLevel }: Props) {
   const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
   const [passed, setPassed] = useState(false);
   const [lastScore, setLastScore] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(() => GAME_TIME(initialLevel ?? 1));
+  const timeLeftRef = useRef(GAME_TIME(initialLevel ?? 1));
   const pan = useRef(new Animated.ValueXY()).current;
   const correctRef = useRef(0);
 
@@ -112,11 +115,34 @@ export function SpeedSort({ game, onBack, onComplete, initialLevel }: Props) {
     },
   })).current;
 
+  useEffect(() => {
+    if (phase !== 'playing') return;
+    const t = setInterval(() => {
+      const next = timeLeftRef.current - 1;
+      timeLeftRef.current = next;
+      setTimeLeft(Math.max(0, next));
+      if (next <= 0 && !completedRef.current) {
+        clearInterval(t);
+        completedRef.current = true;
+        const lvl = levelRef.current;
+        const p = correctRef.current >= Math.ceil(roundRef.current.deck.length * 0.7);
+        const score = correctRef.current * 80 * lvl;
+        setLastScore(score);
+        setPassed(p);
+        setPhase('complete');
+        onComplete(p, score, { level: lvl, correct: correctRef.current });
+      }
+    }, 1000);
+    return () => clearInterval(t);
+  }, [phase]);
+
   const startNewRound = useCallback((nextLevel: number) => {
     completedRef.current = false;
     correctRef.current = 0;
     setCorrect(0);
     setIdx(0);
+    timeLeftRef.current = GAME_TIME(nextLevel);
+    setTimeLeft(GAME_TIME(nextLevel));
     const r = newRound();
     setRound(r);
     roundRef.current = r;
@@ -141,7 +167,7 @@ export function SpeedSort({ game, onBack, onComplete, initialLevel }: Props) {
   }
 
   return (
-    <GameShell game={game} onBack={onBack} score={`${correct}/${deck.length}`} label={`Ур. ${level}`}>
+    <GameShell game={game} onBack={onBack} score={`${correct}/${deck.length}`} label={`Ур. ${level}`} timer={timeLeft} timerMax={GAME_TIME(level)}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: Math.min(width - 32, 300), marginBottom: 12 }}>
         <View style={{ alignItems: 'center', flex: 1 }}>
           <Text style={{ fontSize: 28 }}>{leftCat.emoji}</Text>

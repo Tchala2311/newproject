@@ -150,7 +150,7 @@ export function CatchDrop({ game, onBack, onComplete, initialLevel }: Props) {
   }
 
   return (
-    <GameShell game={game} onBack={onBack} score={`${score} 🧺`} label={`❤️ ${lives} · ⏱ ${timeLeft}с · нужно ${TARGET(level)}`}>
+    <GameShell game={game} onBack={onBack} score={`${score} 🧺`} label={`❤️ ${lives} · нужно ${TARGET(level)}`} timer={timeLeft} timerMax={GAME_TIME}>
       <View {...panResponder.panHandlers} style={{ width: boardW, height: boardH, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
         {items.map((item) => (
           <Text key={item.id} style={{ position: 'absolute', left: item.x, top: item.y, fontSize: ITEM_SIZE }}>{item.emoji}</Text>

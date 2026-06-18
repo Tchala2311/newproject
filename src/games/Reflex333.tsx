@@ -18,7 +18,7 @@ type State = 'idle' | 'waiting' | 'go' | 'tooEarly';
 // Level config: rounds and target avg ms.
 const LEVEL_CFG = (level: number) => ({
   rounds: Math.min(8, 2 + level),
-  targetMs: Math.max(180, 400 - level * 25),
+  targetMs: Math.max(220, 400 - level * 25),
 });
 
 export function Reflex333({ game, onBack, onComplete, initialLevel }: Props) {

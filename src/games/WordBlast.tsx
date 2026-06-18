@@ -68,21 +68,28 @@ export function WordBlast({ game, onBack, onComplete, initialLevel }: Props) {
     setInput([]);
   }, [wi, word]);
 
+  const scoreRef = useRef(0);
+  scoreRef.current = score;
+
+  // Timer ticks independently — score changes must not reset the clock.
   useEffect(() => {
     if (phase !== 'playing') return undefined;
-    if (timer <= 0) {
-      if (completedRef.current) return undefined;
-      completedRef.current = true;
-      const passed = score >= cfg.target;
-      setLastPassed(passed);
-      setLastScore(score);
-      setPhase('complete');
-      onComplete(passed, score, { level });
-      return undefined;
-    }
-    const t = setTimeout(() => setTimer((p) => p - 1), 1000);
-    return () => clearTimeout(t);
-  }, [phase, timer, score, cfg.target, onComplete]);
+    const t = setInterval(() => setTimer((p) => Math.max(0, p - 1)), 1000);
+    return () => clearInterval(t);
+  }, [phase, wi]); // wi resets timer to cfg.time, so restart interval on new word
+
+  // End-check only fires when timer hits 0.
+  useEffect(() => {
+    if (phase !== 'playing' || timer > 0) return;
+    if (completedRef.current) return;
+    completedRef.current = true;
+    const finalScore = scoreRef.current;
+    const passed = finalScore >= cfg.target;
+    setLastPassed(passed);
+    setLastScore(finalScore);
+    setPhase('complete');
+    onComplete(passed, finalScore, { level });
+  }, [timer, phase]);
 
   // Cancel the pending "wrong word" reshuffle if we unmount mid-animation.
   useEffect(() => () => { if (wrongTimeoutRef.current) clearTimeout(wrongTimeoutRef.current); }, []);
