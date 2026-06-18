@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { GestureResponderEvent, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import Svg, { Path, Circle as SvgCircle } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
 import { LevelComplete, shouldShowAdAfter } from './LevelComplete';
 import { GameResult } from './GameResult';
-import { fontFamily, colors, radius } from '../theme';
+import { GameBackButton } from './GameBackButton';
+import { fontFamily, colors, radius, SAFE_TOP } from '../theme';
 
 type Props = {
   game: Game;
@@ -178,6 +179,23 @@ export function ColorOrder({ game, onBack, onComplete, initialLevel = 1 }: Props
     Haptics.selectionAsync().catch(() => {});
   };
 
+  // react-native-svg <Path onPress> does not fire reliably in this runtime, so
+  // the wheel is wrapped in a single RN Pressable and we resolve which wedge was
+  // tapped from the touch coordinates. Wedges are painted from -90° (top) going
+  // clockwise — match that exact convention so the tapped pixel maps to the same
+  // index the SVG drew.
+  const handleCircleTap = (e: GestureResponderEvent) => {
+    if (phase !== 'playing') return;
+    const { locationX, locationY } = e.nativeEvent;
+    const dx = locationX - cx;
+    const dy = locationY - cy;
+    if (Math.hypot(dx, dy) > r) return; // tapped outside the wheel
+    let rel = Math.atan2(dy, dx) + Math.PI / 2;
+    rel = ((rel % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+    const idx = Math.min(n - 1, Math.floor(rel / ((2 * Math.PI) / n)));
+    handleSegmentPress(idx);
+  };
+
   if (phase === 'levelComplete') {
     return (
       <LevelComplete level={level} passed score={score} scoreLabel="Очки" accent={game.accent}
@@ -200,8 +218,9 @@ export function ColorOrder({ game, onBack, onComplete, initialLevel = 1 }: Props
 
   return (
     <View style={{ flex: 1, backgroundColor: '#0D0D0D', alignItems: 'center', justifyContent: 'space-around' }}>
+      <GameBackButton onPress={onBack} style={{ position: 'absolute', top: SAFE_TOP - 8, left: 14, zIndex: 50 }} />
       {/* Header */}
-      <View style={{ flexDirection: 'row', gap: 12, paddingTop: 8 }}>
+      <View style={{ flexDirection: 'row', gap: 12, paddingTop: SAFE_TOP }}>
         <View style={{ backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20 }}>
           <Text style={{ fontSize: 12, fontFamily: fontFamily.bold, color: '#fff', letterSpacing: 1 }}>УР. {level}</Text>
         </View>
@@ -211,8 +230,8 @@ export function ColorOrder({ game, onBack, onComplete, initialLevel = 1 }: Props
       </View>
 
       {/* Circle */}
-      <View style={{ width: circleSize, height: circleSize }}>
-        <Svg width={circleSize} height={circleSize}>
+      <Pressable onPress={handleCircleTap} style={{ width: circleSize, height: circleSize }}>
+        <Svg width={circleSize} height={circleSize} pointerEvents="none">
           {shadeColors.map((_, i) => {
             const startAngle = -Math.PI / 2 + (i / n) * 2 * Math.PI;
             const endAngle = -Math.PI / 2 + ((i + 1) / n) * 2 * Math.PI;
@@ -233,13 +252,12 @@ export function ColorOrder({ game, onBack, onComplete, initialLevel = 1 }: Props
                 fill={fill}
                 stroke={isSelected ? game.accent : '#fff'}
                 strokeWidth={isSelected ? 2 : 0.5}
-                onPress={() => handleSegmentPress(i)}
               />
             );
           })}
           <SvgCircle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={1} />
         </Svg>
-      </View>
+      </Pressable>
 
       {/* Hint */}
       <Text style={{ fontSize: 12, fontFamily: fontFamily.medium, color: wrongFlash ? '#FF3B30' : colors.textFaint, textAlign: 'center', paddingHorizontal: 24 }}>

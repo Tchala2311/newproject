@@ -5,7 +5,8 @@ import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
 import { LevelComplete, shouldShowAdAfter } from './LevelComplete';
 import { GameResult } from './GameResult';
-import { fontFamily, colors } from '../theme';
+import { GameBackButton } from './GameBackButton';
+import { fontFamily, colors, SAFE_TOP } from '../theme';
 
 type Props = {
   game: Game;
@@ -170,7 +171,8 @@ export function TowerStack({ game, onBack, onComplete, initialLevel = 1 }: Props
       <LinearGradient colors={['#1A0010', '#2D0020', '#0A0010']} style={{ flex: 1 }}>
 
         {/* Header */}
-        <View style={{ paddingTop: 16, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <View style={{ paddingTop: SAFE_TOP, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <GameBackButton onPress={onBack} />
           <View style={{ backgroundColor: 'rgba(0,0,0,0.4)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20 }}>
             <Text style={{ fontSize: 12, fontFamily: fontFamily.bold, color: '#fff', letterSpacing: 1 }}>
               УР. {level}

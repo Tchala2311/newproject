@@ -4,7 +4,8 @@ import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
 import { LevelComplete, shouldShowAdAfter } from './LevelComplete';
 import { GameResult } from './GameResult';
-import { fontFamily, colors } from '../theme';
+import { GameBackButton } from './GameBackButton';
+import { fontFamily, colors, SAFE_TOP } from '../theme';
 
 type Props = {
   game: Game;
@@ -255,7 +256,8 @@ export function BlockFill({ game, onBack, onComplete, initialLevel = 1 }: Props)
   return (
     <View style={{ flex: 1, backgroundColor: '#0D0D0D', alignItems: 'center' }}>
       {/* Header */}
-      <View style={{ paddingTop: 16, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+      <View style={{ paddingTop: SAFE_TOP, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+        <GameBackButton onPress={onBack} />
         <View style={{ backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20 }}>
           <Text style={{ fontSize: 12, fontFamily: fontFamily.bold, color: '#fff', letterSpacing: 1 }}>УР. {level}</Text>
         </View>
@@ -271,7 +273,7 @@ export function BlockFill({ game, onBack, onComplete, initialLevel = 1 }: Props)
       </View>
 
       {/* Grid */}
-      <View style={{ marginTop: 24 }}>
+      <View style={{ marginTop: 12 }}>
         {grid.map((rowArr, r) => (
           <View key={r} style={{ flexDirection: 'row' }}>
             {rowArr.map((cell, c) => {

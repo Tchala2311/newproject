@@ -4,7 +4,8 @@ import * as Haptics from 'expo-haptics';
 import { Game } from '../data/games';
 import { LevelComplete, shouldShowAdAfter } from './LevelComplete';
 import { GameResult } from './GameResult';
-import { colors, fontFamily, radius } from '../theme';
+import { GameBackButton } from './GameBackButton';
+import { colors, fontFamily, radius, SAFE_TOP } from '../theme';
 
 type Props = {
   game: Game;
@@ -227,8 +228,13 @@ export function CoinGrab({ game, onBack, onComplete, initialLevel = 1 }: Props) 
     >
       <View style={{ flex: 1, backgroundColor: '#0A0A0A' }}>
 
+        {/* Back row — kept separate so the player/bot scoreboard stays symmetric */}
+        <View style={{ paddingTop: SAFE_TOP, paddingHorizontal: 14 }}>
+          <GameBackButton onPress={onBack} />
+        </View>
+
         {/* Score bar */}
-        <View style={{ paddingTop: 16, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <View style={{ paddingTop: 8, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View style={{ alignItems: 'center' }}>
             <Text style={{ fontSize: 22, fontFamily: fontFamily.bold, color: '#fff' }}>{score}</Text>
             <Text style={{ fontSize: 10, fontFamily: fontFamily.semibold, color: colors.textDim, letterSpacing: 1 }}>ТЫ</Text>
