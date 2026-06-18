@@ -18,7 +18,7 @@ type Phase = 'idle' | 'playing' | 'levelComplete' | 'gameOver';
 
 const BALL_RADIUS = 10;
 const TAPS_TO_WIN = 20;
-const MAX_LIVES_L1 = 3;
+const MAX_LIVES = 3;
 
 function corridorGap(level: number) {
   return Math.max(48, 120 - level * 8);
@@ -28,8 +28,10 @@ function ballSpeed(level: number) {
   return 2.5 + level * 0.4;
 }
 
-function maxLives(level: number) {
-  return level === 1 ? MAX_LIVES_L1 : 1;
+function maxLives(_level: number) {
+  // Fair across all levels — difficulty already scales via speed + corridor gap,
+  // so a single mistake on level 2+ should no longer be an instant game over.
+  return MAX_LIVES;
 }
 
 export function Zigzag({ game, onBack, onComplete, initialLevel }: Props) {

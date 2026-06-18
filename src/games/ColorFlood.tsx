@@ -143,8 +143,8 @@ export function ColorFlood({ game, onBack, onComplete, initialLevel }: Props) {
           );
         })}
       </View>
-      <Text style={{ fontSize: 11, color: colors.textDim, fontFamily: fontFamily.semibold }}>
-        Закрась всё поле одним цветом
+      <Text style={{ fontSize: 11, color: colors.textDim, fontFamily: fontFamily.semibold, textAlign: 'center' }}>
+        Заливка идёт из левого верхнего угла (◤).{'\n'}Закрась всё поле одним цветом.
       </Text>
       <View style={{ flexDirection: 'row', gap: 10 }}>
         {CF_COLORS.slice(0, cfg.palette).map((c, i) => {

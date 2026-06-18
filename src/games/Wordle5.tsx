@@ -45,7 +45,7 @@ const LEVEL_CFG = (level: number) => {
   return { tries, words };
 };
 
-const KEYBOARD = ['ЙЦУКЕНГШЩЗХЪ', 'ФЫВАПРОЛДЖЭ', 'ЯЧСМИТЬБЮ'];
+const KEYBOARD = ['ЙЦУКЕНГШЩЗХЪ', 'ФЫВАПРОЛДЖЭЁ', 'ЯЧСМИТЬБЮ'];
 
 type Cell = { ch: string; state: 'empty' | 'absent' | 'present' | 'correct' };
 

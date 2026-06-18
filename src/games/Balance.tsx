@@ -80,8 +80,11 @@ export function Balance({ game, onBack, onComplete, initialLevel }: Props) {
 
   const computeAngle = useCallback(
     (lw: number, rw: number, cw: number): number => {
-      const adjustedLeft = lw + cw;
-      const adjustedRight = rw - cw;
+      // Counterweight follows the button you press: → (positive cw) shifts weight
+      // to the RIGHT and leans the beam right; ← (negative cw) shifts it left. This
+      // matches the physical "slide the weight" expectation — previously inverted.
+      const adjustedLeft = lw - cw;
+      const adjustedRight = rw + cw;
       const total = adjustedLeft + adjustedRight;
       if (total === 0) return 0;
       const raw = Math.atan((adjustedRight - adjustedLeft) / Math.max(total, 1)) * (180 / Math.PI);

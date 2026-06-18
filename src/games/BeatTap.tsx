@@ -233,6 +233,19 @@ export function BeatTap({ game, onBack, onComplete, initialLevel }: Props) {
           <View style={{ height: 3, backgroundColor: game.accent, opacity: 0.6 }} />
         </View>
 
+        {/* Persistent combo streak — shown as soon as a streak starts so the
+            per-hit bonus (combo × 5) is no longer hidden until combo 5. */}
+        {combo >= 2 ? (
+          <View pointerEvents="none" style={{ position: 'absolute', top: 10, right: 12, alignItems: 'flex-end' }}>
+            <Text style={{ fontSize: 18, fontFamily: fontFamily.bold, color: '#FFB454', textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 }}>
+              🔥 x{combo}
+            </Text>
+            <Text style={{ fontSize: 11, fontFamily: fontFamily.semibold, color: '#FFD9A0' }}>
+              +{combo * 5} / нота
+            </Text>
+          </View>
+        ) : null}
+
         {/* Notes */}
         {notes.map((n) => {
           if (n.judgement) return null;
@@ -274,8 +287,8 @@ export function BeatTap({ game, onBack, onComplete, initialLevel }: Props) {
             >
               {flash === 'perfect' ? 'PERFECT!' : flash === 'good' ? 'GOOD' : 'MISS'}
             </Text>
-            {combo >= 5 ? (
-              <Text style={{ fontSize: 16, fontFamily: fontFamily.bold, color: '#FFB454' }}>x{combo}</Text>
+            {combo >= 2 ? (
+              <Text style={{ fontSize: 16, fontFamily: fontFamily.bold, color: '#FFB454' }}>x{combo} комбо</Text>
             ) : null}
           </View>
         ) : null}

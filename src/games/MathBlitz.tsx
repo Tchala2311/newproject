@@ -46,6 +46,7 @@ export function MathBlitz({ game, onBack, onComplete, initialLevel }: Props) {
   const [lastScore, setLastScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(SECS_PER_Q(initialLevel ?? 1));
   const [flash, setFlash] = useState<'right' | 'wrong' | null>(null);
+  const [picked, setPicked] = useState<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const advanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const correctRef = useRef(0);
@@ -74,6 +75,7 @@ export function MathBlitz({ game, onBack, onComplete, initialLevel }: Props) {
     timeLeftRef.current = SECS_PER_Q(level);
     setTimeLeft(SECS_PER_Q(level));
     setFlash(null);
+    setPicked(null);
     transitioningRef.current = false;
   }, [qIdx, level, onComplete]);
 
@@ -91,8 +93,9 @@ export function MathBlitz({ game, onBack, onComplete, initialLevel }: Props) {
       timeLeftRef.current = t;
       setTimeLeft(Math.max(0, t));
       if (t <= 0) {
+        // Time ran out — reveal the correct answer (green) before moving on.
         setFlash('wrong');
-        scheduleAdvance(false, 400);
+        scheduleAdvance(false, 700);
       }
     }, 1000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
@@ -103,9 +106,11 @@ export function MathBlitz({ game, onBack, onComplete, initialLevel }: Props) {
   const answer = (choice: number) => {
     if (transitioningRef.current) return;
     const ok = choice === q.answer;
+    setPicked(choice);
     Haptics.notificationAsync(ok ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error).catch(() => {});
     setFlash(ok ? 'right' : 'wrong');
-    scheduleAdvance(ok, 350);
+    // Hold the reveal long enough to actually read which answer was correct.
+    scheduleAdvance(ok, 650);
   };
 
   if (phase === 'complete') {
@@ -126,15 +131,31 @@ export function MathBlitz({ game, onBack, onComplete, initialLevel }: Props) {
           <Text style={{ fontSize: 36, fontFamily: fontFamily.bold, color: '#fff' }}>{q.expr} = ?</Text>
         </View>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
-          {q.choices.map((c) => (
-            <Pressable key={c} onPress={() => answer(c)}
-              style={{
-                width: btnW, paddingVertical: 20, borderRadius: 14, alignItems: 'center',
-                backgroundColor: `${game.accent}18`, borderWidth: 1, borderColor: `${game.accent}50`,
-              }}>
-              <Text style={{ fontSize: 26, fontFamily: fontFamily.bold, color: game.accent }}>{c}</Text>
-            </Pressable>
-          ))}
+          {q.choices.map((c) => {
+            const revealing = flash !== null;
+            const isAnswer = c === q.answer;
+            const isPicked = c === picked;
+            let bg = `${game.accent}18`;
+            let border = `${game.accent}50`;
+            let txt = game.accent;
+            if (revealing) {
+              if (isAnswer) { bg = 'rgba(34,197,94,0.22)'; border = '#22C55E'; txt = '#22C55E'; }
+              else if (isPicked) { bg = 'rgba(239,68,68,0.22)'; border = '#EF4444'; txt = '#F87171'; }
+              else { bg = 'rgba(255,255,255,0.04)'; border = 'rgba(255,255,255,0.10)'; txt = colors.textDim; }
+            }
+            return (
+              <Pressable key={c} onPress={() => answer(c)} disabled={revealing}
+                style={{
+                  width: btnW, paddingVertical: 20, borderRadius: 14, alignItems: 'center',
+                  backgroundColor: bg, borderWidth: 1, borderColor: border,
+                }}>
+                <Text style={{ fontSize: 26, fontFamily: fontFamily.bold, color: txt }}>{c}</Text>
+                {revealing && isAnswer ? (
+                  <Text style={{ fontSize: 11, fontFamily: fontFamily.semibold, color: '#22C55E', marginTop: 2 }}>верно ✓</Text>
+                ) : null}
+              </Pressable>
+            );
+          })}
         </View>
       </View>
     </GameShell>

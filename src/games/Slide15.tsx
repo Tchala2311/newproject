@@ -77,6 +77,7 @@ export function Slide15({ game, onBack, onComplete, initialLevel }: Props) {
   const cfg = LEVEL_CFG(level);
   const [board, setBoard] = useState<Board>(() => shuffle(cfg.size, cfg.shuffles));
   const [moves, setMoves] = useState(0);
+  const [history, setHistory] = useState<Board[]>([]);
   const [phase, setPhase] = useState<'playing' | 'complete'>('playing');
   const [lastPassed, setLastPassed] = useState(false);
   const [lastScore, setLastScore] = useState(0);
@@ -92,6 +93,7 @@ export function Slide15({ game, onBack, onComplete, initialLevel }: Props) {
     if (dx + dy !== 1) return;
     const next = clone(board);
     [next[y][x], next[empty.y][empty.x]] = [next[empty.y][empty.x], next[y][x]];
+    setHistory((h) => [...h, board]);
     setBoard(next);
     setMoves((m) => m + 1);
     Haptics.selectionAsync().catch(() => {});
@@ -107,10 +109,20 @@ export function Slide15({ game, onBack, onComplete, initialLevel }: Props) {
     }
   };
 
+  const undo = () => {
+    if (phase !== 'playing' || completedRef.current || history.length === 0) return;
+    const prev = history[history.length - 1];
+    setHistory((h) => h.slice(0, -1));
+    setBoard(prev);
+    setMoves((m) => Math.max(0, m - 1));
+    Haptics.selectionAsync().catch(() => {});
+  };
+
   const reset = () => {
     completedRef.current = false;
     setBoard(shuffle(cfg.size, cfg.shuffles));
     setMoves(0);
+    setHistory([]);
     setPhase('playing');
   };
 
@@ -121,6 +133,7 @@ export function Slide15({ game, onBack, onComplete, initialLevel }: Props) {
     setLevel(nl);
     setBoard(shuffle(nc.size, nc.shuffles));
     setMoves(0);
+    setHistory([]);
     setPhase('playing');
   };
 
@@ -170,6 +183,25 @@ export function Slide15({ game, onBack, onComplete, initialLevel }: Props) {
           </View>
         ))}
       </View>
+      <Pressable
+        onPress={undo}
+        disabled={history.length === 0}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          paddingHorizontal: 22,
+          paddingVertical: 12,
+          borderRadius: 12,
+          backgroundColor: history.length === 0 ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.14)',
+          borderWidth: 1,
+          borderColor: colors.glassBorder,
+          opacity: history.length === 0 ? 0.45 : 1,
+        }}
+      >
+        <Text style={{ fontSize: 18 }}>↩︎</Text>
+        <Text style={{ fontSize: 14, fontFamily: fontFamily.semibold, color: colors.text }}>Отменить ход</Text>
+      </Pressable>
     </GameShell>
   );
 }
