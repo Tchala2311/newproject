@@ -17,15 +17,17 @@ function buildAdHtml(blockId: string): string {
     html, body {
       background: #08071A;
       width: 100%; height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
       overflow: hidden;
     }
     #ad-wrap {
       width: 100%;
-      min-height: 240px;
     }
     #yandex_rtb_${blockId} {
       width: 100%;
-      min-height: 240px;
       display: block;
     }
   </style>
@@ -79,11 +81,12 @@ export function AdYandex({ height, bottomInset }: Props) {
         javaScriptEnabled
         domStorageEnabled
         thirdPartyCookiesEnabled
+        cacheEnabled
+        cacheMode="LOAD_CACHE_ELSE_NETWORK"
         onLoad={() => setLoaded(true)}
         onError={() => setLoaded(true)}
         allowsInlineMediaPlayback
         mediaPlaybackRequiresUserAction={false}
-        // Prevent the WebView from capturing swipe gestures meant for the feed
         nestedScrollEnabled={false}
       />
     </View>

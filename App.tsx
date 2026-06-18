@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import * as SystemUI from 'expo-system-ui';
 import {
   useFonts,
@@ -122,15 +122,20 @@ function Shell() {
   );
 }
 
+function LoadingScreen() {
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center', gap: 20 }}>
+      <StatusBar style="light" />
+      <Text style={{ fontSize: 42, fontWeight: '800', color: '#fff', letterSpacing: -1 }}>FLIK</Text>
+      <ActivityIndicator color="#C99FE6" size="large" />
+    </View>
+  );
+}
+
 function Gate() {
   const { session, authLoading, user, hydrated } = useUser();
-  if (authLoading) {
-    return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
-  }
+  if (authLoading || !hydrated) return <LoadingScreen />;
   if (!session) return <AuthScreen />;
-  if (!hydrated) {
-    return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
-  }
   if (!user) return <OnboardingScreen />;
   return <Shell />;
 }
@@ -143,13 +148,7 @@ export default function App() {
     SpaceGrotesk_700Bold,
   });
 
-  if (!fontsLoaded) {
-    return (
-      <View style={{ flex: 1, backgroundColor: colors.bg }}>
-        <StatusBar style="light" />
-      </View>
-    );
-  }
+  if (!fontsLoaded) return <LoadingScreen />;
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
