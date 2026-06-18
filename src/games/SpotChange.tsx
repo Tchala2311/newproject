@@ -114,6 +114,8 @@ export function SpotChange({ game, onBack, onComplete, initialLevel }: Props) {
   const [flashId, setFlashId] = useState<number | null>(null);
   const wrongTapRef = useRef(false);
   const completedRef = useRef(false);
+  const winTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (winTimerRef.current) clearTimeout(winTimerRef.current); }, []);
 
   const shapeCount = 6 + Math.min(level - 1, 4); // 6–10
 
@@ -164,7 +166,8 @@ export function SpotChange({ game, onBack, onComplete, initialLevel }: Props) {
       setFeedbackCorrect(false);
       setFeedbackText('Время вышло!');
       setPhase('feedback');
-      if (newLives <= 0) {
+      if (newLives <= 0 && !completedRef.current) {
+        completedRef.current = true;
         onComplete(false, score, { level, round });
       }
     }
@@ -205,7 +208,7 @@ export function SpotChange({ game, onBack, onComplete, initialLevel }: Props) {
         if (round >= ROUNDS_PER_LEVEL && !completedRef.current) {
           completedRef.current = true;
           setLastLevelScore(newScore - score + gained);
-          setTimeout(() => {
+          winTimerRef.current = setTimeout(() => {
             setPhase('levelComplete');
             onComplete(true, newScore, { level, round });
           }, 900);

@@ -211,8 +211,9 @@ export function Picross({ game, onBack, onComplete, initialLevel }: Props) {
 
   const startNextLevel = () => {
     completedRef.current = false;
-    setLevel((l) => l + 1);
-    const nc = LEVEL_CFG(level + 1);
+    const nextLevel = level + 1;
+    setLevel(nextLevel);
+    const nc = LEVEL_CFG(nextLevel);
     setGrid(Array.from({ length: nc.size }, () => Array(nc.size).fill('empty')));
     setMistakes(0);
     setPhase('playing');

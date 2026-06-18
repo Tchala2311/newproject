@@ -47,6 +47,9 @@ export function TowerStack({ game, onBack, onComplete, initialLevel = 1 }: Props
   const phaseRef = useRef<Phase>('playing');
   const blocksRef = useRef<Block[]>([{ x: 0, w: PLAY_W, color: NEON_COLORS[0] }]);
   const colorIdxRef = useRef(1);
+  // Synchronous single-fire latch — phaseRef lags by a commit, so a sub-frame
+  // double-tap could otherwise reach onComplete twice.
+  const reportedRef = useRef(false);
 
   // Camera scroll: scrollY tracks how many blocks are stacked
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -81,6 +84,7 @@ export function TowerStack({ game, onBack, onComplete, initialLevel = 1 }: Props
   }, [phase, level, PLAY_W]);
 
   const reset = useCallback((lv: number) => {
+    reportedRef.current = false;
     const base: Block[] = [{ x: 0, w: PLAY_W, color: NEON_COLORS[0] }];
     blocksRef.current = base;
     setBlocks(base);
@@ -106,6 +110,8 @@ export function TowerStack({ game, onBack, onComplete, initialLevel = 1 }: Props
     const newW = right - left;
 
     if (newW <= MIN_WIDTH) {
+      if (reportedRef.current) return;
+      reportedRef.current = true;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       setPhase('gameOver');
       onComplete(false, score, { level });
@@ -132,6 +138,8 @@ export function TowerStack({ game, onBack, onComplete, initialLevel = 1 }: Props
     syncScroll(newBlocks.length);
 
     if (newBlocks.length > BLOCKS_TO_WIN) {
+      if (reportedRef.current) return;
+      reportedRef.current = true;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setPhase('levelComplete');
       onComplete(true, newScore, { level });

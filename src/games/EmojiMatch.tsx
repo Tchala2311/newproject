@@ -50,6 +50,17 @@ export function EmojiMatch({ game, onBack, onComplete, initialLevel }: Props) {
   const [lastScore, setLastScore] = useState(0);
   const completedRef = useRef(false);
 
+  // Tick the countdown once per second, independent of taps. Previously the 1s
+  // timeout shared an effect with the board-state checks, so every tap (which
+  // changes tiles/moves) cleared and recreated it — a fast tapper could freeze
+  // the clock and make the time-out loss unreachable.
+  useEffect(() => {
+    if (phase !== 'playing') return;
+    const t = setInterval(() => setTime((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [phase]);
+
+  // Win/lose detection.
   useEffect(() => {
     if (phase !== 'playing') return;
     if (time <= 0) {
@@ -70,10 +81,7 @@ export function EmojiMatch({ game, onBack, onComplete, initialLevel }: Props) {
       setLastScore(score);
       setPhase('complete');
       onComplete(true, score, { level });
-      return;
     }
-    const t = setTimeout(() => setTime((s) => s - 1), 1000);
-    return () => clearTimeout(t);
   }, [time, phase, tiles, moves, onComplete, cfg.pairs, level]);
 
   const tap = (idx: number) => {

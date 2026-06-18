@@ -18,7 +18,7 @@ const TARGET_SCORE = (level: number) => 4 + level * 2;
 const OBSTACLE_W = 22;
 const OBSTACLE_INTERVAL = 120;
 
-type Obstacle = { x: number; topH: number };
+type Obstacle = { id: number; x: number; topH: number };
 
 export function GravityFlip({ game, onBack, onComplete, initialLevel }: Props) {
   const { width, height } = useWindowDimensions();
@@ -40,6 +40,7 @@ export function GravityFlip({ game, onBack, onComplete, initialLevel }: Props) {
   const scoreRef = useRef(0);
   const rafRef = useRef<number | null>(null);
   const gamePhaseRef = useRef<'idle' | 'playing' | 'complete'>('idle');
+  const obstacleIdRef = useRef(0);
 
   const gap = GAP(level);
 
@@ -80,7 +81,7 @@ export function GravityFlip({ game, onBack, onComplete, initialLevel }: Props) {
       if (spawnAccRef.current >= spawnMs) {
         spawnAccRef.current -= spawnMs;
         const topH = 20 + Math.random() * (BOARD_H - gap - 40);
-        obstacles.current.push({ x: BOARD_W, topH });
+        obstacles.current.push({ id: obstacleIdRef.current++, x: BOARD_W, topH });
       }
       obstacles.current = obstacles.current.map((o) => ({ ...o, x: o.x - SPEED * scale }));
       obstacles.current = obstacles.current.filter((o) => {
@@ -145,8 +146,8 @@ export function GravityFlip({ game, onBack, onComplete, initialLevel }: Props) {
         {phase === 'playing' && (
           <>
             <View style={{ position: 'absolute', left: 30, top: playerY.current, width: PLAYER_W, height: PLAYER_H, borderRadius: 6, backgroundColor: game.accent }} />
-            {obstacles.current.map((o, i) => (
-              <React.Fragment key={i}>
+            {obstacles.current.map((o) => (
+              <React.Fragment key={o.id}>
                 <View style={{ position: 'absolute', left: o.x, top: 0, width: OBSTACLE_W, height: o.topH, backgroundColor: '#7E22CE', borderRadius: 4 }} />
                 <View style={{ position: 'absolute', left: o.x, top: o.topH + gap, width: OBSTACLE_W, height: BOARD_H - o.topH - gap, backgroundColor: '#7E22CE', borderRadius: 4 }} />
               </React.Fragment>

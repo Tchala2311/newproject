@@ -68,6 +68,10 @@ export function ChainBoom({ game, onBack, onComplete, initialLevel }: Props) {
   const [explodedCount, setExplodedCount] = useState(0);
   const [canTap, setCanTap] = useState(true);
   const [, forceUpdate] = useState(0);
+  // Bumped on retry (same level) to re-arm the RAF loop, which self-terminates
+  // when the round ends — without this, retrying the same level soft-locks
+  // because the [level]-keyed effect doesn't re-run.
+  const [restartNonce, setRestartNonce] = useState(0);
 
   const ballsRef = useRef<Ball[]>([]);
   const explosionsRef = useRef<Explosion[]>([]);
@@ -211,7 +215,7 @@ export function ChainBoom({ game, onBack, onComplete, initialLevel }: Props) {
 
     rafRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [level, boardW, boardH, onComplete]);
+  }, [level, boardW, boardH, onComplete, restartNonce]);
 
   const handleTap = useCallback((evt: any) => {
     if (!canTapRef.current || phaseRef.current !== 'playing') return;
@@ -240,7 +244,7 @@ export function ChainBoom({ game, onBack, onComplete, initialLevel }: Props) {
         accent={game.accent}
         showAd={shouldShowAdAfter(level)}
         onContinue={() => setLevel((l: number) => l + 1)}
-        onRetry={() => initLevel(level)}
+        onRetry={() => { initLevel(level); setRestartNonce((n) => n + 1); }}
         onBack={onBack}
       />
     );
@@ -254,7 +258,7 @@ export function ChainBoom({ game, onBack, onComplete, initialLevel }: Props) {
           score={lastScore}
           accent={game.accent}
           game={game}
-          onRestart={() => initLevel(level)}
+          onRestart={() => { initLevel(level); setRestartNonce((n) => n + 1); }}
           onBack={onBack}
         />
       </View>

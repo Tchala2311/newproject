@@ -216,11 +216,22 @@ export function BlockFill({ game, onBack, onComplete, initialLevel = 1 }: Props)
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setPhase('levelComplete');
       onComplete(true, newScore, { level });
-    } else if (newPieces.length === 0 && !isFull(newGrid)) {
-      // Ran out of pieces but grid not full
-      completedRef.current = true;
-      setPhase('gameOver');
-      onComplete(false, newScore, { level });
+    } else {
+      // Dead end if no remaining piece fits anywhere (or we're out of pieces with
+      // the grid unfilled). Without this the round can hang with no win/lose
+      // resolution, so onComplete/scoring is never reported for that round.
+      const anyPlaceable = newPieces.some((p) => {
+        for (let r = 0; r < newGrid.length; r++)
+          for (let c = 0; c < newGrid[0].length; c++)
+            if (canPlace(newGrid, p.shape, r, c)) return true;
+        return false;
+      });
+      if (newPieces.length === 0 || !anyPlaceable) {
+        completedRef.current = true;
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+        setPhase('gameOver');
+        onComplete(false, newScore, { level });
+      }
     }
   };
 

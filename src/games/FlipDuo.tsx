@@ -48,8 +48,8 @@ export function FlipDuo({ game, onBack, onComplete, initialLevel }: Props) {
   const tap = useCallback(async (id: number) => {
     if (lockRef.current) return;
     setCards((prev) => {
-      const c = prev[id];
-      if (c.flipped || c.matched) return prev;
+      const c = prev.find((x) => x.id === id);
+      if (!c || c.flipped || c.matched) return prev;
       flipCard(c, 1);
       return prev.map((x) => x.id === id ? { ...x, flipped: true } : x);
     });
@@ -59,7 +59,10 @@ export function FlipDuo({ game, onBack, onComplete, initialLevel }: Props) {
         lockRef.current = true;
         setTimeout(async () => {
           setCards((deck) => {
-            const [a, b] = [deck[next[0]], deck[next[1]]];
+            // Cards are shuffled, so a card's id != its array index — always
+            // resolve by id, never by position.
+            const byId = (i: number) => deck.find((x) => x.id === i)!;
+            const [a, b] = [byId(next[0]), byId(next[1])];
             if (a.symbol === b.symbol) {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
               matchedRef.current += 1;
@@ -76,10 +79,10 @@ export function FlipDuo({ game, onBack, onComplete, initialLevel }: Props) {
             } else {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
               setMistakes((m) => m + 1);
-              deck[next[0]].anim.setValue(1); deck[next[1]].anim.setValue(1);
+              a.anim.setValue(1); b.anim.setValue(1);
               Animated.parallel([
-                Animated.timing(deck[next[0]].anim, { toValue: 0, duration: 180, useNativeDriver: true }),
-                Animated.timing(deck[next[1]].anim, { toValue: 0, duration: 180, useNativeDriver: true }),
+                Animated.timing(a.anim, { toValue: 0, duration: 180, useNativeDriver: true }),
+                Animated.timing(b.anim, { toValue: 0, duration: 180, useNativeDriver: true }),
               ]).start();
               lockRef.current = false;
               return deck.map((c) => next.includes(c.id) ? { ...c, flipped: false } : c);

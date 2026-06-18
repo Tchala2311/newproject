@@ -91,6 +91,9 @@ export function Wordle5({ game, onBack, onComplete, initialLevel }: Props) {
   const [lastPassed, setLastPassed] = useState(false);
   const [lastScore, setLastScore] = useState(0);
   const completedRef = useRef(false);
+  // Accumulates each solved word's bonus so a multi-word level's score reflects
+  // every word, not just the last one (rows reset between words).
+  const scoreAccRef = useRef(0);
 
   const press = (ch: string) => {
     if (phase !== 'playing' || current.length >= 5) return;
@@ -111,15 +114,17 @@ export function Wordle5({ game, onBack, onComplete, initialLevel }: Props) {
     setCurrent('');
     if (current === target) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      const wordBonus = (cfg.tries - newRows.length + 1) * 50 * level;
       const newSolved = solvedCount + 1;
       if (newSolved >= cfg.words) {
         completedRef.current = true;
-        const score = (cfg.tries - newRows.length + 1) * 50 * level;
+        const score = scoreAccRef.current + wordBonus;
         setLastPassed(true);
         setLastScore(score);
         setPhase('complete');
         onComplete(true, score, { level, attempts: newRows.length });
       } else {
+        scoreAccRef.current += wordBonus;
         setSolvedCount(newSolved);
         setTarget(pickWord());
         setRows([]);
@@ -138,6 +143,7 @@ export function Wordle5({ game, onBack, onComplete, initialLevel }: Props) {
 
   const reset = () => {
     completedRef.current = false;
+    scoreAccRef.current = 0;
     setTarget(pickWord());
     setSolvedCount(0);
     setRows([]);
@@ -147,6 +153,7 @@ export function Wordle5({ game, onBack, onComplete, initialLevel }: Props) {
 
   const startNextLevel = () => {
     completedRef.current = false;
+    scoreAccRef.current = 0;
     setLevel((l) => l + 1);
     setTarget(pickWord());
     setSolvedCount(0);

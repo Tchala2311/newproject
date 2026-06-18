@@ -57,6 +57,7 @@ export function NumberFlash({ game, onBack, onComplete, initialLevel }: Props) {
 
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const showingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<TextInput>(null);
   const completedRef = useRef(false);
 
@@ -64,6 +65,10 @@ export function NumberFlash({ game, onBack, onComplete, initialLevel }: Props) {
     if (showingTimeout.current) {
       clearTimeout(showingTimeout.current);
       showingTimeout.current = null;
+    }
+    if (retryTimeout.current) {
+      clearTimeout(retryTimeout.current);
+      retryTimeout.current = null;
     }
   };
 
@@ -121,7 +126,9 @@ export function NumberFlash({ game, onBack, onComplete, initialLevel }: Props) {
         setPhase('gameOver');
         onComplete(false, score, { level });
       } else {
-        setTimeout(() => {
+        retryTimeout.current = setTimeout(() => {
+          retryTimeout.current = null;
+          if (completedRef.current) return;
           setUserInput('');
           setStatusMsg('Введи число');
           inputRef.current?.focus();

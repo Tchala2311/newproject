@@ -134,22 +134,26 @@ export function WaveMatch({ game, onBack, onComplete, initialLevel }: Props) {
   const boardOriginRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const userPointsRef = useRef<Pt[]>([]);
   const phaseRef = useRef<Phase>('preview');
+  const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const waveParamsRef = useRef<WaveParams>(waveParams);
 
   phaseRef.current = phase;
   waveParamsRef.current = waveParams;
 
   const startPreview = useCallback((params: WaveParams) => {
+    if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
     setUserPoints([]);
     userPointsRef.current = [];
     setLastRoundScore(null);
     setPhase('preview');
     phaseRef.current = 'preview';
-    setTimeout(() => {
+    previewTimerRef.current = setTimeout(() => {
       setPhase('drawing');
       phaseRef.current = 'drawing';
     }, 2000);
   }, []);
+
+  useEffect(() => () => { if (previewTimerRef.current) clearTimeout(previewTimerRef.current); }, []);
 
   useEffect(() => {
     const params = randomWaveParams();

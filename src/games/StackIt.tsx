@@ -32,12 +32,16 @@ export function StackIt({ game, onBack, onComplete, initialLevel }: Props) {
   const cwRef = useRef(ST_W);
   const phaseRef = useRef(phase);
   const stWRef = useRef(ST_W);
+  const speedRef = useRef(0);
   const [score, setScore] = useState(0);
   const [lastPassed, setLastPassed] = useState(false);
   const [lastScore, setLastScore] = useState(0);
 
   // Keep stWRef updated if dimensions change (e.g., orientation)
   stWRef.current = ST_W;
+  // Speed grows with score; read from a ref inside the loop so the RAF doesn't
+  // have to restart (and stutter) on every drop.
+  speedRef.current = cfg.baseSpeed + score * 0.04;
 
   useEffect(() => { cxRef.current = cx; }, [cx]);
   useEffect(() => { cwRef.current = cw; }, [cw]);
@@ -47,13 +51,12 @@ export function StackIt({ game, onBack, onComplete, initialLevel }: Props) {
     if (phase !== 'playing') return undefined;
     let raf: number;
     let lastTs = 0;
-    const speed = cfg.baseSpeed + score * 0.04; // px per 60fps frame
     const loop = (ts: number) => {
       if (phaseRef.current !== 'playing') return;
       const dt = lastTs ? Math.min(ts - lastTs, 50) : 16.67;
       lastTs = ts;
       const stW = stWRef.current;
-      const next = cxRef.current + speed * (dt / 16.67) * dirRef.current;
+      const next = cxRef.current + speedRef.current * (dt / 16.67) * dirRef.current;
       if (next + cwRef.current > stW) dirRef.current = -1;
       else if (next < 0) dirRef.current = 1;
       const clamped = Math.max(0, Math.min(stW - cwRef.current, next));
@@ -63,7 +66,7 @@ export function StackIt({ game, onBack, onComplete, initialLevel }: Props) {
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [phase, score, cfg.baseSpeed]);
+  }, [phase]);
 
   const drop = () => {
     if (phase !== 'playing') return;

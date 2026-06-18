@@ -43,6 +43,17 @@ export function TapRush({ game, onBack, onComplete, initialLevel }: Props) {
   const nextId = useRef(100);
   const completedRef = useRef(false);
 
+  // Tick the countdown once per second, independent of pops. Previously the 1s
+  // timeout shared an effect with the score/target checks, so every pop (which
+  // changes `score`) cleared and recreated it — a fast tapper could freeze the
+  // clock, removing all time pressure and inflating the time-remaining bonus.
+  useEffect(() => {
+    if (phase !== 'playing' || !started) return undefined;
+    const t = setInterval(() => setTimer((p) => Math.max(0, p - 1)), 1000);
+    return () => clearInterval(t);
+  }, [phase, started]);
+
+  // Win (target reached) / lose (time out) detection.
   useEffect(() => {
     if (phase !== 'playing' || !started) return undefined;
     // Early-pass: hit target → instantly advance, reward the speedrunners.
@@ -64,8 +75,7 @@ export function TapRush({ game, onBack, onComplete, initialLevel }: Props) {
       onComplete(false, score, { level });
       return undefined;
     }
-    const t = setTimeout(() => setTimer((p) => p - 1), 1000);
-    return () => clearTimeout(t);
+    return undefined;
   }, [phase, started, timer, score, cfg.target, onComplete, level]);
 
   const reset = () => {

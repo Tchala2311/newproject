@@ -62,6 +62,10 @@ export function CoinGrab({ game, onBack, onComplete, initialLevel = 1 }: Props) 
   const itemIdRef = useRef(0);
   const itemsLeftRef = useRef(ITEMS_PER_LEVEL);
   const phaseRef = useRef<Phase>('playing');
+  // Live mirrors so the end-of-level decision (fired from a delayed timer that
+  // closes over stale state) reads the final player/bot scores.
+  const scoreRef = useRef(0); scoreRef.current = score;
+  const botScoreRef = useRef(0); botScoreRef.current = botScore;
 
   const coinScale = useRef(new Animated.Value(0)).current;
   const grabAnim = useRef(new Animated.Value(0)).current;
@@ -69,6 +73,7 @@ export function CoinGrab({ game, onBack, onComplete, initialLevel = 1 }: Props) 
   const clearTimers = () => {
     if (botTimerRef.current) clearTimeout(botTimerRef.current);
     if (nextItemTimerRef.current) clearTimeout(nextItemTimerRef.current);
+    if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
   };
 
   const popIn = () => {
@@ -88,7 +93,9 @@ export function CoinGrab({ game, onBack, onComplete, initialLevel = 1 }: Props) 
     if (phaseRef.current !== 'playing') return;
     if (remaining <= 0) {
       setTimeout(() => {
-        if (phaseRef.current === 'playing') setPhase('levelComplete');
+        if (phaseRef.current !== 'playing') return;
+        // Beat (or tie) the bot to clear the level — otherwise it's a loss.
+        setPhase(scoreRef.current >= botScoreRef.current ? 'levelComplete' : 'gameOver');
       }, 800);
       return;
     }
@@ -148,7 +155,7 @@ export function CoinGrab({ game, onBack, onComplete, initialLevel = 1 }: Props) 
   // Report completion exactly once when phase transitions
   useEffect(() => {
     if (phase === 'gameOver') {
-      onComplete(score > 0, score, { level });
+      onComplete(false, score, { level });
     } else if (phase === 'levelComplete') {
       onComplete(true, score, { level });
     }

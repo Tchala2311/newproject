@@ -69,6 +69,12 @@ export function Connect({ game, onBack, onComplete, initialLevel }: Props) {
   const boardOriginRef = useRef<{ x: number; y: number } | null>(null);
   const boardViewRef = useRef<View>(null);
   const completeRef = useRef<{ points: number } | null>(null);
+  // Live mirrors so the once-created PanResponder never reads a stale level /
+  // dot layout / phase (it would otherwise be frozen at the level-1 values and
+  // break every level after the first).
+  const phaseRef = useRef(phase); phaseRef.current = phase;
+  const levelRef = useRef(level); levelRef.current = level;
+  const dotsRef = useRef(dots); dotsRef.current = dots;
 
   const layoutBoard = () => {
     boardViewRef.current?.measureInWindow((x, y) => {
@@ -76,6 +82,12 @@ export function Connect({ game, onBack, onComplete, initialLevel }: Props) {
     });
     dotsAbsRef.current = dots.map((d) => ({ x: d.x * boardSize, y: d.y * boardSize, n: d.n }));
   };
+
+  // onLayout only fires on size changes, not when the dot layout swaps between
+  // levels — so refresh the absolute dot positions whenever the level changes.
+  useEffect(() => {
+    dotsAbsRef.current = dots.map((d) => ({ x: d.x * boardSize, y: d.y * boardSize, n: d.n }));
+  }, [level, boardSize]);
 
   const findDot = (lx: number, ly: number): Pt | null => {
     for (const d of dotsAbsRef.current) {
@@ -86,8 +98,8 @@ export function Connect({ game, onBack, onComplete, initialLevel }: Props) {
 
   const responder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => phase === 'playing',
-      onMoveShouldSetPanResponder: () => phase === 'playing',
+      onStartShouldSetPanResponder: () => phaseRef.current === 'playing',
+      onMoveShouldSetPanResponder: () => phaseRef.current === 'playing',
       onPanResponderGrant: (_, g) => {
         const origin = boardOriginRef.current ?? { x: 0, y: 0 };
         const lx = g.x0 - origin.x;
@@ -115,8 +127,8 @@ export function Connect({ game, onBack, onComplete, initialLevel }: Props) {
           }
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
           const next = [...prev, dot];
-          if (next.length === dots.length) {
-            const points = (100 + (dots.length - 5) * 50) * level;
+          if (next.length === dotsRef.current.length) {
+            const points = (100 + (dotsRef.current.length - 5) * 50) * levelRef.current;
             completeRef.current = { points };
             setLastPassed(true);
             setLastScore(points);
@@ -128,7 +140,7 @@ export function Connect({ game, onBack, onComplete, initialLevel }: Props) {
       },
       onPanResponderRelease: () => {
         setDrag(null);
-        setPath((prev) => (prev.length === dots.length ? prev : []));
+        setPath((prev) => (prev.length === dotsRef.current.length ? prev : []));
       },
     })
   ).current;

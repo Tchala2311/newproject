@@ -27,24 +27,39 @@ export function WhackMole({ game, onBack, onComplete, initialLevel }: Props) {
   const scoreRef = useRef(0);
   const moleTimers = useRef<(ReturnType<typeof setTimeout> | null)[]>(Array(CELLS).fill(null));
   const completeResultRef = useRef<{ passed: boolean } | null>(null);
+  // Live mirror of the board so popMole only targets EMPTY cells.
+  const molesRef = useRef(moles); molesRef.current = moles;
+
+  const clearMoleTimers = useCallback(() => {
+    moleTimers.current.forEach((t, i) => { if (t) { clearTimeout(t); moleTimers.current[i] = null; } });
+  }, []);
 
   const popMole = useCallback(() => {
-    const available = Array.from({ length: CELLS }, (_, i) => i);
-    const idx = available[Math.floor(Math.random() * available.length)];
+    // Pop only on a free cell — re-popping an occupied cell used to overwrite
+    // (and orphan) its hide-timer, making the existing mole vanish early.
+    const empties = molesRef.current.map((m, i) => (m ? -1 : i)).filter((i) => i >= 0);
+    if (empties.length === 0) return;
+    const idx = empties[Math.floor(Math.random() * empties.length)];
+    if (moleTimers.current[idx]) clearTimeout(moleTimers.current[idx]!);
     setMoles((prev) => { const n = [...prev]; n[idx] = true; return n; });
     moleTimers.current[idx] = setTimeout(() => {
       setMoles((prev) => { const n = [...prev]; n[idx] = false; return n; });
+      moleTimers.current[idx] = null;
     }, MOLE_DURATION(level));
   }, [level]);
 
   const startGame = useCallback(() => {
+    clearMoleTimers();
     scoreRef.current = 0;
     setScore(0);
     setTimeLeft(GAME_TIME);
     setMoles(Array(CELLS).fill(false));
-  }, []);
+  }, [clearMoleTimers]);
 
   useEffect(() => { startGame(); }, [level]);
+
+  // Clear any in-flight mole hide-timers on unmount.
+  useEffect(() => clearMoleTimers, [clearMoleTimers]);
 
   // Spawn moles on interval
   useEffect(() => {
