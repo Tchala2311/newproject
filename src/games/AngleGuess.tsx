@@ -60,7 +60,9 @@ function lineEndpoint(cx: number, cy: number, angleDeg: number, r: number) {
 
 export function AngleGuess({ game, onBack, onComplete, initialLevel }: Props) {
   const { width, height } = useWindowDimensions();
-  const boardSize = Math.min(width - 48, height * 0.52);
+  // Reserve vertical room for the title, score line, "Готово" button and hint
+  // below the dial so the controls never get pushed off-screen on short phones.
+  const boardSize = Math.min(width - 48, height * 0.52, height - 340);
   const cx = boardSize / 2;
   const cy = boardSize / 2;
   const lineR = boardSize * 0.42;

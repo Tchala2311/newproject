@@ -127,7 +127,7 @@ export function FlipDuo({ game, onBack, onComplete, initialLevel }: Props) {
   }
 
   return (
-    <GameShell game={game} onBack={onBack} score={`${matchedRef.current}/${pairsCount}`} label={`❌ ${mistakes}`}>
+    <GameShell game={game} onBack={onBack} score={`${cards.filter((c) => c.matched).length / 2}/${pairsCount}`} label={`❌ ${mistakes}`}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', width: gridW, justifyContent: 'center' }}>
         {cards.map((c) => {
           const rotateY = c.anim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] });

@@ -9,6 +9,9 @@ import { fontFamily } from '../theme';
 type Props = { game: Game; onBack: () => void; onComplete: (won: boolean, score: number, meta?: Record<string, number>) => void; initialLevel?: number };
 
 const PLAYER_SIZE = 30;
+// Single source of truth for the runner's left edge — used by both the collision
+// box and the rendered sprite so the hitbox lines up with what the player sees.
+const PLAYER_X = 44;
 const GRAVITY = 0.7;
 const JUMP_VY = -14;
 const OBSTACLE_W = 22;
@@ -97,10 +100,10 @@ export function RunnerJump({ game, onBack, onComplete, initialLevel }: Props) {
         obstacles.current.push({ id: ++OID, x: BOARD_W, h, emoji: OBSTACLE_EMOJIS[Math.floor(Math.random() * OBSTACLE_EMOJIS.length)] });
       }
       obstacles.current = obstacles.current.map((o) => ({ ...o, x: o.x - speedPx60 * scale })).filter((o) => {
-        if (o.x + OBSTACLE_W < 44) { scoreRef.current += 1; return false; }
+        if (o.x + OBSTACLE_W < PLAYER_X) { scoreRef.current += 1; return false; }
         return true;
       });
-      const px = 44, py = playerY.current;
+      const px = PLAYER_X, py = playerY.current;
       for (const o of obstacles.current) {
         if (px + PLAYER_SIZE - 4 > o.x && px + 4 < o.x + OBSTACLE_W &&
             py + PLAYER_SIZE - 4 > GROUND_Y - o.h) {
@@ -158,7 +161,7 @@ export function RunnerJump({ game, onBack, onComplete, initialLevel }: Props) {
           <>
             <View style={{ position: 'absolute', left: 0, top: GROUND_Y, right: 0, height: 3, backgroundColor: 'rgba(255,255,255,0.2)' }} />
             {/* scaleX:-1 flips the runner to face right toward incoming obstacles */}
-            <Text style={{ position: 'absolute', left: 38, top: playerY.current, fontSize: PLAYER_SIZE, transform: [{ scaleX: -1 }] }}>🏃</Text>
+            <Text style={{ position: 'absolute', left: PLAYER_X, top: playerY.current, fontSize: PLAYER_SIZE, transform: [{ scaleX: -1 }] }}>🏃</Text>
             {obstacles.current.map((o) => (
               <Text key={o.id} style={{ position: 'absolute', left: o.x, top: GROUND_Y - o.h - 4, fontSize: o.h + 10 }}>{o.emoji}</Text>
             ))}

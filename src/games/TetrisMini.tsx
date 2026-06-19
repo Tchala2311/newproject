@@ -118,8 +118,44 @@ export function TetrisMini({ game, onBack, onComplete, initialLevel }: Props) {
     }
   }, [phase]);
 
+  // Lock the active piece into the board: merge, clear lines, score, check
+  // win/lose, and return the next piece. Shared by the gravity tick and the
+  // hard drop so a hard drop locks instantly instead of waiting for a tick.
+  const commitLock = (b: Board, p: { kind: string; rot: number; x: number; y: number }) => {
+    const merged = merge(b, p);
+    const { board: cleared, lines } = clearLines(merged);
+    setBoard(cleared);
+    if (lines > 0) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      scoreRef.current += lines * 100 * level;
+      setScore(scoreRef.current);
+    }
+    setLinesCleared((l) => {
+      const nl = l + lines;
+      if (nl >= cfg.target && !doneFlagRef.current) {
+        doneFlagRef.current = true;
+        completeRef.current = { won: true, score: scoreRef.current };
+        setLastPassed(true);
+        setLastScore(scoreRef.current);
+        setPhase('complete');
+      }
+      return nl;
+    });
+    const nextPiece = spawnPiece();
+    if (collides(cleared, nextPiece) && !doneFlagRef.current) {
+      doneFlagRef.current = true;
+      completeRef.current = { won: false, score: scoreRef.current };
+      setLastPassed(false);
+      setLastScore(scoreRef.current);
+      setPhase('complete');
+    }
+    return nextPiece;
+  };
+
   // Tick — reads board from boardRef so removing `board` from deps prevents the
   // interval from restarting on every line clear (which caused a gravity stutter).
+  // commitLock is deliberately omitted from deps for the same reason (it's a new
+  // function each render); within a level cfg/level are constant so it's correct.
   useEffect(() => {
     if (phase !== 'playing') return;
     const t = setInterval(() => {
@@ -127,39 +163,7 @@ export function TetrisMini({ game, onBack, onComplete, initialLevel }: Props) {
       setPiece((p) => {
         const b = boardRef.current;
         const next = { ...p, y: p.y + 1 };
-        if (collides(b, next)) {
-          // Lock piece
-          const merged = merge(b, p);
-          const { board: cleared, lines } = clearLines(merged);
-          setBoard(cleared);
-          const lineScore = lines * 100 * level;
-          if (lines > 0) {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-            scoreRef.current += lineScore;
-            setScore(scoreRef.current);
-          }
-          setLinesCleared((l) => {
-            const nl = l + lines;
-            if (nl >= cfg.target && !doneFlagRef.current) {
-              doneFlagRef.current = true;
-              completeRef.current = { won: true, score: scoreRef.current };
-              setLastPassed(true);
-              setLastScore(scoreRef.current);
-              setPhase('complete');
-            }
-            return nl;
-          });
-          const nextPiece = spawnPiece();
-          if (collides(cleared, nextPiece) && !doneFlagRef.current) {
-            doneFlagRef.current = true;
-            completeRef.current = { won: false, score: scoreRef.current };
-            setLastPassed(false);
-            setLastScore(scoreRef.current);
-            setPhase('complete');
-          }
-          return nextPiece;
-        }
-        return next;
+        return collides(b, next) ? commitLock(b, p) : next;
       });
     }, cfg.tickMs);
     return () => clearInterval(t);
@@ -187,9 +191,11 @@ export function TetrisMini({ game, onBack, onComplete, initialLevel }: Props) {
     if (phase !== 'playing') return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     setPiece((p) => {
-      let next = p;
-      while (!collides(boardRef.current, { ...next, y: next.y + 1 })) next = { ...next, y: next.y + 1 };
-      return next;
+      const b = boardRef.current;
+      let landed = p;
+      while (!collides(b, { ...landed, y: landed.y + 1 })) landed = { ...landed, y: landed.y + 1 };
+      // Hard drop locks immediately instead of waiting for the next gravity tick.
+      return commitLock(b, landed);
     });
   };
 
