@@ -187,8 +187,12 @@ drop policy if exists "events_insert_self" on public.events;
 create policy "events_insert_self" on public.events
   for insert with check (auth.uid() = user_id or user_id is null);
 
--- No SELECT policy on events — clients can't read their own analytics.
--- Use the service_role key from a server cron to aggregate.
+-- The recommender builds each user's interest profile ON THE CLIENT, reading
+-- their behavioral history (play / view / skip / complete) back from `events`,
+-- so users may SELECT their OWN events only. No cross-user visibility.
+drop policy if exists "events_select_self" on public.events;
+create policy "events_select_self" on public.events
+  for select using (auth.uid() = user_id);
 
 -- ---------- profile creation trigger ----------------------------------------
 -- Profile rows are created by the client via OnboardingScreen (it picks the

@@ -26,6 +26,8 @@ import { logEvent } from '../store/events';
 import { fontFamily } from '../theme';
 import { getRankedFeed, logImpression, markEngaged } from '../lib/recommender';
 import type { FeedItem } from '../lib/recommender/mixer';
+import { setEventSyncUser, syncEvent, flushEvents } from '../lib/recommender/eventSync';
+import { recordSessionSignal, reorderFeedTail, resetSession } from '../lib/recommender/session';
 import { getDailyChallenge } from '../lib/dailyChallenge';
 
 type Props = {
@@ -54,7 +56,11 @@ function buildSimpleFeed(games: Game[]): FeedItem[] {
 }
 
 const viewabilityConfig = { itemVisiblePercentThreshold: 60 };
-const SKIP_THRESHOLD_MS = 2500;
+// Watch-time thresholds for grading how long a card held attention.
+const FAST_SKIP_MS = 1200;   // immediate swipe-past — strong negative
+const SHORT_DWELL_MS = 2500;  // quick swipe — mild negative
+const DWELL_CAP_MS = 12000;   // ignore idle-on-card time beyond this
+const GAME_BY_ID = new Map(GAMES.map((g) => [g.id, g]));
 
 export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedIdx, setFeedIdx }: Props) {
   const { height } = useWindowDimensions();
@@ -83,8 +89,31 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
   const userIdRef = useRef<string | null>(user?.id ?? null);
   useEffect(() => { userIdRef.current = user?.id ?? null; }, [user?.id]);
 
-  // Track when each game card became visible to compute skip signals.
+  // Point the behavioral-event sync at the current user and reset any in-session
+  // affinity so one account's session never bleeds into another's.
+  useEffect(() => {
+    setEventSyncUser(user?.id ?? null);
+    resetSession();
+  }, [user?.id]);
+  // Flush buffered behavioral events when the feed unmounts.
+  useEffect(() => () => { flushEvents(); }, []);
+
+  // Track when each game card became visible to compute watch-time signals.
   const cardVisibleAtRef = useRef<number>(0);
+  // Stable refs read by the (stable) viewability callback and engagement handlers.
+  const tabRef = useRef<FeedTab>('forYou');
+  const feedIdxRef = useRef(feedIdx);
+  useEffect(() => { feedIdxRef.current = feedIdx; }, [feedIdx]);
+  useEffect(() => { tabRef.current = tab; }, [tab]);
+  const playedGameIdsRef = useRef<Set<number>>(new Set());
+
+  // Re-rank the unseen tail (keeping the current + next card pinned) from live
+  // session affinity. No-op off the "Для тебя" tab; returns the same array when
+  // nothing reorders, so it won't trigger a wasted re-render.
+  const reorderTail = useCallback(() => {
+    if (tabRef.current !== 'forYou') return;
+    setForYouItems((prev) => reorderFeedTail(prev, feedIdxRef.current + 1));
+  }, []);
 
   const dailyChallenge = useMemo(() => getDailyChallenge(), []);
 
@@ -193,8 +222,8 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
     };
   }, [isAdVisible]);
 
-  // prevGameIdRef: tracks the last visible game so we can emit a skip if the
-  // user swiped past it faster than SKIP_THRESHOLD_MS.
+  // prevGameIdRef: tracks the last visible game so we can emit its watch-time
+  // (dwell) signal when the user swipes to the next card.
   const prevGameIdRef = useRef<number | null>(null);
 
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -202,11 +231,22 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
     const idx = viewableItems[0].index ?? 0;
     const now = Date.now();
 
-    // Emit skip for the card we're leaving if the user barely glanced at it.
-    if (prevGameIdRef.current !== null && cardVisibleAtRef.current > 0) {
-      const dwellMs = now - cardVisibleAtRef.current;
-      if (dwellMs < SKIP_THRESHOLD_MS) {
-        logEvent({ type: 'skip', gameId: prevGameIdRef.current });
+    // Watch-time signal for the card we're leaving: how long it held attention,
+    // and whether it was played. This graded dwell — from instant swipe-past to
+    // a long linger — is the recommender's core input (replaces the old binary
+    // "skip if < 2.5s"). Logged locally AND synced to Supabase for the ranker.
+    const leavingId = prevGameIdRef.current;
+    if (leavingId !== null && cardVisibleAtRef.current > 0) {
+      const dwellMs = Math.min(now - cardVisibleAtRef.current, DWELL_CAP_MS);
+      const played = playedGameIdsRef.current.has(leavingId) ? 1 : 0;
+      logEvent({ type: 'view', gameId: leavingId, meta: { dwellMs, played } });
+      syncEvent('view', leavingId, { dwellMs, played });
+      const leftGame = GAME_BY_ID.get(leavingId);
+      if (leftGame && !played) {
+        recordSessionSignal(
+          leftGame,
+          dwellMs < FAST_SKIP_MS ? 'fastSkip' : dwellMs < SHORT_DWELL_MS ? 'dwellShort' : 'dwellLong',
+        );
       }
     }
 
@@ -216,6 +256,12 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
     const item = viewableItems[0].item as FeedItem | undefined;
     prevGameIdRef.current = item?.type === 'game' ? item.game.id : null;
     cardVisibleAtRef.current = now;
+
+    // Live re-rank the unseen tail (current + next card stay pinned) so the feed
+    // leans toward what you engage with as you scroll. Only on "Для тебя".
+    if (tabRef.current === 'forYou') {
+      setForYouItems((prev) => reorderFeedTail(prev, idx + 1));
+    }
 
     // Log impression once per (session, game)
     if (item?.type === 'game' && !loggedImpressions.current.has(item.game.id)) {
@@ -232,40 +278,57 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
       });
       logEvent({ type: 'share', gameId: game.id });
       markEngaged(user?.id ?? null, game.id);
+      recordSessionSignal(game, 'share');
+      reorderTail();
     } catch {
       onToast('Не получилось поделиться');
     }
-  }, [onToast, user?.id]);
+  }, [onToast, user?.id, reorderTail]);
 
   const handleSave = useCallback((game: Game) => {
     const next = !saves[game.id];
     toggleSave(game.id);
     onToast(next ? '✅ Сохранено!' : 'Убрано из сохранённого');
     logEvent({ type: next ? 'save' : 'unsave', gameId: game.id });
-    if (next) markEngaged(user?.id ?? null, game.id);
-  }, [saves, toggleSave, onToast, user?.id]);
+    if (next) {
+      markEngaged(user?.id ?? null, game.id);
+      recordSessionSignal(game, 'save');
+      reorderTail();
+    }
+  }, [saves, toggleSave, onToast, user?.id, reorderTail]);
 
   const handleLike = useCallback((game: Game) => {
     const next = !likes[game.id];
     toggleLike(game.id);
     logEvent({ type: next ? 'like' : 'unlike', gameId: game.id });
-    if (next) markEngaged(user?.id ?? null, game.id);
-  }, [likes, toggleLike, user?.id]);
+    if (next) {
+      markEngaged(user?.id ?? null, game.id);
+      recordSessionSignal(game, 'like');
+      reorderTail();
+    }
+  }, [likes, toggleLike, user?.id, reorderTail]);
 
   const handleComment = useCallback((game: Game) => {
     setCommentsFor(game);
     markEngaged(user?.id ?? null, game.id);
+    recordSessionSignal(game, 'comment');
+    reorderTail();
     report({ type: 'comment' });
-  }, [user?.id, report]);
+  }, [user?.id, report, reorderTail]);
 
   const handleNotInterested = useCallback((game: Game) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
     markNotInterested(game.id);
     onToast('Не покажем больше 👌');
     logEvent({ type: 'skip', gameId: game.id });
-    // Remove from current feed immediately so user sees instant feedback;
-    // the next refresh will rebuild from scratch with the negative weight.
-    setForYouItems((prev) => prev.filter((it) => it.type === 'ad' || it.game.id !== game.id));
+    recordSessionSignal(game, 'notInterested');
+    // Remove from the current feed immediately for instant feedback, and re-rank
+    // the remaining tail so games similar to this one sink too (the next refresh
+    // rebuilds from scratch with the persisted negative weight).
+    setForYouItems((prev) => {
+      const filtered = prev.filter((it) => it.type === 'ad' || it.game.id !== game.id);
+      return tabRef.current === 'forYou' ? reorderFeedTail(filtered, feedIdxRef.current + 1) : filtered;
+    });
   }, [markNotInterested, onToast]);
 
   const switchTab = (next: FeedTab) => {
@@ -311,6 +374,9 @@ export function FeedScreen({ onPlay, onToast, onOpenCreator, bottomInset, feedId
             isActive={index === feedIdx}
             onPlay={() => {
               logEvent({ type: 'play', gameId: g.id });
+              syncEvent('play', g.id);
+              playedGameIdsRef.current.add(g.id);
+              recordSessionSignal(g, 'play');
               markEngaged(user?.id ?? null, g.id);
               onPlay(g);
             }}

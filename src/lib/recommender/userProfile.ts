@@ -22,7 +22,7 @@ const WEIGHTS = {
   completeWon: 4,
   completeLost: 1,
   view: 0.5,
-  skip: -1.5, // swipe-past in < SKIP_THRESHOLD_MS — mild negative signal
+  skip: -1.5, // explicit "Не интересно" — mild negative (graded views handle swipe-past)
 } as const;
 
 // Half-life in days. After 14 days, weight halves. After 28 days, ~25%.
@@ -47,6 +47,22 @@ export type UserProfile = {
 
 function decayFactor(daysAgo: number): number {
   return Math.pow(0.5, daysAgo / DECAY_HALF_LIFE_DAYS);
+}
+
+// Watch-time → signal weight. This is TikTok's core input: how long a card held
+// your attention. `view` events carry { dwellMs, played } in meta. A play is
+// already counted via its own event, so a played view contributes nothing extra
+// here (avoids double-counting); otherwise dwell time grades from a strong
+// negative (instant swipe-past) to a clear positive (you really lingered).
+function viewWeight(meta: any): number {
+  if (meta?.played === 1 || meta?.played === '1') return 0;
+  const dwell = Number(meta?.dwellMs ?? 0);
+  if (dwell <= 0) return 0;
+  if (dwell < 1000) return -1.5;   // immediate swipe — strong disinterest
+  if (dwell < 2500) return -0.4;   // quick swipe — mild disinterest
+  if (dwell < 5000) return 0.5;    // lingered — mild interest
+  if (dwell < 10000) return 1.2;   // really looked — interest
+  return 1.6;                      // very long dwell
 }
 
 function emptyVec(): GameFeatureVector {
@@ -137,7 +153,10 @@ export async function buildUserProfile(
   (eventsRes.data ?? []).forEach((r: any) => {
     if (r.game_id === null || r.game_id === undefined) return;
     if (r.type === 'play') addSignal(r.game_id, WEIGHTS.play, r.created_at);
-    else if (r.type === 'view') addSignal(r.game_id, WEIGHTS.view, r.created_at);
+    else if (r.type === 'view') {
+      const vw = viewWeight(r.meta);
+      if (vw !== 0) addSignal(r.game_id, vw, r.created_at);
+    }
     else if (r.type === 'skip') addSignal(r.game_id, WEIGHTS.skip, r.created_at);
     else if (r.type === 'complete') {
       const won = r.meta?.won === 1;
@@ -155,10 +174,15 @@ export async function buildUserProfile(
   }
 
   // Cold-start = user has fewer than 20 *positive* engagement signals.
-  // Skip events have negative weight — counting them toward the threshold would
-  // let a user who swipes past 20 cards exit cold-start with an inverted
-  // (all-negative) content vector, causing the ranker to surface the wrong games.
-  const positiveEventCount = (eventsRes.data ?? []).filter((r: any) => r.type !== 'skip').length;
+  // Skip events — and quick swipe-past views — have negative/neutral weight.
+  // Counting them toward the threshold would let a user who just swipes past 20
+  // cards exit cold-start with an inverted (all-negative) content vector,
+  // surfacing the wrong games. So only a real linger/play view counts.
+  const positiveEventCount = (eventsRes.data ?? []).filter((r: any) => {
+    if (r.type === 'skip') return false;
+    if (r.type === 'view') return r.meta?.played === 1 || Number(r.meta?.dwellMs ?? 0) >= 2500;
+    return true; // play, complete
+  }).length;
   const totalSignals = (likesRes.data?.length ?? 0) + (savesRes.data?.length ?? 0) + (commentsRes.data?.length ?? 0) + positiveEventCount;
 
   return {

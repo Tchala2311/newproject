@@ -43,6 +43,8 @@ import { WaveMatch } from './WaveMatch';
 import { DotChain } from './DotChain';
 import { SpotChange } from './SpotChange';
 import { logEvent } from '../store/events';
+import { syncEvent } from '../lib/recommender/eventSync';
+import { recordSessionSignal } from '../lib/recommender/session';
 import { ResumePrompt } from '../components/ResumePrompt';
 import { useAchievements } from '../store/useAchievements';
 import { useUser } from '../store/useUser';
@@ -89,6 +91,10 @@ export function GamePlayScreen({ game, onBack }: Props) {
   // The level number lives in `meta.level` (every game now passes it).
   const onComplete = (won: boolean, score: number, meta?: Record<string, number>) => {
     logEvent({ type: 'complete', gameId: game.id, meta: { won: won ? 1 : 0, score, ...meta } });
+    // Persist to Supabase for the recommender, and feed the in-session re-ranker
+    // (a win is a strong positive; the play itself was already counted on launch).
+    syncEvent('complete', game.id, { won: won ? 1 : 0, score });
+    if (won) recordSessionSignal(game, 'complete');
     if (meta?.level !== undefined) {
       report({ type: 'level-complete', game, level: meta.level, passed: won, score, meta });
     }
