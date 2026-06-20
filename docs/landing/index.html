@@ -92,18 +92,53 @@
   <!-- QR code -->
   <div class="qr-block">
     <div class="qr-wrap">
-      <img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=exp%3A%2F%2Fu.expo.dev%2Fb015b98f-573b-4f81-b3ec-3a5e1e4783ed%3Fchannel-name%3Dpreview&bgcolor=ffffff&color=08071a&margin=0" alt="QR-код FLIK" width="140" height="140" />
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=exp%3A%2F%2Fu.expo.dev%2Fb015b98f-573b-4f81-b3ec-3a5e1e4783ed%3Fchannel-name%3Dpreview%26runtime-version%3Dexposdk%3A54.0.0&bgcolor=ffffff&color=08071a&margin=0" alt="QR-код FLIK" width="140" height="140" />
     </div>
     <div class="qr-label">Сканируй камерой телефона</div>
   </div>
 
-  <!-- Direct deep link -->
-  <a href="exp://u.expo.dev/b015b98f-573b-4f81-b3ec-3a5e1e4783ed?channel-name=preview" class="btn">Открыть в Expo Go →</a>
+  <!-- Direct deep link (latest update on the `preview` channel, opens in Expo Go) -->
+  <a id="openBtn" href="exp://u.expo.dev/b015b98f-573b-4f81-b3ec-3a5e1e4783ed?channel-name=preview&runtime-version=exposdk:54.0.0" class="btn">Открыть в Expo Go →</a>
   <div class="sub">Если Expo Go уже установлен — приложение откроется сразу</div>
+
+  <!-- Shown only inside in-app browsers (Telegram / VK / Instagram), where iOS
+       blocks the exp:// hand-off so the button can't open Expo Go directly. -->
+  <div id="safariHint" style="display:none; background:rgba(255,196,97,0.12); border:1px solid rgba(255,196,97,0.4); color:#FFC461; border-radius:14px; padding:14px 16px; font-size:13px; line-height:1.5; margin:4px 0 12px; text-align:left;">
+    ⚠️ Похоже, сайт открыт внутри мессенджера. Чтобы кнопка сработала — нажми «•••» или «↗» вверху и выбери <strong>«Открыть в Safari»</strong>, потом нажми кнопку снова. Либо просто отсканируй QR-код выше камерой телефона.
+  </div>
+  <button id="copyBtn" class="btn-outline" style="cursor:pointer; width:100%; font-family:inherit;">Скопировать ссылку 📋</button>
+  <div class="sub">Не открывается? Скопируй ссылку → открой Expo Go → «Enter URL manually» → вставь</div>
 
   <br>
   <a href="mailto:info@flik-games.com" class="btn-outline">Написать нам 💬</a>
   <div class="sub" style="margin-top: 24px;">© 2025 ИП Цейтлин М.А.<br>ИНН: 772846562633 · ОГРНИП: 326774600367465</div>
 </div>
+<script>
+  // The canonical Expo Go deep link: latest update on the `preview` channel for
+  // SDK 54. Kept in one place so the button, copy fallback, and QR all agree.
+  var DEEP_LINK = 'exp://u.expo.dev/b015b98f-573b-4f81-b3ec-3a5e1e4783ed?channel-name=preview&runtime-version=exposdk:54.0.0';
+  var ua = navigator.userAgent || '';
+  // In-app browsers (mostly Russian audience: Telegram/VK) that block the
+  // custom-scheme hand-off. Best-effort — Telegram doesn't always set a UA token,
+  // so the copy button + QR remain as universal fallbacks.
+  var inApp = /Instagram|FBAN|FBAV|Line|Twitter|VKClient|VKAndroidApp|TikTok|musical_ly|Telegram|WhatsApp|Snapchat|OkHttp/i.test(ua);
+  if (inApp) {
+    var hint = document.getElementById('safariHint');
+    if (hint) hint.style.display = 'block';
+  }
+  var copyBtn = document.getElementById('copyBtn');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', function () {
+      var reset = function () { setTimeout(function () { copyBtn.textContent = 'Скопировать ссылку 📋'; }, 2000); };
+      var ok = function () { copyBtn.textContent = 'Скопировано ✓'; reset(); };
+      // navigator.clipboard needs a secure context (HTTPS); falls back to prompt.
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(DEEP_LINK).then(ok, function () { window.prompt('Скопируй ссылку:', DEEP_LINK); });
+      } else {
+        window.prompt('Скопируй ссылку:', DEEP_LINK);
+      }
+    });
+  }
+</script>
 </body>
 </html>
