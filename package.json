@@ -14,6 +14,8 @@
     "eas:init": "eas init",
     "eas:build:dev": "eas build --profile development --platform all",
     "eas:build:preview": "eas build --profile preview --platform all",
+    "eas:build:android": "eas build --profile preview --platform android",
+    "eas:build:ios": "eas build --profile preview --platform ios",
     "eas:update": "eas update --branch preview --message \"$(git log -1 --pretty=%B)\""
   },
   "dependencies": {
