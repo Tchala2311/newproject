@@ -16,7 +16,8 @@
     "eas:build:preview": "eas build --profile preview --platform all",
     "eas:build:android": "eas build --profile preview --platform android",
     "eas:build:ios": "eas build --profile preview --platform ios",
-    "eas:update": "eas update --branch preview --message \"$(git log -1 --pretty=%B)\""
+    "eas:update": "eas update --branch preview --message \"$(git log -1 --pretty=%B)\"",
+    "share": "echo '\\nOpen the LATEST version in Expo Go (any device):\\nhttps://qr.expo.dev/eas-update?projectId=b015b98f-573b-4f81-b3ec-3a5e1e4783ed&runtimeVersion=exposdk:54.0.0&channel=preview\\n'"
   },
   "dependencies": {
     "@expo-google-fonts/space-grotesk": "^0.4.0",
